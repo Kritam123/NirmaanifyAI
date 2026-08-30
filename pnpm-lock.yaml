@@ -120,6 +120,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@nirmaanify/component-registry':
+        specifier: workspace:*
+        version: link:../../packages/component-registry
       '@nirmaanify/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
@@ -195,6 +198,49 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/component-registry:
+    dependencies:
+      '@nirmaanify/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
+      '@nirmaanify/icons':
+        specifier: workspace:*
+        version: link:../icons
+      '@nirmaanify/types':
+        specifier: workspace:*
+        version: link:../types
+      '@nirmaanify/ui':
+        specifier: workspace:*
+        version: link:../ui
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.475.0
+        version: 0.475.0(react@19.2.8)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      tailwind-merge:
+        specifier: ^3.0.1
+        version: 3.6.0
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.8
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.3
+        version: 19.2.5(@types/react@19.2.18)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   packages/config: {}
 
   packages/database:
@@ -243,6 +289,10 @@ importers:
         version: 5.9.3
 
   packages/types:
+    dependencies:
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.7.3

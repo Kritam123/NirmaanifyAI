@@ -54,6 +54,7 @@ import { AiPlannerModal } from '../components/ai-planner-modal';
 import { CreateProjectModal } from '../components/create-project-modal';
 import { EditProjectModal } from '../components/edit-project-modal';
 import { ProjectSettingsModal } from '../components/project-settings-modal';
+import { VisualStudioModal } from '../components/studio/visual-studio-modal';
 import { ProjectCard } from '../components/project-card';
 
 export default function PlatformDashboard() {
@@ -74,7 +75,8 @@ export default function PlatformDashboard() {
   const [aiInitialPrompt, setAiInitialPrompt] = useState('');
   const [dashboardAiPrompt, setDashboardAiPrompt] = useState('');
 
-  // Project Modals state
+  // Project Modals & Visual Studio state
+  const [visualStudioModalOpen, setVisualStudioModalOpen] = useState(false);
   const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
   const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
   const [projectSettingsModalOpen, setProjectSettingsModalOpen] = useState(false);
@@ -176,6 +178,11 @@ export default function PlatformDashboard() {
   const handleOpenSettings = (project: ProjectDto) => {
     setSelectedProject(project);
     setProjectSettingsModalOpen(true);
+  };
+
+  const handleOpenStudio = (project: ProjectDto) => {
+    setSelectedProject(project);
+    setVisualStudioModalOpen(true);
   };
 
   const handleCreateWorkspaceSubmit = () => {
@@ -378,6 +385,7 @@ export default function PlatformDashboard() {
                 <ProjectCard
                   key={proj.id}
                   project={proj}
+                  onOpenStudio={handleOpenStudio}
                   onEdit={handleOpenEdit}
                   onSettings={handleOpenSettings}
                 />
@@ -487,6 +495,7 @@ export default function PlatformDashboard() {
                 <ProjectCard
                   key={proj.id}
                   project={proj}
+                  onOpenStudio={handleOpenStudio}
                   onEdit={handleOpenEdit}
                   onSettings={handleOpenSettings}
                 />
@@ -668,6 +677,16 @@ export default function PlatformDashboard() {
       <CreateProjectModal
         isOpen={createProjectModalOpen}
         onClose={() => setCreateProjectModalOpen(false)}
+      />
+
+      {/* VISUAL STUDIO CANVAS MODAL (Phase 5 Deliverable) */}
+      <VisualStudioModal
+        project={selectedProject}
+        isOpen={visualStudioModalOpen}
+        onClose={() => {
+          setVisualStudioModalOpen(false);
+          setSelectedProject(null);
+        }}
       />
 
       {/* EDIT PROJECT MODAL (Week 10) */}

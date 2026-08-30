@@ -33,6 +33,7 @@ interface ProjectCardProps {
   project: ProjectDto;
   onEdit: (project: ProjectDto) => void;
   onSettings: (project: ProjectDto) => void;
+  onOpenStudio?: (project: ProjectDto) => void;
   onViewPlan?: (project: ProjectDto) => void;
 }
 
@@ -40,6 +41,7 @@ export function ProjectCard({
   project,
   onEdit,
   onSettings,
+  onOpenStudio,
   onViewPlan,
 }: ProjectCardProps) {
   const { toast } = useToast();
@@ -229,9 +231,15 @@ export function ProjectCard({
 
       <CardFooter className="pt-0 flex items-center justify-between border-t border-slate-100 dark:border-[#1E2337]">
         <Button
-          variant="ghost"
+          variant="default"
           size="sm"
-          onClick={() => toast({ title: 'Opening Visual Studio', description: `Loaded ${project.name}`, type: 'info' })}
+          onClick={() => {
+            if (onOpenStudio) {
+              onOpenStudio(project);
+            } else {
+              toast({ title: 'Opening Studio', description: `Loaded ${project.name}`, type: 'info' });
+            }
+          }}
         >
           Open Studio
         </Button>

@@ -110,11 +110,11 @@ React Renderer
 Implement:
 
 ```text
-[ ] Dynamic component rendering
-[ ] Props rendering
-[ ] Nested components
-[ ] Error boundary
-[ ] Missing component fallback
+[x] Dynamic component rendering
+[x] Props rendering
+[x] Nested components
+[x] Error boundary
+[x] Missing component fallback
 ```
 
 ---
@@ -124,12 +124,12 @@ Implement:
 Implement:
 
 ```text
-[ ] Undo
-[ ] Redo
-[ ] Schema validation
-[ ] Project validation
-[ ] Auto-save
-[ ] Draft versions
+[x] Undo
+[x] Redo
+[x] Schema validation
+[x] Project validation
+[x] Auto-save
+[x] Draft versions
 ```
 
 ### Deliverable
