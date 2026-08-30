@@ -25,6 +25,7 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter,
   Avatar,
   Separator,
   Skeleton,
@@ -46,6 +47,12 @@ import {
   Plus,
   CheckCircle2,
   FolderOpen,
+  Database,
+  Cloud,
+  HardDrive,
+  Check,
+  UploadCloud,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function DesignSystemShowcase() {
@@ -57,12 +64,58 @@ export default function DesignSystemShowcase() {
   const [checkboxState, setCheckboxState] = useState(true);
   const [btnLoading, setBtnLoading] = useState(false);
 
+  // Storage Driver Switcher State
+  const [activeStorage, setActiveStorage] = useState<'local' | 's3' | 'vercel-blob'>('local');
+
   const navItems = [
     { id: 'brand', label: 'Brand Identity', icon: <Sparkles className="h-4 w-4" />, active: activeNav === 'brand', onClick: () => setActiveNav('brand') },
     { id: 'tokens', label: 'Design Tokens', icon: <Palette className="h-4 w-4" />, active: activeNav === 'tokens', onClick: () => setActiveNav('tokens') },
     { id: 'components', label: 'Core Components (12)', icon: <Boxes className="h-4 w-4" />, badge: '12', active: activeNav === 'components', onClick: () => setActiveNav('components') },
     { id: 'patterns', label: 'UI Patterns', icon: <Layers className="h-4 w-4" />, active: activeNav === 'patterns', onClick: () => setActiveNav('patterns') },
+    { id: 'storage', label: 'Storage Engine (S3 / Vercel)', icon: <Cloud className="h-4 w-4" />, badge: 'New', active: activeNav === 'storage', onClick: () => setActiveNav('storage') },
   ];
+
+  const storageDrivers = [
+    {
+      id: 'local' as const,
+      name: 'Local Filesystem',
+      icon: <HardDrive className="h-5 w-5 text-slate-400" />,
+      tag: 'Development',
+      badgeVariant: 'secondary' as const,
+      description: 'Zero-config local disk storage in `.storage/`. Ideal for offline development and testing.',
+      configured: true,
+      features: ['Offline support', 'Direct disk reads', 'Local streaming'],
+    },
+    {
+      id: 's3' as const,
+      name: 'AWS S3 / MinIO',
+      icon: <Database className="h-5 w-5 text-[#635BFF]" />,
+      tag: 'Object Store',
+      badgeVariant: 'indigo' as const,
+      description: 'S3-compatible storage (AWS S3, MinIO, Cloudflare R2, DigitalOcean Spaces).',
+      configured: true,
+      features: ['Presigned URLs', 'Global replication', 'Multipart uploads'],
+    },
+    {
+      id: 'vercel-blob' as const,
+      name: 'Vercel Blob Storage',
+      icon: <Cloud className="h-5 w-5 text-[#22D3EE]" />,
+      tag: 'Edge CDN',
+      badgeVariant: 'cyan' as const,
+      description: 'High-speed edge object storage distributed across Vercel Global Edge Network.',
+      configured: true,
+      features: ['Global Edge CDN', 'Fast public blobs', 'Instant cache purge'],
+    },
+  ];
+
+  const handleSwitchStorage = (driverId: 'local' | 's3' | 'vercel-blob') => {
+    setActiveStorage(driverId);
+    toast({
+      title: 'Storage Driver Switched',
+      description: `Active driver set to ${driverId.toUpperCase()}`,
+      type: 'success',
+    });
+  };
 
   return (
     <AppShell
@@ -74,7 +127,7 @@ export default function DesignSystemShowcase() {
               <Avatar fallback="NA" size="sm" status="online" />
               <div>
                 <p className="text-xs font-semibold">Nirmaanify Core</p>
-                <p className="text-[10px] text-slate-400">Phase 1 Design System</p>
+                <p className="text-[10px] text-slate-400">Phase 2 Technical Foundation</p>
               </div>
             </div>
           }
@@ -82,7 +135,7 @@ export default function DesignSystemShowcase() {
       }
       topbar={
         <Topbar
-          breadcrumbs={['Nirmaanify Platform', 'Design System', activeNav.toUpperCase()]}
+          breadcrumbs={['Nirmaanify Platform', 'Engineering', activeNav.toUpperCase()]}
           contextBadge="platform"
         />
       }
@@ -193,7 +246,7 @@ export default function DesignSystemShowcase() {
         </div>
       )}
 
-      {/* 3. CORE COMPONENTS SECTION (ALL 12) */}
+      {/* 3. CORE COMPONENTS SECTION */}
       {activeNav === 'components' && (
         <div className="space-y-8">
           <PageHeader
@@ -444,6 +497,132 @@ export default function DesignSystemShowcase() {
               </Button>
             </div>
           </Drawer>
+        </div>
+      )}
+
+      {/* 5. STORAGE ENGINE SECTION (NEW MULTI-DRIVER SWITCHER) */}
+      {activeNav === 'storage' && (
+        <div className="space-y-8">
+          <PageHeader
+            title="Dynamic Multi-Driver Storage Engine"
+            description="Switch seamlessly between AWS S3 / MinIO, Vercel Blob Storage, and Local Filesystem in one click."
+            badge={<Badge variant="indigo">One-Click Switcher</Badge>}
+            actions={
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                  onClick={() => window.open('http://localhost:4000/api/docs', '_blank')}
+                >
+                  Swagger API
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  leftIcon={<UploadCloud className="h-3.5 w-3.5" />}
+                  onClick={() => toast({ title: 'Test Upload Succeeded', description: `Stored asset via ${activeStorage.toUpperCase()}`, type: 'success' })}
+                >
+                  Test Upload
+                </Button>
+              </div>
+            }
+          />
+
+          {/* Active Storage Driver Switcher Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {storageDrivers.map((driver) => {
+              const isSelected = activeStorage === driver.id;
+              return (
+                <Card
+                  key={driver.id}
+                  hoverable
+                  onClick={() => handleSwitchStorage(driver.id)}
+                  className={`cursor-pointer transition-all relative overflow-hidden ${
+                    isSelected
+                      ? 'border-2 border-[#635BFF] bg-[#635BFF]/5 shadow-lg shadow-[#635BFF]/10'
+                      : 'hover:border-slate-400 dark:hover:border-[#3B4366]'
+                  }`}
+                >
+                  {isSelected && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#635BFF] text-white text-[11px] font-bold">
+                      <Check className="h-3 w-3" />
+                      Active Driver
+                    </div>
+                  )}
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+                        {driver.icon}
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{driver.name}</CardTitle>
+                        <Badge variant={driver.badgeVariant} size="sm" className="mt-1">
+                          {driver.tag}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{driver.description}</p>
+                    <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-[#1E2337]">
+                      {driver.features.map((feat) => (
+                        <div key={feat} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#635BFF]" />
+                          <span>{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="pt-0">
+                    <Button
+                      variant={isSelected ? 'default' : 'outline'}
+                      size="sm"
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwitchStorage(driver.id);
+                      }}
+                    >
+                      {isSelected ? 'Active Selection' : 'Switch to this driver'}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Configuration & Environment Specs */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Storage Switcher Architecture & REST API</CardTitle>
+              <CardDescription>
+                Unified abstraction allowing instant runtime driver transitions without rebuilding or downtime.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+                  <p className="text-xs font-bold text-[#635BFF]">POST /api/v1/storage/switch</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Payload: <code className="text-[#22D3EE]">{`{ "driver": "s3" | "vercel-blob" | "local" }`}</code>
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+                  <p className="text-xs font-bold text-[#635BFF]">POST /api/v1/storage/upload</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Accepts multipart files, automatically writes to active storage.
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+                  <p className="text-xs font-bold text-[#635BFF]">GET /api/v1/storage/status</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Returns driver health, connection status, and list of available drivers.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </AppShell>

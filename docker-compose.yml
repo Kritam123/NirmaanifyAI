@@ -47,55 +47,55 @@ services:
     volumes:
       - minio_data:/data
 
-  api:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/Dockerfile.api
-    container_name: nirmaanify-api
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      PORT: 4000
-      DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/nirmaanify?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_SECRET: super_secret_nirmaanify_jwt_key_32chars_long!
-    ports:
-      - '4000:4000'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: infrastructure/docker/Dockerfile.api
+  #   container_name: nirmaanify-api
+  #   restart: unless-stopped
+  #   environment:
+  #     NODE_ENV: production
+  #     PORT: 4000
+  #     DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/nirmaanify?schema=public
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     JWT_SECRET: super_secret_nirmaanify_jwt_key_32chars_long!
+  #   ports:
+  #     - '4000:4000'
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
 
-  worker:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/Dockerfile.worker
-    container_name: nirmaanify-worker
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    depends_on:
-      redis:
-        condition: service_healthy
+  # worker:
+  #   build:
+  #     context: .
+  #     dockerfile: infrastructure/docker/Dockerfile.worker
+  #   container_name: nirmaanify-worker
+  #   restart: unless-stopped
+  #   environment:
+  #     NODE_ENV: production
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
 
-  web:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/Dockerfile.web
-    container_name: nirmaanify-web
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
-    ports:
-      - '3000:3000'
-    depends_on:
-      - api
+  # web:
+    # build:
+    #   context: .
+    #   dockerfile: infrastructure/docker/Dockerfile.web
+    # container_name: nirmaanify-web
+    # restart: unless-stopped
+    # environment:
+    #   NODE_ENV: production
+    #   PORT: 3000
+    #   NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    # ports:
+    #   - '3000:3000'
+    # depends_on:
+    #   - api
 
 volumes:
   postgres_data:

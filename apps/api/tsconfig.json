@@ -2,7 +2,11 @@
   "extends": "../../packages/config/tsconfig.node.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "baseUrl": "./",
+    "paths": {
+      "@nirmaanify/database": ["../../packages/database/src/index.ts"],
+      "@nirmaanify/types": ["../../packages/types/src/index.ts"]
+    }
   },
   "include": ["src/**/*"]
 }
