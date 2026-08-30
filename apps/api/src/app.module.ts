@@ -4,6 +4,9 @@ import * as path from 'path';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { StorageModule } from './storage/storage.module';
+import { AuthModule } from './auth/auth.module';
+import { WorkspacesModule } from './workspaces/workspaces.module';
+import { ProjectsModule } from './projects/projects.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -21,6 +24,9 @@ import { validateEnv } from './config/env.validation';
     DatabaseModule,
     HealthModule,
     StorageModule,
+    AuthModule,
+    WorkspacesModule,
+    ProjectsModule,
   ],
 })
 export class AppModule {}

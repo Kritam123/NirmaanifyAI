@@ -5,7 +5,6 @@ import {
   NirmaanLogo,
   NirmaanIcon,
   NirmaanAppIcon,
-  NirmaanWordmark,
 } from '@nirmaanify/icons';
 import {
   AppShell,
@@ -15,10 +14,7 @@ import {
   Button,
   IconButton,
   Input,
-  Textarea,
   Select,
-  Checkbox,
-  Switch,
   Badge,
   Card,
   CardHeader,
@@ -28,91 +24,154 @@ import {
   CardFooter,
   Avatar,
   Separator,
-  Skeleton,
-  EmptyState,
-  SuccessFeedback,
-  ErrorState,
-  LoadingState,
   Dialog,
   Drawer,
-  Tabs,
   useToast,
 } from '@nirmaanify/ui';
 import {
   Sparkles,
-  Palette,
+  LayoutDashboard,
   Boxes,
-  Layers,
-  Globe,
-  Plus,
-  CheckCircle2,
-  FolderOpen,
-  Database,
-  Cloud,
+  Users,
   HardDrive,
-  Check,
-  UploadCloud,
+  Plus,
+  ArrowRight,
   ExternalLink,
+  ChevronDown,
+  Building2,
+  FolderDot,
+  Server,
+  Zap,
+  Globe,
+  Check,
+  Send,
+  Cloud,
+  Database,
+  Layers,
+  Palette,
 } from 'lucide-react';
+import { useAuth } from '../context/auth-context';
 
-export default function DesignSystemShowcase() {
+export default function PlatformDashboard() {
   const { toast } = useToast();
-  const [activeNav, setActiveNav] = useState('brand');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [switchState, setSwitchState] = useState(true);
-  const [checkboxState, setCheckboxState] = useState(true);
-  const [btnLoading, setBtnLoading] = useState(false);
+  const {
+    user,
+    activeWorkspace,
+    workspaces,
+    projects,
+    switchWorkspace,
+    createWorkspace,
+    createProject,
+  } = useAuth();
 
-  // Storage Driver Switcher State
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'team' | 'storage' | 'brand'>('dashboard');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [newProjectModal, setNewProjectModal] = useState(false);
+  const [newWorkspaceModal, setNewWorkspaceModal] = useState(false);
+  const [inviteModal, setInviteModal] = useState(false);
+
+  // Form states
+  const [projName, setProjName] = useState('');
+  const [projType, setProjType] = useState('SAAS');
+  const [wsName, setWsName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('DEVELOPER');
+
+  // Storage Driver State
   const [activeStorage, setActiveStorage] = useState<'local' | 's3' | 'vercel-blob'>('local');
 
   const navItems = [
-    { id: 'brand', label: 'Brand Identity', icon: <Sparkles className="h-4 w-4" />, active: activeNav === 'brand', onClick: () => setActiveNav('brand') },
-    { id: 'tokens', label: 'Design Tokens', icon: <Palette className="h-4 w-4" />, active: activeNav === 'tokens', onClick: () => setActiveNav('tokens') },
-    { id: 'components', label: 'Core Components (12)', icon: <Boxes className="h-4 w-4" />, badge: '12', active: activeNav === 'components', onClick: () => setActiveNav('components') },
-    { id: 'patterns', label: 'UI Patterns', icon: <Layers className="h-4 w-4" />, active: activeNav === 'patterns', onClick: () => setActiveNav('patterns') },
-    { id: 'storage', label: 'Storage Engine (S3 / Vercel)', icon: <Cloud className="h-4 w-4" />, badge: 'New', active: activeNav === 'storage', onClick: () => setActiveNav('storage') },
-  ];
-
-  const storageDrivers = [
     {
-      id: 'local' as const,
-      name: 'Local Filesystem',
-      icon: <HardDrive className="h-5 w-5 text-slate-400" />,
-      tag: 'Development',
-      badgeVariant: 'secondary' as const,
-      description: 'Zero-config local disk storage in `.storage/`. Ideal for offline development and testing.',
-      configured: true,
-      features: ['Offline support', 'Direct disk reads', 'Local streaming'],
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: <LayoutDashboard className="h-4 w-4" />,
+      active: activeTab === 'dashboard',
+      onClick: () => setActiveTab('dashboard'),
     },
     {
-      id: 's3' as const,
-      name: 'AWS S3 / MinIO',
-      icon: <Database className="h-5 w-5 text-[#635BFF]" />,
-      tag: 'Object Store',
-      badgeVariant: 'indigo' as const,
-      description: 'S3-compatible storage (AWS S3, MinIO, Cloudflare R2, DigitalOcean Spaces).',
-      configured: true,
-      features: ['Presigned URLs', 'Global replication', 'Multipart uploads'],
+      id: 'projects',
+      label: 'Projects',
+      icon: <Boxes className="h-4 w-4" />,
+      badge: String(projects.length),
+      active: activeTab === 'projects',
+      onClick: () => setActiveTab('projects'),
     },
     {
-      id: 'vercel-blob' as const,
-      name: 'Vercel Blob Storage',
-      icon: <Cloud className="h-5 w-5 text-[#22D3EE]" />,
-      tag: 'Edge CDN',
-      badgeVariant: 'cyan' as const,
-      description: 'High-speed edge object storage distributed across Vercel Global Edge Network.',
-      configured: true,
-      features: ['Global Edge CDN', 'Fast public blobs', 'Instant cache purge'],
+      id: 'team',
+      label: 'Team & Workspaces',
+      icon: <Users className="h-4 w-4" />,
+      active: activeTab === 'team',
+      onClick: () => setActiveTab('team'),
+    },
+    {
+      id: 'storage',
+      label: 'Storage & S3 / Vercel',
+      icon: <HardDrive className="h-4 w-4" />,
+      active: activeTab === 'storage',
+      onClick: () => setActiveTab('storage'),
+    },
+    {
+      id: 'brand',
+      label: 'Design System',
+      icon: <Palette className="h-4 w-4" />,
+      active: activeTab === 'brand',
+      onClick: () => setActiveTab('brand'),
     },
   ];
 
-  const handleSwitchStorage = (driverId: 'local' | 's3' | 'vercel-blob') => {
-    setActiveStorage(driverId);
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setIsCreatingProject(true);
     toast({
-      title: 'Storage Driver Switched',
-      description: `Active driver set to ${driverId.toUpperCase()}`,
+      title: 'AI Planning Project',
+      description: `Analyzing: "${aiPrompt.slice(0, 45)}..."`,
+      type: 'info',
+    });
+
+    setTimeout(() => {
+      const generated = createProject({
+        name: aiPrompt.split(' ').slice(0, 3).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') + ' App',
+        description: aiPrompt,
+        type: 'SAAS',
+        isBackendEnabled: true,
+        framework: 'Next.js 15 App Router',
+        uiLibrary: 'shadcn/ui + Tailwind CSS',
+      });
+      setIsCreatingProject(false);
+      setAiPrompt('');
+      toast({
+        title: 'Project Created via AI!',
+        description: 'Scaffolded architecture with Next.js 15 & NestJS API.',
+        type: 'success',
+      });
+    }, 1200);
+  };
+
+  const handleCreateProjectSubmit = () => {
+    if (!projName.trim()) return;
+    createProject({
+      name: projName,
+      type: projType as any,
+      isBackendEnabled: true,
+    });
+    setProjName('');
+    setNewProjectModal(false);
+    toast({
+      title: 'Project Created',
+      description: `${projName} is ready in ${activeWorkspace?.name}`,
+      type: 'success',
+    });
+  };
+
+  const handleCreateWorkspaceSubmit = () => {
+    if (!wsName.trim()) return;
+    createWorkspace(wsName);
+    setWsName('');
+    setNewWorkspaceModal(false);
+    toast({
+      title: 'Workspace Created',
+      description: `Switched to ${wsName}`,
       type: 'success',
     });
   };
@@ -123,11 +182,37 @@ export default function DesignSystemShowcase() {
         <Sidebar
           items={navItems}
           footer={
-            <div className="flex items-center gap-3">
-              <Avatar fallback="NA" size="sm" status="online" />
-              <div>
-                <p className="text-xs font-semibold">Nirmaanify Core</p>
-                <p className="text-[10px] text-slate-400">Phase 2 Technical Foundation</p>
+            <div className="space-y-3">
+              {/* Workspace Switcher Selector */}
+              <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <Building2 className="h-4 w-4 text-[#635BFF] shrink-0" />
+                    <span className="text-xs font-bold truncate">{activeWorkspace?.name}</span>
+                  </div>
+                  <Badge variant="indigo" size="sm">
+                    {activeWorkspace?.role || 'OWNER'}
+                  </Badge>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-[#24293D] flex items-center justify-between text-[11px] text-slate-400">
+                  <button
+                    onClick={() => setNewWorkspaceModal(true)}
+                    className="hover:text-[#635BFF] transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" /> New Workspace
+                  </button>
+                </div>
+              </div>
+
+              {/* User Profile */}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2.5">
+                  <Avatar fallback={user?.name?.slice(0, 2) || 'AD'} size="sm" status="online" />
+                  <div className="overflow-hidden">
+                    <p className="text-xs font-semibold truncate">{user?.name}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+                  </div>
+                </div>
               </div>
             </div>
           }
@@ -135,496 +220,475 @@ export default function DesignSystemShowcase() {
       }
       topbar={
         <Topbar
-          breadcrumbs={['Nirmaanify Platform', 'Engineering', activeNav.toUpperCase()]}
+          breadcrumbs={[
+            'Nirmaanify',
+            activeWorkspace?.name || 'Workspace',
+            activeTab.toUpperCase(),
+          ]}
           contextBadge="platform"
         />
       }
     >
-      {/* 1. BRAND IDENTITY SECTION */}
-      {activeNav === 'brand' && (
+      {/* 1. DASHBOARD VIEW (WEEK 9 DELIVERABLE) */}
+      {activeTab === 'dashboard' && (
         <div className="space-y-8">
           <PageHeader
-            title="Brand Identity & Assets"
-            description="Week 1 Deliverable: Modular N icon, Wordmark, Horizontal Logo, App Icons and Brand Definitions."
+            title={`Welcome back, ${user?.name?.split(' ')[0] || 'Developer'}`}
+            description="Manage your full-stack applications, trigger AI generations, and orchestrate workspace members."
             actions={
-              <Button
-                variant="default"
-                leftIcon={<Plus className="h-4 w-4" />}
-                onClick={() => toast({ title: 'Brand Kit Ready', description: 'Nirmaanify Brand Kit v1 is active.', type: 'success' })}
-              >
-                Export Brand Kit
-              </Button>
+              <div className="flex items-center gap-2.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<Building2 className="h-4 w-4" />}
+                  onClick={() => setNewWorkspaceModal(true)}
+                >
+                  New Workspace
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  leftIcon={<Plus className="h-4 w-4" />}
+                  onClick={() => setNewProjectModal(true)}
+                >
+                  Create Project
+                </Button>
+              </div>
             }
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card hoverable className="flex flex-col items-center justify-center p-8 text-center">
-              <NirmaanIcon size={64} variant="gradient" />
-              <h4 className="mt-4 font-bold">Modular N Icon</h4>
-              <p className="text-xs text-slate-400 mt-1">Isometric geometry with gradient fill</p>
-            </Card>
+          {/* AI Project Planning Bar */}
+          <Card className="p-1.5 bg-gradient-to-r from-[#635BFF]/10 via-[#8B5CF6]/10 to-[#22D3EE]/10 border-[#635BFF]/30 shadow-lg shadow-[#635BFF]/5">
+            <div className="flex flex-col sm:flex-row items-center gap-2 p-2">
+              <div className="flex items-center gap-2.5 px-3 py-1.5 text-xs font-bold text-[#635BFF] dark:text-[#A5AEFD] shrink-0">
+                <Sparkles className="h-4 w-4 animate-pulse" />
+                AI Project Planner
+              </div>
+              <input
+                type="text"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAiGenerate()}
+                placeholder="Describe what you want to build (e.g. AI-powered newsletter SaaS with Next.js 15, NestJS, and Stripe)..."
+                className="w-full bg-transparent border-0 text-sm focus:outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 px-2"
+              />
+              <Button
+                variant="default"
+                size="sm"
+                isLoading={isCreatingProject}
+                onClick={handleAiGenerate}
+                leftIcon={<Zap className="h-3.5 w-3.5" />}
+                className="shrink-0 w-full sm:w-auto"
+              >
+                Generate Project
+              </Button>
+            </div>
+            <div className="px-4 pb-2 pt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+              <span>Quick templates:</span>
+              {[
+                'Next.js 15 Luxury Fashion Store',
+                'AI Video Generator SaaS',
+                'Developer Docs & Tech Journal',
+              ].map((template) => (
+                <button
+                  key={template}
+                  onClick={() => setAiPrompt(template)}
+                  className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#161926] hover:bg-[#635BFF]/20 text-slate-600 dark:text-slate-300 transition-colors"
+                >
+                  {template}
+                </button>
+              ))}
+            </div>
+          </Card>
 
-            <Card hoverable className="flex flex-col items-center justify-center p-8 text-center">
-              <NirmaanAppIcon size={64} />
-              <h4 className="mt-4 font-bold">Application Icon</h4>
-              <p className="text-xs text-slate-400 mt-1">Squircle frame with subtle glow</p>
-            </Card>
-
-            <Card hoverable className="flex flex-col items-center justify-center p-8 text-center col-span-1 md:col-span-2">
-              <NirmaanLogo size="lg" showTagline />
-              <h4 className="mt-4 font-bold">Primary Horizontal Logo</h4>
-              <p className="text-xs text-slate-400 mt-1">Modular N + High precision typography + Tagline</p>
-            </Card>
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Active Projects', val: projects.length, icon: <Boxes className="h-5 w-5 text-[#635BFF]" />, sub: 'In current workspace' },
+              { label: 'Cloud Deployments', val: '2 Live', icon: <Globe className="h-5 w-5 text-[#22D3EE]" />, sub: 'Vercel & Docker' },
+              { label: 'Workspace Members', val: activeWorkspace?.isPersonal ? '1 (Personal)' : '5 Members', icon: <Users className="h-5 w-5 text-[#8B5CF6]" />, sub: 'Role: OWNER' },
+              { label: 'Storage Driver', val: activeStorage.toUpperCase(), icon: <HardDrive className="h-5 w-5 text-emerald-400" />, sub: '1-Click Switchable' },
+            ].map((m) => (
+              <Card key={m.label} hoverable className="p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400">{m.label}</span>
+                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-[#161926]">{m.icon}</div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-2xl font-black">{m.val}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{m.sub}</p>
+                </div>
+              </Card>
+            ))}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Brand Definition & Personality</CardTitle>
-              <CardDescription>Tagline: Imagine. Build. Launch.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {['Intelligent', 'Professional', 'Creative', 'Modern', 'Precise', 'Powerful'].map((trait) => (
-                <div key={trait} className="p-3 rounded-lg bg-slate-100 dark:bg-[#161926] text-center border border-slate-200 dark:border-[#24293D]">
-                  <p className="text-xs font-bold text-[#635BFF] dark:text-[#A5AEFD]">{trait}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 2. DESIGN TOKENS SECTION */}
-      {activeNav === 'tokens' && (
-        <div className="space-y-8">
-          <PageHeader
-            title="Design Tokens v1"
-            description="Week 2 Deliverable: Color swatches, typography scales, 4px spacing grid, shadows, and radii."
-          />
-
+          {/* Recent Projects Section */}
           <div className="space-y-4">
-            <h3 className="text-base font-bold">Brand Color Direction</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { name: 'Nirmaan Indigo', hex: '#635BFF', role: 'Primary Brand' },
-                { name: 'Build Blue', hex: '#3B82F6', role: 'Primary Action' },
-                { name: 'AI Violet', hex: '#8B5CF6', role: 'AI Intelligence' },
-                { name: 'Launch Cyan', hex: '#22D3EE', role: 'Launch Accent' },
-              ].map((c) => (
-                <Card key={c.name} hoverable className="overflow-hidden">
-                  <div style={{ backgroundColor: c.hex }} className="h-24 w-full flex items-end p-3">
-                    <span className="text-white text-xs font-mono font-bold drop-shadow">{c.hex}</span>
-                  </div>
-                  <CardContent className="p-4">
-                    <p className="font-bold text-sm">{c.name}</p>
-                    <p className="text-xs text-slate-400">{c.role}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold">Recent Projects</h3>
+                <p className="text-xs text-slate-400">Applications inside {activeWorkspace?.name}</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setNewProjectModal(true)}
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
+              >
+                New Project
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((proj) => (
+                <Card key={proj.id} hoverable className="flex flex-col justify-between overflow-hidden">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <Badge
+                          variant={proj.type === 'SAAS' ? 'indigo' : proj.type === 'ECOMMERCE' ? 'violet' : 'cyan'}
+                          size="sm"
+                        >
+                          {proj.type}
+                        </Badge>
+                        <CardTitle className="mt-2 text-base">{proj.name}</CardTitle>
+                      </div>
+                      <div className="p-2 rounded-lg bg-slate-100 dark:bg-[#161926] text-slate-400">
+                        <FolderDot className="h-4 w-4 text-[#635BFF]" />
+                      </div>
+                    </div>
+                    <CardDescription className="line-clamp-2 mt-1">
+                      {proj.description}
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="space-y-3">
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-100 dark:border-[#24293D] space-y-1 text-xs">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span>Frontend:</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">{proj.framework}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span>Backend:</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">
+                          {proj.isBackendEnabled ? 'NestJS API + PostgreSQL' : 'Static Export'}
+                        </span>
+                      </div>
+                    </div>
                   </CardContent>
+
+                  <CardFooter className="pt-0 flex items-center justify-between border-t border-slate-100 dark:border-[#1E2337]">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toast({ title: 'Opening Visual Studio', description: `Loaded ${proj.name}`, type: 'info' })}
+                    >
+                      Open Studio
+                    </Button>
+                    <Button
+                      variant="subtle"
+                      size="sm"
+                      rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
+                      onClick={() => toast({ title: 'Export Ready', description: `${proj.slug}.zip generated.`, type: 'success' })}
+                    >
+                      Export
+                    </Button>
+                  </CardFooter>
                 </Card>
               ))}
             </div>
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Typography System</CardTitle>
-              <CardDescription>Geist (Display) • Inter (UI) • Geist Mono (Code)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                <p className="text-xs font-mono text-slate-400 mb-1">Display (Geist 36px Bold)</p>
-                <h1 className="text-3xl font-extrabold tracking-tight">Imagine. Build. Launch.</h1>
-              </div>
-              <div className="p-4 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                <p className="text-xs font-mono text-slate-400 mb-1">Application UI (Inter 14px Medium)</p>
-                <p className="text-sm">Nirmaanify AI empowers developers to visually design, manage CMS records, generate NestJS backends, and deploy full-stack applications with deterministic precision.</p>
-              </div>
-              <div className="p-4 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                <p className="text-xs font-mono text-slate-400 mb-1">Code & Schema (Geist Mono 13px)</p>
-                <code className="text-xs font-mono text-[#22D3EE]">{`const project = { name: "Nirmaanify", context: "platform", status: "active" };`}</code>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
 
-      {/* 3. CORE COMPONENTS SECTION */}
-      {activeNav === 'components' && (
-        <div className="space-y-8">
+      {/* 2. PROJECTS TAB */}
+      {activeTab === 'projects' && (
+        <div className="space-y-6">
           <PageHeader
-            title="Core Component System (Week 3)"
-            description="12 production components supporting Light/Dark modes, loading, disabled, focus, and keyboard accessibility."
+            title="Projects Directory"
+            description="Manage all full-stack applications within your active workspace."
+            actions={
+              <Button variant="default" onClick={() => setNewProjectModal(true)} leftIcon={<Plus className="h-4 w-4" />}>
+                Create Project
+              </Button>
+            }
           />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>1. Button & Icon Button</CardTitle>
-                <CardDescription>Variants, sizes, loading & icons</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2.5">
-                  <Button variant="default">Primary Indigo</Button>
-                  <Button variant="secondary">Secondary</Button>
-                  <Button variant="outline">Outline</Button>
-                  <Button variant="ghost">Ghost</Button>
-                  <Button variant="destructive">Destructive</Button>
-                  <Button variant="subtle">Subtle</Button>
-                </div>
-                <div className="flex items-center gap-3 pt-2">
-                  <Button
-                    isLoading={btnLoading}
-                    onClick={() => {
-                      setBtnLoading(true);
-                      setTimeout(() => setBtnLoading(false), 1500);
-                    }}
-                  >
-                    Click to Load
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((proj) => (
+              <Card key={proj.id} hoverable>
+                <CardHeader>
+                  <Badge variant="indigo" size="sm">{proj.type}</Badge>
+                  <CardTitle className="mt-2">{proj.name}</CardTitle>
+                  <CardDescription>{proj.description}</CardDescription>
+                </CardHeader>
+                <CardFooter>
+                  <Button variant="default" size="sm" className="w-full">
+                    Launch Studio
                   </Button>
-                  <Button disabled>Disabled Button</Button>
-                  <IconButton icon={<Sparkles className="h-4 w-4" />} aria-label="AI Action" variant="subtle" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>2. Input & Textarea</CardTitle>
-                <CardDescription>Form controls with icons & validation</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  label="Project Name"
-                  placeholder="e.g. Acme SaaS Store"
-                  startIcon={<Globe className="h-4 w-4" />}
-                  helperText="Enter a unique name for your project."
-                />
-                <Textarea
-                  label="Project Description"
-                  placeholder="Describe your application features..."
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>3. Select, Checkbox & Switch</CardTitle>
-                <CardDescription>Interactive selection primitives</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Select
-                  label="Target UI Framework"
-                  options={[
-                    { label: 'Next.js 15 App Router (Recommended)', value: 'next15' },
-                    { label: 'React + Vite SPA', value: 'vite' },
-                    { label: 'NestJS Full-stack', value: 'nestjs' },
-                  ]}
-                />
-                <Separator />
-                <Checkbox
-                  label="Generate NestJS Backend"
-                  description="Automatically scaffold modules, controllers, and Prisma schemas."
-                  checked={checkboxState}
-                  onChange={(e) => setCheckboxState(e.target.checked)}
-                />
-                <Separator />
-                <Switch
-                  label="Enable AI Code Assistant"
-                  description="Allow AI agent to make deterministic schema changes."
-                  checked={switchState}
-                  onChange={(e) => setSwitchState(e.target.checked)}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>4. Badge, Avatar, Skeleton & Separator</CardTitle>
-                <CardDescription>Status indicators, media and placeholders</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="indigo" dot>Active Platform</Badge>
-                  <Badge variant="success">Deployed</Badge>
-                  <Badge variant="warning">Building</Badge>
-                  <Badge variant="destructive">Error</Badge>
-                  <Badge variant="violet">AI Agent</Badge>
-                  <Badge variant="cyan">Launch Ready</Badge>
-                </div>
-                <div className="flex items-center gap-4">
-                  <Avatar fallback="NL" size="lg" status="online" />
-                  <Avatar fallback="AI" size="md" status="busy" />
-                  <Avatar fallback="UX" size="sm" status="away" />
-                </div>
-                <Separator label="Loading Skeletons" />
-                <div className="space-y-2">
-                  <Skeleton variant="text" className="w-3/4" />
-                  <Skeleton variant="text" className="w-1/2" />
-                </div>
-              </CardContent>
-            </Card>
+                </CardFooter>
+              </Card>
+            ))}
           </div>
         </div>
       )}
 
-      {/* 4. UI PATTERNS SECTION */}
-      {activeNav === 'patterns' && (
+      {/* 3. TEAM & WORKSPACES TAB */}
+      {activeTab === 'team' && (
         <div className="space-y-8">
           <PageHeader
-            title="UI Patterns & Overlays (Week 4)"
-            description="Application Shell, Modals, Drawers, Tabs, Feedback States, and Toast System."
+            title="Workspaces & Team Management"
+            description="Invite developers, manage role permissions (Owner, Admin, Developer, Editor, Viewer)."
             actions={
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsDrawerOpen(true)}>
-                  Open Drawer
+                <Button variant="outline" onClick={() => setNewWorkspaceModal(true)}>
+                  New Workspace
                 </Button>
-                <Button variant="default" onClick={() => setIsDialogOpen(true)}>
-                  Open Modal
-                </Button>
-              </div>
-            }
-          />
-
-          <Tabs
-            items={[
-              {
-                id: 'feedback',
-                label: 'Feedback States',
-                icon: <CheckCircle2 className="h-4 w-4" />,
-                content: (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <SuccessFeedback
-                      title="Project Exported Successfully"
-                      description="Your Next.js + NestJS repository is ready for deployment."
-                      actionLabel="Download ZIP"
-                      onAction={() => toast({ title: 'Download Started', description: 'nirmaanify-project.zip', type: 'success' })}
-                    />
-                    <ErrorState
-                      title="Build Pipeline Failed"
-                      message="Component syntax validation encountered an unclosed tag in Header.tsx."
-                      code="ERR_SYNTAX_042"
-                      onRetry={() => toast({ title: 'Retrying build...', type: 'info' })}
-                    />
-                  </div>
-                ),
-              },
-              {
-                id: 'empty',
-                label: 'Empty State',
-                icon: <FolderOpen className="h-4 w-4" />,
-                content: (
-                  <EmptyState
-                    title="No CMS Collections Found"
-                    description="Create your first collection schema to begin managing dynamic structured content."
-                    actionLabel="Create Collection"
-                    onAction={() => setIsDialogOpen(true)}
-                  />
-                ),
-              },
-              {
-                id: 'loading',
-                label: 'Loading State',
-                icon: <Sparkles className="h-4 w-4" />,
-                content: (
-                  <Card className="p-8">
-                    <LoadingState message="Scaffolding NestJS database models and relations..." />
-                  </Card>
-                ),
-              },
-            ]}
-          />
-
-          <Dialog
-            isOpen={isDialogOpen}
-            onClose={() => setIsDialogOpen(false)}
-            title="Create New Nirmaanify Project"
-            description="Configure your project architecture, UI library, and backend settings."
-            footer={
-              <>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={() => {
-                    setIsDialogOpen(false);
-                    toast({ title: 'Project Created', description: 'Fashion Store project generated.', type: 'success' });
-                  }}
-                >
-                  Create Project
-                </Button>
-              </>
-            }
-          >
-            <div className="space-y-4">
-              <Input label="Project Name" placeholder="e.g. Modern E-commerce" />
-              <Select
-                label="Template"
-                options={[
-                  { label: 'E-commerce (Next.js + NestJS + PostgreSQL)', value: 'ecom' },
-                  { label: 'SaaS Dashboard (Next.js + Prisma)', value: 'saas' },
-                  { label: 'Agency Portfolio (Next.js Static)', value: 'portfolio' },
-                ]}
-              />
-            </div>
-          </Dialog>
-
-          <Drawer
-            isOpen={isDrawerOpen}
-            onClose={() => setIsDrawerOpen(false)}
-            title="Component Inspector"
-            position="right"
-          >
-            <div className="space-y-4">
-              <p className="text-xs text-slate-400">Configure visual component properties.</p>
-              <Input label="Button Label" defaultValue="Get Started Free" />
-              <Select
-                label="Variant"
-                options={[
-                  { label: 'Primary Indigo', value: 'default' },
-                  { label: 'Secondary Dark', value: 'secondary' },
-                  { label: 'Destructive Red', value: 'destructive' },
-                ]}
-              />
-              <Switch label="Full Width" defaultChecked />
-              <Button
-                variant="default"
-                className="w-full mt-4"
-                onClick={() => {
-                  setIsDrawerOpen(false);
-                  toast({ title: 'Properties Saved', type: 'info' });
-                }}
-              >
-                Apply Changes
-              </Button>
-            </div>
-          </Drawer>
-        </div>
-      )}
-
-      {/* 5. STORAGE ENGINE SECTION (NEW MULTI-DRIVER SWITCHER) */}
-      {activeNav === 'storage' && (
-        <div className="space-y-8">
-          <PageHeader
-            title="Dynamic Multi-Driver Storage Engine"
-            description="Switch seamlessly between AWS S3 / MinIO, Vercel Blob Storage, and Local Filesystem in one click."
-            badge={<Badge variant="indigo">One-Click Switcher</Badge>}
-            actions={
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<ExternalLink className="h-3.5 w-3.5" />}
-                  onClick={() => window.open('http://localhost:4000/api/docs', '_blank')}
-                >
-                  Swagger API
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  leftIcon={<UploadCloud className="h-3.5 w-3.5" />}
-                  onClick={() => toast({ title: 'Test Upload Succeeded', description: `Stored asset via ${activeStorage.toUpperCase()}`, type: 'success' })}
-                >
-                  Test Upload
+                <Button variant="default" onClick={() => setInviteModal(true)} leftIcon={<Plus className="h-4 w-4" />}>
+                  Invite Member
                 </Button>
               </div>
             }
           />
 
-          {/* Active Storage Driver Switcher Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {storageDrivers.map((driver) => {
-              const isSelected = activeStorage === driver.id;
+          {/* Workspace List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {workspaces.map((ws) => {
+              const isCurrent = ws.id === activeWorkspace?.id;
               return (
                 <Card
-                  key={driver.id}
+                  key={ws.id}
                   hoverable
-                  onClick={() => handleSwitchStorage(driver.id)}
-                  className={`cursor-pointer transition-all relative overflow-hidden ${
-                    isSelected
-                      ? 'border-2 border-[#635BFF] bg-[#635BFF]/5 shadow-lg shadow-[#635BFF]/10'
-                      : 'hover:border-slate-400 dark:hover:border-[#3B4366]'
-                  }`}
+                  className={`${isCurrent ? 'border-2 border-[#635BFF]' : ''}`}
                 >
-                  {isSelected && (
-                    <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#635BFF] text-white text-[11px] font-bold">
-                      <Check className="h-3 w-3" />
-                      Active Driver
-                    </div>
-                  )}
                   <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                        {driver.icon}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-[#635BFF]" />
+                        <CardTitle>{ws.name}</CardTitle>
                       </div>
-                      <div>
-                        <CardTitle className="text-base">{driver.name}</CardTitle>
-                        <Badge variant={driver.badgeVariant} size="sm" className="mt-1">
-                          {driver.tag}
-                        </Badge>
-                      </div>
+                      {isCurrent && <Badge variant="indigo">Active</Badge>}
                     </div>
+                    <CardDescription>Slug: {ws.slug} • {ws.isPersonal ? 'Personal Workspace' : 'Organization Workspace'}</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{driver.description}</p>
-                    <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-[#1E2337]">
-                      {driver.features.map((feat) => (
-                        <div key={feat} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#635BFF]" />
-                          <span>{feat}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="pt-0">
-                    <Button
-                      variant={isSelected ? 'default' : 'outline'}
-                      size="sm"
-                      className="w-full"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSwitchStorage(driver.id);
-                      }}
-                    >
-                      {isSelected ? 'Active Selection' : 'Switch to this driver'}
-                    </Button>
+                  <CardFooter className="flex justify-between">
+                    <span className="text-xs text-slate-400">Role: {ws.role || 'OWNER'}</span>
+                    {!isCurrent && (
+                      <Button variant="secondary" size="sm" onClick={() => switchWorkspace(ws.id)}>
+                        Switch to this
+                      </Button>
+                    )}
                   </CardFooter>
                 </Card>
               );
             })}
           </div>
 
-          {/* Configuration & Environment Specs */}
+          {/* Member Roster */}
           <Card>
             <CardHeader>
-              <CardTitle>Storage Switcher Architecture & REST API</CardTitle>
-              <CardDescription>
-                Unified abstraction allowing instant runtime driver transitions without rebuilding or downtime.
-              </CardDescription>
+              <CardTitle>Workspace Members ({activeWorkspace?.name})</CardTitle>
+              <CardDescription>Configured role-based access control (RBAC)</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                  <p className="text-xs font-bold text-[#635BFF]">POST /api/v1/storage/switch</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Payload: <code className="text-[#22D3EE]">{`{ "driver": "s3" | "vercel-blob" | "local" }`}</code>
-                  </p>
+            <CardContent className="divide-y divide-slate-100 dark:divide-[#24293D]">
+              {[
+                { name: user?.name, email: user?.email, role: 'OWNER', avatar: 'AD' },
+                { name: 'Sarah Chen', email: 'sarah.chen@acme.com', role: 'DEVELOPER', avatar: 'SC' },
+                { name: 'David Miller', email: 'david.miller@acme.com', role: 'EDITOR', avatar: 'DM' },
+                { name: 'Elena Rostova', email: 'elena@acme.com', role: 'VIEWER', avatar: 'ER' },
+              ].map((m) => (
+                <div key={m.email} className="py-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Avatar fallback={m.avatar} size="sm" />
+                    <div>
+                      <p className="text-sm font-bold">{m.name}</p>
+                      <p className="text-xs text-slate-400">{m.email}</p>
+                    </div>
+                  </div>
+                  <Badge variant={m.role === 'OWNER' ? 'indigo' : m.role === 'DEVELOPER' ? 'cyan' : 'secondary'}>
+                    {m.role}
+                  </Badge>
                 </div>
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                  <p className="text-xs font-bold text-[#635BFF]">POST /api/v1/storage/upload</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Accepts multipart files, automatically writes to active storage.
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                  <p className="text-xs font-bold text-[#635BFF]">GET /api/v1/storage/status</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Returns driver health, connection status, and list of available drivers.
-                  </p>
-                </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
         </div>
       )}
+
+      {/* 4. STORAGE TAB */}
+      {activeTab === 'storage' && (
+        <div className="space-y-8">
+          <PageHeader
+            title="Multi-Driver Storage Engine"
+            description="Switch between AWS S3 / MinIO, Vercel Blob Storage, and Local Filesystem in one click."
+            badge={<Badge variant="indigo">One-Click Switcher</Badge>}
+            actions={
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                onClick={() => window.open('http://localhost:4000/api/docs', '_blank')}
+              >
+                Swagger API
+              </Button>
+            }
+          />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { id: 'local' as const, name: 'Local Filesystem', icon: <HardDrive className="h-5 w-5 text-slate-400" />, tag: 'Development' },
+              { id: 's3' as const, name: 'AWS S3 / MinIO', icon: <Database className="h-5 w-5 text-[#635BFF]" />, tag: 'Object Store' },
+              { id: 'vercel-blob' as const, name: 'Vercel Blob Storage', icon: <Cloud className="h-5 w-5 text-[#22D3EE]" />, tag: 'Edge CDN' },
+            ].map((d) => (
+              <Card
+                key={d.id}
+                hoverable
+                onClick={() => {
+                  setActiveStorage(d.id);
+                  toast({ title: 'Storage Driver Switched', description: `Active: ${d.name}`, type: 'success' });
+                }}
+                className={`cursor-pointer ${activeStorage === d.id ? 'border-2 border-[#635BFF] bg-[#635BFF]/5' : ''}`}
+              >
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#161926]">{d.icon}</div>
+                    <div>
+                      <CardTitle className="text-base">{d.name}</CardTitle>
+                      <Badge variant="indigo" size="sm">{d.tag}</Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardFooter>
+                  <Button variant={activeStorage === d.id ? 'default' : 'outline'} size="sm" className="w-full">
+                    {activeStorage === d.id ? 'Active Driver' : 'Switch to this'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 5. DESIGN SYSTEM TAB */}
+      {activeTab === 'brand' && (
+        <div className="space-y-8">
+          <PageHeader
+            title="Design System Foundation"
+            description="Brand kit, design tokens, and core components established in Phase 1."
+          />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="flex flex-col items-center p-8 text-center">
+              <NirmaanIcon size={64} variant="gradient" />
+              <h4 className="mt-4 font-bold">Modular N Mark</h4>
+            </Card>
+            <Card className="flex flex-col items-center p-8 text-center">
+              <NirmaanAppIcon size={64} />
+              <h4 className="mt-4 font-bold">App Squircle</h4>
+            </Card>
+            <Card className="flex flex-col items-center p-8 text-center">
+              <NirmaanLogo size="md" showTagline />
+              <h4 className="mt-4 font-bold">Logo Lockup</h4>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE PROJECT MODAL */}
+      <Dialog
+        isOpen={newProjectModal}
+        onClose={() => setNewProjectModal(false)}
+        title="Create New Project"
+        description="Scaffold a new full-stack application inside this workspace."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setNewProjectModal(false)}>Cancel</Button>
+            <Button variant="default" onClick={handleCreateProjectSubmit}>Create Project</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Project Name"
+            placeholder="e.g. AI Customer Support Bot"
+            value={projName}
+            onChange={(e) => setProjName(e.target.value)}
+          />
+          <Select
+            label="Project Architecture"
+            value={projType}
+            onChange={(e) => setProjType(e.target.value)}
+            options={[
+              { label: 'SaaS Dashboard (Next.js 15 + NestJS + PostgreSQL)', value: 'SAAS' },
+              { label: 'E-commerce Platform (Next.js + NestJS + Stripe)', value: 'ECOMMERCE' },
+              { label: 'Content Management Blog (Next.js Static)', value: 'BLOG' },
+              { label: 'Custom Full-stack App', value: 'CUSTOM' },
+            ]}
+          />
+        </div>
+      </Dialog>
+
+      {/* CREATE WORKSPACE MODAL */}
+      <Dialog
+        isOpen={newWorkspaceModal}
+        onClose={() => setNewWorkspaceModal(false)}
+        title="Create Workspace"
+        description="Workspaces group projects, team members, and custom domains."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setNewWorkspaceModal(false)}>Cancel</Button>
+            <Button variant="default" onClick={handleCreateWorkspaceSubmit}>Create Workspace</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Workspace Name"
+            placeholder="e.g. CyberVanguard Studios"
+            value={wsName}
+            onChange={(e) => setWsName(e.target.value)}
+          />
+        </div>
+      </Dialog>
+
+      {/* INVITE MEMBER MODAL */}
+      <Dialog
+        isOpen={inviteModal}
+        onClose={() => setInviteModal(false)}
+        title="Invite Team Member"
+        description="Add a collaborator with role-based permissions."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setInviteModal(false)}>Cancel</Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                setInviteModal(false);
+                toast({ title: 'Invitation Sent', description: `Sent invite to ${inviteEmail}`, type: 'success' });
+              }}
+            >
+              Send Invitation
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Email Address"
+            placeholder="colleague@company.com"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+          />
+          <Select
+            label="Workspace Role"
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value)}
+            options={[
+              { label: 'Developer (Full access to create & edit projects)', value: 'DEVELOPER' },
+              { label: 'Admin (Manage team, settings, and projects)', value: 'ADMIN' },
+              { label: 'Editor (Update CMS content and preview)', value: 'EDITOR' },
+              { label: 'Viewer (Read-only access to projects)', value: 'VIEWER' },
+            ]}
+          />
+        </div>
+      </Dialog>
     </AppShell>
   );
 }

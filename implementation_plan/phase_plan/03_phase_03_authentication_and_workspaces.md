@@ -11,13 +11,13 @@
 Implement:
 
 ```text
-[ ] Register
-[ ] Login
-[ ] Logout
-[ ] Email verification
-[ ] Password reset
-[ ] Session management
-[ ] Protected routes
+[x] Register
+[x] Login
+[x] Logout
+[x] Email verification
+[x] Password reset
+[x] Session management
+[x] Protected routes
 ```
 
 Architecture:
@@ -35,12 +35,12 @@ User
 Implement:
 
 ```text
-[ ] Personal workspace
-[ ] Organization workspace
-[ ] Invite members
-[ ] Remove members
-[ ] Roles
-[ ] Permissions
+[x] Personal workspace
+[x] Organization workspace
+[x] Invite members
+[x] Remove members
+[x] Roles
+[x] Permissions
 ```
 
 Initial roles:
@@ -60,13 +60,13 @@ Viewer
 Build using the Phase 1 Design System:
 
 ```text
-[ ] Dashboard
-[ ] Workspace switcher
-[ ] Recent projects
-[ ] Project cards
-[ ] Quick actions
-[ ] AI project prompt
-[ ] Notifications
+[x] Dashboard
+[x] Workspace switcher
+[x] Recent projects
+[x] Project cards
+[x] Quick actions
+[x] AI project prompt
+[x] Notifications
 ```
 
 ### Deliverable

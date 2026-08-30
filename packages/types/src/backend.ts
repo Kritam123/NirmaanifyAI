@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'MEMBER' | 'VIEWER' | 'OWNER';
+export type UserRole = 'OWNER' | 'ADMIN' | 'DEVELOPER' | 'EDITOR' | 'VIEWER' | 'MEMBER';
 
 export interface UserDto {
   id: string;
@@ -6,18 +6,38 @@ export interface UserDto {
   name: string;
   avatarUrl?: string;
   role: UserRole;
+  isEmailVerified: boolean;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface WorkspaceMemberDto {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  role: UserRole;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  };
+  createdAt: string | Date;
 }
 
 export interface WorkspaceDto {
   id: string;
   name: string;
   slug: string;
+  isPersonal: boolean;
   ownerId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  role?: UserRole;
+  projectCount?: number;
+  memberCount?: number;
+  members?: WorkspaceMemberDto[];
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export type ProjectType =
@@ -40,8 +60,16 @@ export interface ProjectDto {
   uiLibrary: string;
   isBackendEnabled: boolean;
   projectSchema: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface AuthResponseDto {
+  user: UserDto;
+  accessToken: string;
+  refreshToken?: string;
+  activeWorkspace: WorkspaceDto;
+  workspaces: WorkspaceDto[];
 }
 
 export interface ApiResponse<T = any> {
