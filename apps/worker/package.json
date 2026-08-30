@@ -1,0 +1,23 @@
+{
+  "name": "worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nirmaanify/types": "workspace:*",
+    "bullmq": "^5.41.6",
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.5.0"
+  },
+  "devDependencies": {
+    "@nirmaanify/config": "workspace:*",
+    "@types/node": "^22.13.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
