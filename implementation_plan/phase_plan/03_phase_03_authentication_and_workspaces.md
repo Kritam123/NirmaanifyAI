@@ -11,13 +11,13 @@
 Implement:
 
 ```text
-[x] Register
-[x] Login
-[x] Logout
-[x] Email verification
-[x] Password reset
-[x] Session management
-[x] Protected routes
+[ ] Register
+[ ] Login
+[ ] Logout
+[ ] Email verification
+[ ] Password reset
+[ ] Session management
+[ ] Protected routes
 ```
 
 Architecture:
@@ -35,12 +35,12 @@ User
 Implement:
 
 ```text
-[x] Personal workspace
-[x] Organization workspace
-[x] Invite members
-[x] Remove members
-[x] Roles
-[x] Permissions
+[ ] Personal workspace
+[ ] Organization workspace
+[ ] Invite members
+[ ] Remove members
+[ ] Roles
+[ ] Permissions
 ```
 
 Initial roles:
@@ -60,16 +60,17 @@ Viewer
 Build using the Phase 1 Design System:
 
 ```text
-[x] Dashboard
-[x] Workspace switcher
-[x] Recent projects
-[x] Project cards
-[x] Quick actions
-[x] AI project prompt
-[x] Notifications
+[ ] Dashboard
+[ ] Workspace switcher
+[ ] Recent projects
+[ ] Project cards
+[ ] Quick actions
+[ ] AI project prompt
+[ ] Notifications
 ```
 
 ### Deliverable
+
 
 ```text
 Authenticated Nirmaanify Dashboard
