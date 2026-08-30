@@ -6,8 +6,8 @@ import {
   getComponentsByCategory,
   getAllComponents,
 } from '@nirmaanify/component-registry';
-import { Search, Plus, Sparkles, Layout, Type, Square, Image, ShoppingBag, FormInput, BarChart3 } from 'lucide-react';
-import { Input, Badge } from '@nirmaanify/ui';
+import { Search, Plus, Sparkles, Layout, Type, Square, Image, ShoppingBag, FormInput, BarChart3, GripVertical } from 'lucide-react';
+import { Badge } from '@nirmaanify/ui';
 
 interface ComponentPaletteProps {
   onAddComponent: (type: string) => void;
@@ -37,6 +37,12 @@ export function ComponentPalette({ onAddComponent }: ComponentPaletteProps) {
     const q = searchQuery.toLowerCase();
     return c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q) || c.id.toLowerCase().includes(q);
   });
+
+  const handleDragStart = (e: React.DragEvent, type: string) => {
+    e.dataTransfer.setData('text/plain', type);
+    e.dataTransfer.setData('application/nirmaanify-component', type);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-[#0A0D16] border-r border-slate-200 dark:border-[#24293D] w-72 shrink-0 select-none">
@@ -88,16 +94,23 @@ export function ComponentPalette({ onAddComponent }: ComponentPaletteProps) {
         ))}
       </div>
 
-      {/* Components List */}
+      {/* Draggable Components List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+        <div className="px-1 text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1 mb-1">
+          <GripVertical className="h-3 w-3 text-slate-400" />
+          <span>Click to Insert or Drag to Canvas</span>
+        </div>
         {filteredComponents.map((def) => (
           <div
             key={def.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, def.id)}
             onClick={() => onAddComponent(def.id)}
-            className="p-2.5 rounded-xl bg-white dark:bg-[#161926] border border-slate-200/80 dark:border-[#24293D] hover:border-[#635BFF] dark:hover:border-[#635BFF] hover:shadow-md hover:shadow-[#635BFF]/5 cursor-pointer transition-all flex items-start justify-between group"
+            className="p-2.5 rounded-xl bg-white dark:bg-[#161926] border border-slate-200/80 dark:border-[#24293D] hover:border-[#635BFF] dark:hover:border-[#635BFF] hover:shadow-md hover:shadow-[#635BFF]/5 cursor-grab active:cursor-grabbing transition-all flex items-start justify-between group"
           >
             <div className="space-y-1 pr-2">
               <div className="flex items-center gap-1.5">
+                <GripVertical className="h-3.5 w-3.5 text-slate-400 opacity-40 group-hover:opacity-100 transition-opacity" />
                 <span className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-[#635BFF] transition-colors">
                   {def.name}
                 </span>
@@ -105,7 +118,7 @@ export function ComponentPalette({ onAddComponent }: ComponentPaletteProps) {
                   {def.category}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 line-clamp-1 leading-snug">
+              <p className="text-[10px] text-slate-400 line-clamp-1 leading-snug pl-5">
                 {def.description}
               </p>
             </div>

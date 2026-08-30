@@ -31,13 +31,13 @@ COMPONENTS | CANVAS | INSPECTOR
 Implement:
 
 ```text
-[ ] Drag component into canvas
-[ ] Drop zones
-[ ] Reorder components
-[ ] Nested components
-[ ] Delete
-[ ] Duplicate
-[ ] Move
+[x] Drag component into canvas
+[x] Drop zones
+[x] Reorder components
+[x] Nested components
+[x] Delete
+[x] Duplicate
+[x] Move
 ```
 
 Use:
@@ -53,11 +53,11 @@ dnd-kit
 Implement:
 
 ```text
-Content
-Style
-Layout
-Responsive
-Interactions
+[x] Content
+[x] Style
+[x] Layout
+[x] Responsive
+[x] Interactions
 ```
 
 Examples:
@@ -96,11 +96,11 @@ Mobile
 Implement:
 
 ```text
-[ ] Preview switching
-[ ] Responsive values
-[ ] Canvas scaling
-[ ] Selection overlay
-[ ] Component toolbar
+[x] Preview switching
+[x] Responsive values
+[x] Canvas scaling
+[x] Selection overlay
+[x] Component toolbar
 ```
 
 ### Deliverable

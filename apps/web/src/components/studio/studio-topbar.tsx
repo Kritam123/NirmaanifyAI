@@ -11,12 +11,13 @@ import {
   Eye,
   Edit3,
   Code2,
+  FileCode,
   Save,
   CheckCircle2,
   AlertCircle,
   X,
   Plus,
-  Layers,
+  ZoomIn,
 } from 'lucide-react';
 import { Button, Badge } from '@nirmaanify/ui';
 
@@ -25,6 +26,7 @@ interface StudioTopbarProps {
   activePage: PageSchema;
   viewport: 'desktop' | 'tablet' | 'mobile';
   mode: 'builder' | 'preview';
+  zoom: number;
   canUndo: boolean;
   canRedo: boolean;
   isSaving: boolean;
@@ -34,9 +36,11 @@ interface StudioTopbarProps {
   onAddPage: () => void;
   onChangeViewport: (viewport: 'desktop' | 'tablet' | 'mobile') => void;
   onChangeMode: (mode: 'builder' | 'preview') => void;
+  onChangeZoom: (zoom: number) => void;
   onUndo: () => void;
   onRedo: () => void;
   onViewSchema: () => void;
+  onViewCode: () => void;
   onCloseStudio: () => void;
 }
 
@@ -45,6 +49,7 @@ export function StudioTopbar({
   activePage,
   viewport,
   mode,
+  zoom,
   canUndo,
   canRedo,
   isSaving,
@@ -54,9 +59,11 @@ export function StudioTopbar({
   onAddPage,
   onChangeViewport,
   onChangeMode,
+  onChangeZoom,
   onUndo,
   onRedo,
   onViewSchema,
+  onViewCode,
   onCloseStudio,
 }: StudioTopbarProps) {
   return (
@@ -106,8 +113,8 @@ export function StudioTopbar({
         </div>
       </div>
 
-      {/* Center: Viewport & Undo/Redo Controls */}
-      <div className="flex items-center gap-4">
+      {/* Center: Viewport, Zoom & Undo/Redo Controls */}
+      <div className="flex items-center gap-3">
         {/* Undo / Redo */}
         <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-[#161926] p-1 rounded-lg border border-slate-200 dark:border-[#24293D]">
           <button
@@ -150,6 +157,21 @@ export function StudioTopbar({
           ))}
         </div>
 
+        {/* Zoom Selector */}
+        <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-[#161926] px-2 py-1 rounded-lg border border-slate-200 dark:border-[#24293D] text-[11px] text-slate-500">
+          <ZoomIn className="h-3 w-3 text-slate-400" />
+          <select
+            value={zoom}
+            onChange={(e) => onChangeZoom(Number(e.target.value))}
+            className="bg-transparent text-xs font-semibold focus:outline-none cursor-pointer"
+          >
+            <option value={0.67} className="bg-white dark:bg-[#161926] text-slate-900 dark:text-white">67%</option>
+            <option value={0.8} className="bg-white dark:bg-[#161926] text-slate-900 dark:text-white">80%</option>
+            <option value={1} className="bg-white dark:bg-[#161926] text-slate-900 dark:text-white">100%</option>
+            <option value={1.15} className="bg-white dark:bg-[#161926] text-slate-900 dark:text-white">115%</option>
+          </select>
+        </div>
+
         {/* Builder / Preview Toggle */}
         <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-[#161926] p-1 rounded-lg border border-slate-200 dark:border-[#24293D] text-xs">
           <button
@@ -177,13 +199,13 @@ export function StudioTopbar({
         </div>
       </div>
 
-      {/* Right: Validation Diagnostic, Master Schema, Save status */}
-      <div className="flex items-center gap-3 text-xs">
+      {/* Right: Validation Diagnostic, Master Schema, React Code Preview */}
+      <div className="flex items-center gap-2.5 text-xs">
         {/* Diagnostic Status */}
-        <div className="flex items-center gap-1.5">
+        <div className="hidden sm:flex items-center gap-1.5">
           {isValid ? (
             <Badge size="sm" variant="cyan" className="text-[10px]">
-              <CheckCircle2 className="h-3 w-3 mr-1 inline text-emerald-400" /> Valid Schema
+              <CheckCircle2 className="h-3 w-3 mr-1 inline text-emerald-400" /> Valid
             </Badge>
           ) : (
             <Badge size="sm" variant="violet" className="text-[10px] text-rose-400">
@@ -193,14 +215,23 @@ export function StudioTopbar({
         </div>
 
         {/* Auto-save status */}
-        <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+        <div className="hidden sm:flex items-center gap-1.5 text-slate-400 text-[11px]">
           <Save className={`h-3.5 w-3.5 ${isSaving ? 'text-amber-400 animate-spin' : 'text-emerald-400'}`} />
-          <span>{isSaving ? 'Saving...' : 'Auto-Saved'}</span>
+          <span>{isSaving ? 'Saving...' : 'Saved'}</span>
         </div>
 
         <Button
           size="sm"
           variant="outline"
+          leftIcon={<FileCode className="h-3.5 w-3.5" />}
+          onClick={onViewCode}
+        >
+          React Code
+        </Button>
+
+        <Button
+          size="sm"
+          variant="subtle"
           leftIcon={<Code2 className="h-3.5 w-3.5" />}
           onClick={onViewSchema}
         >

@@ -13,15 +13,17 @@ import {
   ProjectValidator,
   createDefaultProjectSchema,
   createComponentNode,
+  ReactCodeGenerator,
 } from '@nirmaanify/component-registry';
 import { StudioTopbar } from './studio-topbar';
+import { AiCommandBar } from './ai-command-bar';
 import { ComponentPalette } from './component-palette';
 import { LayersPanel } from './layers-panel';
 import { PropertyInspector } from './property-inspector';
 import { VisualCanvas } from './visual-canvas';
 import { Dialog, Button, Input, useToast } from '@nirmaanify/ui';
 import { useAuth } from '../../context/auth-context';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, FileCode, Code2 } from 'lucide-react';
 
 interface VisualStudioModalProps {
   project: ProjectDto | null;
@@ -48,7 +50,6 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
       return project.projectSchema as ProjectSchema;
     }
 
-    // Generate starter schema for this project architecture
     return createDefaultProjectSchema(project.name, project.type);
   }, [project]);
 
@@ -70,6 +71,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const [activeLeftTab, setActiveLeftTab] = useState<'palette' | 'layers'>('palette');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [mode, setMode] = useState<'builder' | 'preview'>('builder');
+  const [zoom, setZoom] = useState<number>(1);
   const [isSaving, setIsSaving] = useState(false);
 
   // Add Page Modal
@@ -81,6 +83,10 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   // Master Schema Modal
   const [schemaModalOpen, setSchemaModalOpen] = useState(false);
   const [copiedSchema, setCopiedSchema] = useState(false);
+
+  // Live React Code Preview Modal
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   // Sync initial schema when project changes
   useEffect(() => {
@@ -104,8 +110,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   // Active page resolution
   const activePage: PageSchema = useMemo(() => {
     if (!projectSchema.pages || projectSchema.pages.length === 0) {
-      const defaultPage = createDefaultProjectSchema(project?.name || 'App').pages[0];
-      return defaultPage;
+      return createDefaultProjectSchema(project?.name || 'App').pages[0];
     }
     return (
       projectSchema.pages.find((p) => p.id === activePageId) ||
@@ -135,6 +140,12 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
     return findNode(activePage.rootNode);
   }, [selectedNodeId, activePage?.rootNode]);
+
+  // Generated React TSX Code
+  const generatedReactCode = useMemo(() => {
+    if (!activePage) return '';
+    return ReactCodeGenerator.generatePageComponent(activePage);
+  }, [activePage]);
 
   // Auto-save debounce effect
   useEffect(() => {
@@ -208,7 +219,6 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     const newNode = createComponentNode(type, {}, selectedNodeId || activePage.rootNode.id);
 
     updateActivePageRootNode((root) => {
-      // If a container is selected, add as child
       const insertNode = (parent: ComponentNode): ComponentNode => {
         if (parent.id === (selectedNodeId || root.id)) {
           return {
@@ -230,6 +240,70 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
     setSelectedNodeId(newNode.id);
     toast({ title: 'Component Added', description: `Inserted ${newNode.name}`, type: 'info' });
+  };
+
+  // Drag-and-Drop component dropped into canvas
+  const handleDropComponent = (type: string, targetParentId?: string) => {
+    const newNode = createComponentNode(type, {}, targetParentId || activePage.rootNode.id);
+
+    updateActivePageRootNode((root) => {
+      const insert = (curr: ComponentNode): ComponentNode => {
+        if (curr.id === (targetParentId || root.id)) {
+          return {
+            ...curr,
+            children: [...(curr.children || []), newNode],
+          };
+        }
+        if (curr.children) {
+          return {
+            ...curr,
+            children: curr.children.map(insert),
+          };
+        }
+        return curr;
+      };
+      return insert(root);
+    });
+
+    setSelectedNodeId(newNode.id);
+    toast({ title: 'Dropped Component', description: `Added ${newNode.name} to canvas`, type: 'success' });
+  };
+
+  // Move Node Up / Down within parent
+  const handleMoveNode = (nodeId: string, direction: 'up' | 'down') => {
+    updateActivePageRootNode((root) => {
+      const move = (curr: ComponentNode): ComponentNode => {
+        if (curr.children) {
+          const idx = curr.children.findIndex((c) => c.id === nodeId);
+          if (idx !== -1) {
+            const newChildren = [...curr.children];
+            const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+
+            if (targetIdx >= 0 && targetIdx < newChildren.length) {
+              const [moved] = newChildren.splice(idx, 1);
+              newChildren.splice(targetIdx, 0, moved);
+              return { ...curr, children: newChildren };
+            }
+          }
+          return { ...curr, children: curr.children.map(move) };
+        }
+        return curr;
+      };
+      return move(root);
+    });
+  };
+
+  // Insert AI generated node tree
+  const handleInsertGeneratedNodes = (nodes: ComponentNode[]) => {
+    updateActivePageRootNode((root) => {
+      return {
+        ...root,
+        children: [...(root.children || []), ...nodes],
+      };
+    });
+    if (nodes[0]) {
+      setSelectedNodeId(nodes[0].id);
+    }
   };
 
   // Update Props
@@ -402,6 +476,13 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     toast({ title: 'Copied to Clipboard', description: 'Full Project JSON Schema copied', type: 'info' });
   };
 
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(generatedReactCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+    toast({ title: 'Copied Code', description: 'React TSX component copied to clipboard', type: 'success' });
+  };
+
   if (!isOpen || !project) return null;
 
   return (
@@ -412,6 +493,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         activePage={activePage}
         viewport={viewport}
         mode={mode}
+        zoom={zoom}
         canUndo={canUndo}
         canRedo={canRedo}
         isSaving={isSaving}
@@ -424,22 +506,32 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         onAddPage={() => setAddPageModalOpen(true)}
         onChangeViewport={setViewport}
         onChangeMode={setMode}
+        onChangeZoom={setZoom}
         onUndo={undo}
         onRedo={redo}
         onViewSchema={() => setSchemaModalOpen(true)}
+        onViewCode={() => setCodeModalOpen(true)}
         onCloseStudio={onClose}
       />
 
+      {/* In-Studio AI Command Bar */}
+      {mode === 'builder' && (
+        <AiCommandBar
+          onInsertGeneratedNodes={handleInsertGeneratedNodes}
+          selectedNodeId={selectedNodeId}
+        />
+      )}
+
       {/* Main Workspace Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (Palette & Layers Switcher) in Builder Mode */}
+        {/* Left Sidebar in Builder Mode */}
         {mode === 'builder' && (
           <div className="flex">
             {/* Narrow Icon Switcher */}
             <div className="w-12 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0E121E] flex flex-col items-center py-3 gap-2 shrink-0 select-none">
               <button
                 onClick={() => setActiveLeftTab('palette')}
-                title="Component Library Palette"
+                title="Component Palette"
                 className={`p-2 rounded-xl transition-colors ${
                   activeLeftTab === 'palette'
                     ? 'bg-[#635BFF] text-white shadow-md'
@@ -450,7 +542,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
               </button>
               <button
                 onClick={() => setActiveLeftTab('layers')}
-                title="Layers Tree Navigator"
+                title="Layers Tree"
                 className={`p-2 rounded-xl transition-colors ${
                   activeLeftTab === 'layers'
                     ? 'bg-[#635BFF] text-white shadow-md'
@@ -483,12 +575,15 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           page={activePage}
           mode={mode}
           viewport={viewport}
+          zoom={zoom}
           selectedNodeId={selectedNodeId}
           hoveredNodeId={hoveredNodeId}
           onSelectNode={setSelectedNodeId}
           onHoverNode={setHoveredNodeId}
           onDeleteNode={handleDeleteNode}
           onDuplicateNode={handleDuplicateNode}
+          onMoveNode={handleMoveNode}
+          onDropComponent={handleDropComponent}
           onOpenAddModal={() => setActiveLeftTab('palette')}
         />
 
@@ -502,6 +597,36 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           />
         )}
       </div>
+
+      {/* LIVE REACT CODE PREVIEW MODAL */}
+      <Dialog
+        isOpen={codeModalOpen}
+        onClose={() => setCodeModalOpen(false)}
+        title="Live React JSX & Tailwind Code Preview"
+        description="Generated in real-time from the declarative project component tree."
+        className="max-w-4xl"
+        footer={
+          <div className="w-full flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              onClick={handleCopyCode}
+            >
+              {copiedCode ? 'Copied Code!' : 'Copy TSX Component'}
+            </Button>
+            <Button variant="default" size="sm" onClick={() => setCodeModalOpen(false)}>
+              Close Code Preview
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-2">
+          <pre className="p-4 rounded-xl bg-slate-950 text-cyan-300 font-mono text-[11px] overflow-auto max-h-[500px]">
+            {generatedReactCode}
+          </pre>
+        </div>
+      </Dialog>
 
       {/* ADD PAGE MODAL */}
       <Dialog
