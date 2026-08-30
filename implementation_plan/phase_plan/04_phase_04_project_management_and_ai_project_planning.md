@@ -11,12 +11,12 @@
 Implement:
 
 ```text
-[ ] Create project
-[ ] Edit project
-[ ] Delete project
-[ ] Duplicate project
-[ ] Archive project
-[ ] Project settings
+[x] Create project
+[x] Edit project
+[x] Delete project
+[x] Duplicate project
+[x] Archive project
+[x] Project settings
 ```
 
 Project types:

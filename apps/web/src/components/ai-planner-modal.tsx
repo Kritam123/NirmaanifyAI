@@ -1,0 +1,745 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import {
+  Dialog,
+  Button,
+  Badge,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Input,
+  Select,
+  useToast,
+} from '@nirmaanify/ui';
+import {
+  Sparkles,
+  Zap,
+  CheckCircle2,
+  Layers,
+  Server,
+  Database,
+  Globe,
+  Code2,
+  Boxes,
+  Plus,
+  Trash2,
+  Edit2,
+  Check,
+  ArrowRight,
+  ShieldCheck,
+  AlertCircle,
+  PackageCheck,
+  Cpu,
+  Workflow,
+  FileCode,
+  FolderTree,
+} from 'lucide-react';
+import {
+  AIProjectPlan,
+  PlanPage,
+  ProjectType,
+  PlanPluginRecommendation,
+} from '@nirmaanify/types';
+import { useAuth } from '../context/auth-context';
+
+interface AiPlannerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialPrompt?: string;
+}
+
+const GENERATION_STEPS = [
+  { id: 1, label: 'Analyzing Prompt & Inferring Domain', icon: <Sparkles className="h-4 w-4" /> },
+  { id: 2, label: 'Architecting System & Tech Stack', icon: <Cpu className="h-4 w-4" /> },
+  { id: 3, label: 'Generating Page Routes & Component Tree', icon: <FolderTree className="h-4 w-4" /> },
+  { id: 4, label: 'Specifying Backend Modules & REST APIs', icon: <Server className="h-4 w-4" /> },
+  { id: 5, label: 'Designing PostgreSQL Relational Schema', icon: <Database className="h-4 w-4" /> },
+  { id: 6, label: 'Assembling Plugins & Finalizing Blueprint', icon: <PackageCheck className="h-4 w-4" /> },
+];
+
+export function AiPlannerModal({ isOpen, onClose, initialPrompt = '' }: AiPlannerModalProps) {
+  const { toast } = useToast();
+  const { generateAiPlan, approveAiPlan, activeWorkspace } = useAuth();
+
+  const [prompt, setPrompt] = useState(initialPrompt);
+  const [preferredType, setPreferredType] = useState<ProjectType>('SAAS');
+  const [step, setStep] = useState<'prompt' | 'generating' | 'review' | 'approving'>('prompt');
+  const [currentGenStep, setCurrentGenStep] = useState(0);
+  const [plan, setPlan] = useState<AIProjectPlan | null>(null);
+  const [activeReviewTab, setActiveReviewTab] = useState<'overview' | 'pages' | 'backend' | 'database' | 'features' | 'plugins'>('overview');
+
+  // Edit / Customization states
+  const [isEditing, setIsEditing] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customSlug, setCustomSlug] = useState('');
+  const [newPageName, setNewPageName] = useState('');
+  const [newPagePath, setNewPagePath] = useState('');
+
+  useEffect(() => {
+    if (initialPrompt) {
+      setPrompt(initialPrompt);
+    }
+  }, [initialPrompt]);
+
+  const handleStartGeneration = async () => {
+    if (!prompt.trim()) return;
+    setStep('generating');
+    setCurrentGenStep(0);
+
+    // Simulate animated generation stages
+    const stepInterval = setInterval(() => {
+      setCurrentGenStep((prev) => {
+        if (prev < GENERATION_STEPS.length - 1) {
+          return prev + 1;
+        }
+        return prev;
+      });
+    }, 450);
+
+    try {
+      const generatedPlan = await generateAiPlan({
+        prompt: prompt.trim(),
+        workspaceId: activeWorkspace?.id,
+        preferredType,
+      });
+
+      clearInterval(stepInterval);
+      setCurrentGenStep(GENERATION_STEPS.length - 1);
+      setTimeout(() => {
+        setPlan(generatedPlan);
+        setCustomName(generatedPlan.name);
+        setCustomSlug(generatedPlan.slug);
+        setStep('review');
+        toast({
+          title: 'AI Blueprint Generated!',
+          description: `Ready for review: "${generatedPlan.name}"`,
+          type: 'success',
+        });
+      }, 500);
+    } catch (err: any) {
+      clearInterval(stepInterval);
+      setStep('prompt');
+      toast({
+        title: 'Generation Failed',
+        description: err.message || 'Could not generate plan',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleAddPage = () => {
+    if (!plan || !newPageName.trim() || !newPagePath.trim()) return;
+    const updatedPages: PlanPage[] = [
+      ...plan.pages,
+      {
+        name: newPageName.trim(),
+        path: newPagePath.trim().startsWith('/') ? newPagePath.trim() : `/${newPagePath.trim()}`,
+        description: 'Custom user defined route',
+        isProtected: false,
+        components: ['CustomComponent'],
+      },
+    ];
+    setPlan({ ...plan, pages: updatedPages });
+    setNewPageName('');
+    setNewPagePath('');
+    toast({ title: 'Page Added', description: `Added ${newPagePath}`, type: 'info' });
+  };
+
+  const handleDeletePage = (index: number) => {
+    if (!plan) return;
+    const updatedPages = plan.pages.filter((_, i) => i !== index);
+    setPlan({ ...plan, pages: updatedPages });
+  };
+
+  const handleTogglePlugin = (pluginIndex: number) => {
+    if (!plan) return;
+    const updatedPlugins = [...plan.pluginRecommendations];
+    updatedPlugins[pluginIndex] = {
+      ...updatedPlugins[pluginIndex],
+      isRecommended: !updatedPlugins[pluginIndex].isRecommended,
+    };
+    setPlan({ ...plan, pluginRecommendations: updatedPlugins });
+  };
+
+  const handleApprove = async () => {
+    if (!plan) return;
+    setStep('approving');
+
+    try {
+      const finalPlan: AIProjectPlan = {
+        ...plan,
+        name: customName || plan.name,
+        slug: customSlug || plan.slug,
+      };
+
+      const project = await approveAiPlan({
+        plan: finalPlan,
+        workspaceId: activeWorkspace?.id || 'ws-personal-001',
+        customName: customName || plan.name,
+        customSlug: customSlug || plan.slug,
+      });
+
+      setStep('prompt');
+      setPlan(null);
+      setPrompt('');
+      onClose();
+
+      toast({
+        title: 'Project Scaffolded & Approved! 🚀',
+        description: `"${project.name}" has been created with all routes, backend modules & database schema.`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      setStep('review');
+      toast({
+        title: 'Approval Error',
+        description: err.message || 'Could not approve project plan',
+        type: 'error',
+      });
+    }
+  };
+
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        step === 'prompt'
+          ? 'AI Project Planner'
+          : step === 'generating'
+          ? 'Synthesizing Architecture Blueprint'
+          : `Review AI Blueprint: ${plan?.name || 'Project Plan'}`
+      }
+      description={
+        step === 'prompt'
+          ? 'Describe your idea in natural language. Our AI will architect pages, features, backend modules, and database schemas for your approval.'
+          : step === 'generating'
+          ? 'AI Engine is designing the full-stack system architecture...'
+          : 'Carefully review and customize the generated blueprint before confirming generation.'
+      }
+      className={step === 'review' ? 'max-w-4xl' : 'max-w-xl'}
+      footer={
+        step === 'prompt' ? (
+          <>
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button
+              variant="default"
+              leftIcon={<Sparkles className="h-4 w-4" />}
+              onClick={handleStartGeneration}
+              disabled={!prompt.trim()}
+            >
+              Architect Project
+            </Button>
+          </>
+        ) : step === 'review' ? (
+          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <div className="flex items-center gap-2 text-xs text-amber-500 font-medium">
+              <ShieldCheck className="h-4 w-4 text-[#635BFF]" />
+              <span>Human Approval Required: Confirmation required before scaffolding.</span>
+            </div>
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStep('prompt')}
+              >
+                Regenerate
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                leftIcon={<Check className="h-4 w-4" />}
+                onClick={handleApprove}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                Approve & Generate Project
+              </Button>
+            </div>
+          </div>
+        ) : null
+      }
+    >
+      {/* 1. PROMPT STEP */}
+      {step === 'prompt' && (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Project Description / Natural Language Prompt
+            </label>
+            <textarea
+              rows={4}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="e.g. I want to create an online luxury clothing boutique with Next.js 15, Stripe checkout, product search, reviews, and customer orders history."
+              className="w-full rounded-xl p-3 text-sm bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] focus:outline-none focus:ring-2 focus:ring-[#635BFF] text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Preferred Project Type"
+              value={preferredType}
+              onChange={(e) => setPreferredType(e.target.value as ProjectType)}
+              options={[
+                { label: 'E-commerce Platform', value: 'ECOMMERCE' },
+                { label: 'SaaS Platform', value: 'SAAS' },
+                { label: 'Editorial / Tech Blog', value: 'BLOG' },
+                { label: 'Executive Dashboard', value: 'DASHBOARD' },
+                { label: 'Portfolio / Agency', value: 'PORTFOLIO' },
+                { label: 'Landing / Website', value: 'WEBSITE' },
+                { label: 'Custom Application', value: 'CUSTOM' },
+              ]}
+            />
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Target Workspace
+              </label>
+              <div className="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
+                {activeWorkspace?.name || 'Personal Studio'}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <span className="text-xs font-semibold text-slate-400">Quick Inspiration Templates:</span>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {[
+                { title: 'Online Clothing Store', prompt: 'I want to create an online clothing store with Next.js, Stripe checkout, variant selector, and cart.', type: 'ECOMMERCE' as const },
+                { title: 'AI Video Studio SaaS', prompt: 'Generative AI video studio platform with subscription tiers, BullMQ workers, and credit system.', type: 'SAAS' as const },
+                { title: 'Developer Tech Blog', prompt: 'Engineering blog with MDX support, syntax highlighting, author profiles, and newsletter capture.', type: 'BLOG' as const },
+                { title: 'Analytics Dashboard', prompt: 'Executive KPI dashboard with Recharts, date filters, TanStack table, and CSV export.', type: 'DASHBOARD' as const },
+              ].map((tmpl) => (
+                <button
+                  key={tmpl.title}
+                  type="button"
+                  onClick={() => {
+                    setPrompt(tmpl.prompt);
+                    setPreferredType(tmpl.type);
+                  }}
+                  className="px-2.5 py-1 rounded-lg text-xs bg-slate-100 dark:bg-[#161926] hover:bg-[#635BFF]/15 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#24293D] transition-colors"
+                >
+                  {tmpl.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. GENERATING STEP */}
+      {step === 'generating' && (
+        <div className="py-6 space-y-6">
+          <div className="flex flex-col items-center justify-center text-center space-y-3">
+            <div className="relative">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] p-0.5 animate-spin">
+                <div className="h-full w-full bg-white dark:bg-[#0E121E] rounded-2xl flex items-center justify-center">
+                  <Sparkles className="h-7 w-7 text-[#635BFF]" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-base font-bold">Synthesizing Project Blueprint</h4>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                Evaluating prompt requirements and constructing production-ready architecture...
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 max-w-md mx-auto">
+            {GENERATION_STEPS.map((s, idx) => {
+              const isDone = idx < currentGenStep;
+              const isCurrent = idx === currentGenStep;
+              return (
+                <div
+                  key={s.id}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all duration-300 ${
+                    isDone
+                      ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40 text-emerald-600 dark:text-emerald-400'
+                      : isCurrent
+                      ? 'bg-[#635BFF]/10 border-[#635BFF]/30 text-[#635BFF] font-semibold'
+                      : 'bg-slate-50 dark:bg-[#161926] border-slate-200 dark:border-[#24293D] text-slate-400 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    {s.icon}
+                    <span>{s.label}</span>
+                  </div>
+                  {isDone ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                  ) : isCurrent ? (
+                    <div className="h-2 w-2 rounded-full bg-[#635BFF] animate-ping" />
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 3. REVIEW & APPROVAL STEP */}
+      {step === 'review' && plan && (
+        <div className="space-y-5">
+          {/* Header Card */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-[#635BFF]/10 via-[#8B5CF6]/10 to-transparent border border-[#635BFF]/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge variant="indigo">{plan.type}</Badge>
+                <Badge variant="secondary">{plan.framework}</Badge>
+                {plan.backendRequirements.enabled && (
+                  <Badge variant="violet">Backend Enabled</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                {isEditing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder="Project Name"
+                      className="text-sm font-bold"
+                    />
+                    <Button size="sm" variant="default" onClick={() => setIsEditing(false)}>
+                      Done
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{plan.name}</h3>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-[#24293D] rounded text-slate-400"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-1 max-w-xl">{plan.description}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <span className="text-[11px] font-mono text-slate-400">Slug: /{customSlug || plan.slug}</span>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-1 border-b border-slate-200 dark:border-[#24293D] overflow-x-auto pb-1 text-xs">
+            {[
+              { id: 'overview' as const, label: 'Overview & Tech Stack', icon: <Cpu className="h-3.5 w-3.5" /> },
+              { id: 'pages' as const, label: `Pages (${plan.pages.length})`, icon: <FolderTree className="h-3.5 w-3.5" /> },
+              { id: 'backend' as const, label: `Backend & APIs (${plan.backendRequirements.modules.length})`, icon: <Server className="h-3.5 w-3.5" /> },
+              { id: 'database' as const, label: `Database (${plan.databaseRequirements.models.length} Models)`, icon: <Database className="h-3.5 w-3.5" /> },
+              { id: 'features' as const, label: `Features (${plan.features.length})`, icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
+              { id: 'plugins' as const, label: `Plugins & Packages`, icon: <PackageCheck className="h-3.5 w-3.5" /> },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveReviewTab(t.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                  activeReviewTab === t.id
+                    ? 'bg-[#635BFF] text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#161926]'
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab 1: Overview & Stack */}
+          {activeReviewTab === 'overview' && (
+            <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <Card className="p-3">
+                  <span className="font-semibold text-slate-400">Frontend Stack</span>
+                  <div className="mt-2 space-y-1">
+                    {plan.architecturePlan.frontendStack.map((item) => (
+                      <div key={item} className="flex items-center gap-1.5 font-medium">
+                        <Check className="h-3 w-3 text-[#635BFF]" /> {item}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+                <Card className="p-3">
+                  <span className="font-semibold text-slate-400">Backend API</span>
+                  <div className="mt-2 space-y-1">
+                    {plan.architecturePlan.backendStack.map((item) => (
+                      <div key={item} className="flex items-center gap-1.5 font-medium">
+                        <Check className="h-3 w-3 text-[#8B5CF6]" /> {item}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+                <Card className="p-3">
+                  <span className="font-semibold text-slate-400">Database & Caching</span>
+                  <div className="mt-2 space-y-1">
+                    {plan.architecturePlan.databaseStack.map((item) => (
+                      <div key={item} className="flex items-center gap-1.5 font-medium">
+                        <Check className="h-3 w-3 text-[#22D3EE]" /> {item}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              <Card className="p-3 text-xs space-y-2">
+                <span className="font-semibold text-slate-400">Architecture Summary</span>
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {plan.architecturePlan.summary}
+                </p>
+                <div className="pt-2 border-t border-slate-100 dark:border-[#24293D] flex items-center justify-between text-slate-400">
+                  <span>Deployment Target: <strong className="text-slate-700 dark:text-slate-200">{plan.architecturePlan.deploymentTarget}</strong></span>
+                  <span>Scalability: <strong className="text-slate-700 dark:text-slate-200">{plan.architecturePlan.scalabilityNotes}</strong></span>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Tab 2: Pages & Routes */}
+          {activeReviewTab === 'pages' && (
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+                <Input
+                  placeholder="Page Name (e.g. Analytics)"
+                  value={newPageName}
+                  onChange={(e) => setNewPageName(e.target.value)}
+                  className="text-xs"
+                />
+                <Input
+                  placeholder="Route Path (e.g. /analytics)"
+                  value={newPagePath}
+                  onChange={(e) => setNewPagePath(e.target.value)}
+                  className="text-xs"
+                />
+                <Button size="sm" variant="default" onClick={handleAddPage} leftIcon={<Plus className="h-3.5 w-3.5" />}>
+                  Add Route
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {plan.pages.map((p, idx) => (
+                  <Card key={p.path} className="p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 dark:text-white">{p.name}</span>
+                        {p.isProtected && <Badge variant="violet" size="sm">Protected</Badge>}
+                      </div>
+                      <button
+                        onClick={() => handleDeletePage(idx)}
+                        className="text-slate-400 hover:text-rose-500 p-1 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <p className="font-mono text-[11px] text-[#635BFF]">{p.path}</p>
+                    <p className="text-slate-500 text-[11px]">{p.description}</p>
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {p.components.map((comp) => (
+                        <span
+                          key={comp}
+                          className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#161926] text-[10px] text-slate-600 dark:text-slate-300 font-mono"
+                        >
+                          {comp}
+                        </span>
+                      ))}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: Backend & APIs */}
+          {activeReviewTab === 'backend' && (
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+              {!plan.backendRequirements.enabled ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  Backend API is disabled for this static architecture plan.
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-[#161926] text-xs">
+                    <div className="flex items-center gap-2">
+                      <Server className="h-4 w-4 text-[#635BFF]" />
+                      <span className="font-bold">{plan.backendRequirements.framework}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <span>Auth: {plan.backendRequirements.auth.type.toUpperCase()} ({plan.backendRequirements.auth.providers.join(', ')})</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {plan.backendRequirements.modules.map((mod) => (
+                      <Card key={mod.name} className="p-3 text-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 dark:text-white">{mod.name}</span>
+                          <span className="text-[11px] text-slate-400">{mod.description}</span>
+                        </div>
+                        <div className="divide-y divide-slate-100 dark:divide-[#24293D] pt-1">
+                          {mod.endpoints.map((ep) => (
+                            <div key={ep.path} className="py-1.5 flex items-center justify-between text-[11px]">
+                              <div className="flex items-center gap-2 font-mono">
+                                <Badge
+                                  size="sm"
+                                  variant={
+                                    ep.method === 'GET'
+                                      ? 'cyan'
+                                      : ep.method === 'POST'
+                                      ? 'indigo'
+                                      : ep.method === 'PUT'
+                                      ? 'violet'
+                                      : 'secondary'
+                                  }
+                                >
+                                  {ep.method}
+                                </Badge>
+                                <span>{ep.path}</span>
+                              </div>
+                              <span className="text-slate-400 text-[10px]">{ep.description}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {plan.backendRequirements.queueJobs && plan.backendRequirements.queueJobs.length > 0 && (
+                    <Card className="p-3 text-xs space-y-2">
+                      <span className="font-bold text-slate-900 dark:text-white">BullMQ Background Workers</span>
+                      <div className="divide-y divide-slate-100 dark:divide-[#24293D]">
+                        {plan.backendRequirements.queueJobs.map((job) => (
+                          <div key={job.jobName} className="py-1.5 flex items-center justify-between text-[11px]">
+                            <div className="flex items-center gap-2 font-mono">
+                              <Badge size="sm" variant="violet">Queue: {job.queue}</Badge>
+                              <span>{job.jobName}</span>
+                            </div>
+                            <span className="text-slate-400 text-[10px]">{job.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Tab 4: Database Models */}
+          {activeReviewTab === 'database' && (
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+              <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#161926] text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-[#22D3EE]" />
+                  <span className="font-bold">Database Engine: {plan.databaseRequirements.engine}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {plan.databaseRequirements.models.map((model) => (
+                  <Card key={model.name} className="p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#635BFF]">{model.name}</span>
+                      <span className="text-[10px] text-slate-400">{model.description}</span>
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-[#24293D] font-mono text-[11px]">
+                      {model.fields.map((field) => (
+                        <div key={field.name} className="py-1 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span>{field.name}</span>
+                            {field.isPrimary && <Badge size="sm" variant="indigo">PK</Badge>}
+                            {field.isUnique && <Badge size="sm" variant="cyan">UQ</Badge>}
+                          </div>
+                          <span className="text-slate-400 text-[10px]">{field.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tab 5: Features */}
+          {activeReviewTab === 'features' && (
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 gap-2.5">
+                {plan.features.map((feat) => (
+                  <Card key={feat.title} className="p-3 text-xs flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Badge size="sm" variant={feat.category === 'auth' ? 'violet' : feat.category === 'billing' ? 'indigo' : 'cyan'}>
+                          {feat.category.toUpperCase()}
+                        </Badge>
+                        <span className="font-bold text-slate-900 dark:text-white">{feat.title}</span>
+                      </div>
+                      <p className="text-slate-500 mt-1 text-[11px]">{feat.description}</p>
+                    </div>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-1" />
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tab 6: Plugins & Packages */}
+          {activeReviewTab === 'plugins' && (
+            <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+              <div>
+                <span className="text-xs font-bold text-slate-400">Plugin Recommendations:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                  {plan.pluginRecommendations.map((plugin, idx) => (
+                    <Card
+                      key={plugin.name}
+                      hoverable
+                      onClick={() => handleTogglePlugin(idx)}
+                      className={`p-3 text-xs cursor-pointer transition-all ${
+                        plugin.isRecommended ? 'border-[#635BFF] bg-[#635BFF]/5' : 'opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold">{plugin.name}</span>
+                        <Badge size="sm" variant={plugin.isRecommended ? 'indigo' : 'secondary'}>
+                          {plugin.isRecommended ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                      </div>
+                      <p className="text-slate-500 text-[11px] mt-1">{plugin.reason}</p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold text-slate-400">Required Packages:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 font-mono text-[11px]">
+                  {plan.requiredPackages.map((pkg) => (
+                    <div key={pkg.name} className="p-2 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] flex items-center justify-between">
+                      <div>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{pkg.name}</span>
+                        <p className="text-[10px] text-slate-400 font-sans">{pkg.purpose}</p>
+                      </div>
+                      <span className="text-slate-400 text-[10px]">{pkg.version || 'latest'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. APPROVING STEP */}
+      {step === 'approving' && (
+        <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="h-14 w-14 rounded-full border-4 border-[#635BFF] border-t-transparent animate-spin" />
+          <h4 className="text-base font-bold">Scaffolding Project Architecture...</h4>
+          <p className="text-xs text-slate-400 max-w-sm">
+            Writing routes, registering NestJS API modules, configuring Prisma schema, and creating project records in workspace.
+          </p>
+        </div>
+      )}
+    </Dialog>
+  );
+}

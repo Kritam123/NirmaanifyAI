@@ -138,7 +138,10 @@ model Project {
   framework        String          @default("nextjs-15")
   uiLibrary        String          @default("shadcn-ui")
   isBackendEnabled Boolean         @default(false)
+  isArchived       Boolean         @default(false)
+  status           String          @default("ACTIVE")
   projectSchema    Json            @default("{}")
+  aiPlan           Json?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   NirmaanLogo,
   NirmaanIcon,
@@ -12,7 +12,6 @@ import {
   Topbar,
   PageHeader,
   Button,
-  IconButton,
   Input,
   Select,
   Badge,
@@ -23,9 +22,7 @@ import {
   CardContent,
   CardFooter,
   Avatar,
-  Separator,
   Dialog,
-  Drawer,
   useToast,
 } from '@nirmaanify/ui';
 import {
@@ -37,20 +34,27 @@ import {
   Plus,
   ArrowRight,
   ExternalLink,
-  ChevronDown,
   Building2,
   FolderDot,
   Server,
   Zap,
   Globe,
-  Check,
-  Send,
-  Cloud,
   Database,
-  Layers,
+  Cloud,
   Palette,
+  Search,
+  Filter,
+  Archive,
+  Layers,
+  FolderPlus,
 } from 'lucide-react';
+import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../context/auth-context';
+import { AiPlannerModal } from '../components/ai-planner-modal';
+import { CreateProjectModal } from '../components/create-project-modal';
+import { EditProjectModal } from '../components/edit-project-modal';
+import { ProjectSettingsModal } from '../components/project-settings-modal';
+import { ProjectCard } from '../components/project-card';
 
 export default function PlatformDashboard() {
   const { toast } = useToast();
@@ -61,25 +65,63 @@ export default function PlatformDashboard() {
     projects,
     switchWorkspace,
     createWorkspace,
-    createProject,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'team' | 'storage' | 'brand'>('dashboard');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [isCreatingProject, setIsCreatingProject] = useState(false);
-  const [newProjectModal, setNewProjectModal] = useState(false);
+
+  // AI Planner Modal state
+  const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
+  const [aiInitialPrompt, setAiInitialPrompt] = useState('');
+  const [dashboardAiPrompt, setDashboardAiPrompt] = useState('');
+
+  // Project Modals state
+  const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
+  const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
+  const [projectSettingsModalOpen, setProjectSettingsModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<ProjectDto | null>(null);
+
+  // Workspace & Team Modals
   const [newWorkspaceModal, setNewWorkspaceModal] = useState(false);
   const [inviteModal, setInviteModal] = useState(false);
-
-  // Form states
-  const [projName, setProjName] = useState('');
-  const [projType, setProjType] = useState('SAAS');
   const [wsName, setWsName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('DEVELOPER');
 
+  // Project Filter & Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | ProjectType>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'ARCHIVED' | 'ALL'>('ACTIVE');
+
   // Storage Driver State
   const [activeStorage, setActiveStorage] = useState<'local' | 's3' | 'vercel-blob'>('local');
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => {
+      // Workspace filter
+      if (activeWorkspace && p.workspaceId && p.workspaceId !== activeWorkspace.id) {
+        // show all if personal fallback
+      }
+
+      // Status filter
+      if (statusFilter === 'ACTIVE' && p.isArchived) return false;
+      if (statusFilter === 'ARCHIVED' && !p.isArchived) return false;
+
+      // Type filter
+      if (typeFilter !== 'ALL' && p.type !== typeFilter) return false;
+
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          p.name.toLowerCase().includes(q) ||
+          p.slug.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q))
+        );
+      }
+
+      return true;
+    });
+  }, [projects, activeWorkspace, statusFilter, typeFilter, searchQuery]);
 
   const navItems = [
     {
@@ -93,7 +135,7 @@ export default function PlatformDashboard() {
       id: 'projects',
       label: 'Projects',
       icon: <Boxes className="h-4 w-4" />,
-      badge: String(projects.length),
+      badge: String(projects.filter((p) => !p.isArchived).length),
       active: activeTab === 'projects',
       onClick: () => setActiveTab('projects'),
     },
@@ -120,48 +162,20 @@ export default function PlatformDashboard() {
     },
   ];
 
-  const handleAiGenerate = async () => {
-    if (!aiPrompt.trim()) return;
-    setIsCreatingProject(true);
-    toast({
-      title: 'AI Planning Project',
-      description: `Analyzing: "${aiPrompt.slice(0, 45)}..."`,
-      type: 'info',
-    });
-
-    setTimeout(() => {
-      const generated = createProject({
-        name: aiPrompt.split(' ').slice(0, 3).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') + ' App',
-        description: aiPrompt,
-        type: 'SAAS',
-        isBackendEnabled: true,
-        framework: 'Next.js 15 App Router',
-        uiLibrary: 'shadcn/ui + Tailwind CSS',
-      });
-      setIsCreatingProject(false);
-      setAiPrompt('');
-      toast({
-        title: 'Project Created via AI!',
-        description: 'Scaffolded architecture with Next.js 15 & NestJS API.',
-        type: 'success',
-      });
-    }, 1200);
+  const handleLaunchAiPlanner = (promptText?: string) => {
+    const p = promptText !== undefined ? promptText : dashboardAiPrompt;
+    setAiInitialPrompt(p);
+    setAiPlannerModalOpen(true);
   };
 
-  const handleCreateProjectSubmit = () => {
-    if (!projName.trim()) return;
-    createProject({
-      name: projName,
-      type: projType as any,
-      isBackendEnabled: true,
-    });
-    setProjName('');
-    setNewProjectModal(false);
-    toast({
-      title: 'Project Created',
-      description: `${projName} is ready in ${activeWorkspace?.name}`,
-      type: 'success',
-    });
+  const handleOpenEdit = (project: ProjectDto) => {
+    setSelectedProject(project);
+    setEditProjectModalOpen(true);
+  };
+
+  const handleOpenSettings = (project: ProjectDto) => {
+    setSelectedProject(project);
+    setProjectSettingsModalOpen(true);
   };
 
   const handleCreateWorkspaceSubmit = () => {
@@ -229,12 +243,12 @@ export default function PlatformDashboard() {
         />
       }
     >
-      {/* 1. DASHBOARD VIEW (WEEK 9 DELIVERABLE) */}
+      {/* 1. DASHBOARD VIEW */}
       {activeTab === 'dashboard' && (
         <div className="space-y-8">
           <PageHeader
             title={`Welcome back, ${user?.name?.split(' ')[0] || 'Developer'}`}
-            description="Manage your full-stack applications, trigger AI generations, and orchestrate workspace members."
+            description="Manage your full-stack applications, generate blueprints with AI, and oversee workspace projects."
             actions={
               <div className="flex items-center gap-2.5">
                 <Button
@@ -246,18 +260,26 @@ export default function PlatformDashboard() {
                   New Workspace
                 </Button>
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
-                  leftIcon={<Plus className="h-4 w-4" />}
-                  onClick={() => setNewProjectModal(true)}
+                  leftIcon={<FolderPlus className="h-4 w-4" />}
+                  onClick={() => setCreateProjectModalOpen(true)}
                 >
                   Create Project
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  leftIcon={<Sparkles className="h-4 w-4" />}
+                  onClick={() => handleLaunchAiPlanner()}
+                >
+                  AI Project Planner
                 </Button>
               </div>
             }
           />
 
-          {/* AI Project Planning Bar */}
+          {/* AI Project Planning Bar (Week 11 & 12 Feature) */}
           <Card className="p-1.5 bg-gradient-to-r from-[#635BFF]/10 via-[#8B5CF6]/10 to-[#22D3EE]/10 border-[#635BFF]/30 shadow-lg shadow-[#635BFF]/5">
             <div className="flex flex-col sm:flex-row items-center gap-2 p-2">
               <div className="flex items-center gap-2.5 px-3 py-1.5 text-xs font-bold text-[#635BFF] dark:text-[#A5AEFD] shrink-0">
@@ -266,36 +288,39 @@ export default function PlatformDashboard() {
               </div>
               <input
                 type="text"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAiGenerate()}
-                placeholder="Describe what you want to build (e.g. AI-powered newsletter SaaS with Next.js 15, NestJS, and Stripe)..."
+                value={dashboardAiPrompt}
+                onChange={(e) => setDashboardAiPrompt(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLaunchAiPlanner()}
+                placeholder='e.g. "I want to create an online clothing store" or "AI video generation SaaS platform"...'
                 className="w-full bg-transparent border-0 text-sm focus:outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 px-2"
               />
               <Button
                 variant="default"
                 size="sm"
-                isLoading={isCreatingProject}
-                onClick={handleAiGenerate}
+                onClick={() => handleLaunchAiPlanner()}
                 leftIcon={<Zap className="h-3.5 w-3.5" />}
                 className="shrink-0 w-full sm:w-auto"
               >
-                Generate Project
+                Architect Blueprint
               </Button>
             </div>
             <div className="px-4 pb-2 pt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
-              <span>Quick templates:</span>
+              <span className="font-semibold text-slate-400">Inspiration:</span>
               {[
-                'Next.js 15 Luxury Fashion Store',
-                'AI Video Generator SaaS',
-                'Developer Docs & Tech Journal',
+                { label: '🛍️ Online Clothing Store', prompt: 'I want to create an online clothing store with Next.js, Stripe checkout, variant selector, and cart.' },
+                { label: '🎬 AI Video Generator SaaS', prompt: 'Generative AI video studio SaaS platform with subscription tiers, BullMQ workers, and credit system.' },
+                { label: '📝 Developer Docs & Tech Blog', prompt: 'Engineering blog with MDX support, syntax highlighting, author profiles, and newsletter capture.' },
+                { label: '📊 Executive Analytics Hub', prompt: 'Executive KPI dashboard with Recharts, date filters, TanStack table, and CSV export.' },
               ].map((template) => (
                 <button
-                  key={template}
-                  onClick={() => setAiPrompt(template)}
-                  className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#161926] hover:bg-[#635BFF]/20 text-slate-600 dark:text-slate-300 transition-colors"
+                  key={template.label}
+                  onClick={() => {
+                    setDashboardAiPrompt(template.prompt);
+                    handleLaunchAiPlanner(template.prompt);
+                  }}
+                  className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#161926] hover:bg-[#635BFF]/20 text-slate-600 dark:text-slate-300 transition-colors border border-slate-200 dark:border-[#24293D]"
                 >
-                  {template}
+                  {template.label}
                 </button>
               ))}
             </div>
@@ -304,9 +329,9 @@ export default function PlatformDashboard() {
           {/* Quick Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Active Projects', val: projects.length, icon: <Boxes className="h-5 w-5 text-[#635BFF]" />, sub: 'In current workspace' },
+              { label: 'Active Projects', val: projects.filter((p) => !p.isArchived).length, icon: <Boxes className="h-5 w-5 text-[#635BFF]" />, sub: `${projects.filter((p) => p.isArchived).length} Archived` },
               { label: 'Cloud Deployments', val: '2 Live', icon: <Globe className="h-5 w-5 text-[#22D3EE]" />, sub: 'Vercel & Docker' },
-              { label: 'Workspace Members', val: activeWorkspace?.isPersonal ? '1 (Personal)' : '5 Members', icon: <Users className="h-5 w-5 text-[#8B5CF6]" />, sub: 'Role: OWNER' },
+              { label: 'Workspace Members', val: activeWorkspace?.isPersonal ? '1 (Personal)' : '5 Members', icon: <Users className="h-5 w-5 text-[#8B5CF6]" />, sub: `Role: ${activeWorkspace?.role || 'OWNER'}` },
               { label: 'Storage Driver', val: activeStorage.toUpperCase(), icon: <HardDrive className="h-5 w-5 text-emerald-400" />, sub: '1-Click Switchable' },
             ].map((m) => (
               <Card key={m.label} hoverable className="p-5">
@@ -329,106 +354,145 @@ export default function PlatformDashboard() {
                 <h3 className="text-lg font-bold">Recent Projects</h3>
                 <p className="text-xs text-slate-400">Applications inside {activeWorkspace?.name}</p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setNewProjectModal(true)}
-                leftIcon={<Plus className="h-3.5 w-3.5" />}
-              >
-                New Project
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCreateProjectModalOpen(true)}
+                  leftIcon={<Plus className="h-3.5 w-3.5" />}
+                >
+                  New Project
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setActiveTab('projects')}
+                >
+                  View All ({projects.length})
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map((proj) => (
-                <Card key={proj.id} hoverable className="flex flex-col justify-between overflow-hidden">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <Badge
-                          variant={proj.type === 'SAAS' ? 'indigo' : proj.type === 'ECOMMERCE' ? 'violet' : 'cyan'}
-                          size="sm"
-                        >
-                          {proj.type}
-                        </Badge>
-                        <CardTitle className="mt-2 text-base">{proj.name}</CardTitle>
-                      </div>
-                      <div className="p-2 rounded-lg bg-slate-100 dark:bg-[#161926] text-slate-400">
-                        <FolderDot className="h-4 w-4 text-[#635BFF]" />
-                      </div>
-                    </div>
-                    <CardDescription className="line-clamp-2 mt-1">
-                      {proj.description}
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="space-y-3">
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-100 dark:border-[#24293D] space-y-1 text-xs">
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span>Frontend:</span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-200">{proj.framework}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span>Backend:</span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-200">
-                          {proj.isBackendEnabled ? 'NestJS API + PostgreSQL' : 'Static Export'}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-
-                  <CardFooter className="pt-0 flex items-center justify-between border-t border-slate-100 dark:border-[#1E2337]">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toast({ title: 'Opening Visual Studio', description: `Loaded ${proj.name}`, type: 'info' })}
-                    >
-                      Open Studio
-                    </Button>
-                    <Button
-                      variant="subtle"
-                      size="sm"
-                      rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
-                      onClick={() => toast({ title: 'Export Ready', description: `${proj.slug}.zip generated.`, type: 'success' })}
-                    >
-                      Export
-                    </Button>
-                  </CardFooter>
-                </Card>
+              {projects.filter((p) => !p.isArchived).slice(0, 6).map((proj) => (
+                <ProjectCard
+                  key={proj.id}
+                  project={proj}
+                  onEdit={handleOpenEdit}
+                  onSettings={handleOpenSettings}
+                />
               ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* 2. PROJECTS TAB */}
+      {/* 2. PROJECTS MANAGEMENT DIRECTORY (WEEK 10 DELIVERABLE) */}
       {activeTab === 'projects' && (
         <div className="space-y-6">
           <PageHeader
-            title="Projects Directory"
-            description="Manage all full-stack applications within your active workspace."
+            title="Projects Management"
+            description="Create, edit, duplicate, archive, and configure project settings across all supported architectures."
             actions={
-              <Button variant="default" onClick={() => setNewProjectModal(true)} leftIcon={<Plus className="h-4 w-4" />}>
-                Create Project
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setCreateProjectModalOpen(true)}
+                  leftIcon={<Plus className="h-4 w-4" />}
+                >
+                  Create Project
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => handleLaunchAiPlanner()}
+                  leftIcon={<Sparkles className="h-4 w-4" />}
+                >
+                  AI Project Planner
+                </Button>
+              </div>
             }
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((proj) => (
-              <Card key={proj.id} hoverable>
-                <CardHeader>
-                  <Badge variant="indigo" size="sm">{proj.type}</Badge>
-                  <CardTitle className="mt-2">{proj.name}</CardTitle>
-                  <CardDescription>{proj.description}</CardDescription>
-                </CardHeader>
-                <CardFooter>
-                  <Button variant="default" size="sm" className="w-full">
-                    Launch Studio
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+
+          {/* Filter, Search & Status Bar */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 rounded-2xl bg-slate-100/70 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+            <div className="flex items-center gap-2 flex-1 max-w-md">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search projects by name, slug or description..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-[#0E121E] border border-slate-200 dark:border-[#24293D] focus:outline-none focus:ring-2 focus:ring-[#635BFF] text-slate-900 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              {/* Status Toggle Tabs */}
+              <div className="flex items-center bg-white dark:bg-[#0E121E] p-1 rounded-xl border border-slate-200 dark:border-[#24293D]">
+                {(['ACTIVE', 'ARCHIVED', 'ALL'] as const).map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
+                      statusFilter === status
+                        ? 'bg-[#635BFF] text-white'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {status === 'ACTIVE' ? 'Active' : status === 'ARCHIVED' ? 'Archived' : 'All'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Type Filter Select */}
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-xl bg-white dark:bg-[#0E121E] border border-slate-200 dark:border-[#24293D] text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-none"
+              >
+                <option value="ALL">All Architectures</option>
+                <option value="ECOMMERCE">E-commerce</option>
+                <option value="SAAS">SaaS Platform</option>
+                <option value="WEBSITE">Website</option>
+                <option value="BLOG">Blog & News</option>
+                <option value="DASHBOARD">Dashboard</option>
+                <option value="PORTFOLIO">Portfolio</option>
+                <option value="CUSTOM">Custom App</option>
+              </select>
+            </div>
           </div>
+
+          {/* Projects Grid */}
+          {filteredProjects.length === 0 ? (
+            <Card className="p-12 text-center space-y-3">
+              <FolderDot className="h-10 w-10 text-slate-400 mx-auto" />
+              <h4 className="font-bold text-base">No projects match your filter</h4>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Try adjusting your search criteria, switching between Active/Archived, or create a new project.
+              </p>
+              <div className="pt-2 flex justify-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => { setSearchQuery(''); setTypeFilter('ALL'); setStatusFilter('ALL'); }}>
+                  Clear Filters
+                </Button>
+                <Button size="sm" variant="default" onClick={() => setCreateProjectModalOpen(true)}>
+                  Create Project
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProjects.map((proj) => (
+                <ProjectCard
+                  key={proj.id}
+                  project={proj}
+                  onEdit={handleOpenEdit}
+                  onSettings={handleOpenSettings}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -591,39 +655,44 @@ export default function PlatformDashboard() {
         </div>
       )}
 
-      {/* CREATE PROJECT MODAL */}
-      <Dialog
-        isOpen={newProjectModal}
-        onClose={() => setNewProjectModal(false)}
-        title="Create New Project"
-        description="Scaffold a new full-stack application inside this workspace."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setNewProjectModal(false)}>Cancel</Button>
-            <Button variant="default" onClick={handleCreateProjectSubmit}>Create Project</Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Project Name"
-            placeholder="e.g. AI Customer Support Bot"
-            value={projName}
-            onChange={(e) => setProjName(e.target.value)}
-          />
-          <Select
-            label="Project Architecture"
-            value={projType}
-            onChange={(e) => setProjType(e.target.value)}
-            options={[
-              { label: 'SaaS Dashboard (Next.js 15 + NestJS + PostgreSQL)', value: 'SAAS' },
-              { label: 'E-commerce Platform (Next.js + NestJS + Stripe)', value: 'ECOMMERCE' },
-              { label: 'Content Management Blog (Next.js Static)', value: 'BLOG' },
-              { label: 'Custom Full-stack App', value: 'CUSTOM' },
-            ]}
-          />
-        </div>
-      </Dialog>
+      {/* --- ALL MODALS --- */}
+
+      {/* AI PROJECT PLANNER & APPROVAL MODAL (Week 11 & 12) */}
+      <AiPlannerModal
+        isOpen={aiPlannerModalOpen}
+        onClose={() => setAiPlannerModalOpen(false)}
+        initialPrompt={aiInitialPrompt}
+      />
+
+      {/* CREATE PROJECT MODAL (Week 10) */}
+      <CreateProjectModal
+        isOpen={createProjectModalOpen}
+        onClose={() => setCreateProjectModalOpen(false)}
+      />
+
+      {/* EDIT PROJECT MODAL (Week 10) */}
+      <EditProjectModal
+        project={selectedProject}
+        isOpen={editProjectModalOpen}
+        onClose={() => {
+          setEditProjectModalOpen(false);
+          setSelectedProject(null);
+        }}
+      />
+
+      {/* PROJECT SETTINGS & DANGER ZONE MODAL (Week 10) */}
+      <ProjectSettingsModal
+        project={selectedProject}
+        isOpen={projectSettingsModalOpen}
+        onClose={() => {
+          setProjectSettingsModalOpen(false);
+          setSelectedProject(null);
+        }}
+        onEdit={() => {
+          setProjectSettingsModalOpen(false);
+          setEditProjectModalOpen(true);
+        }}
+      />
 
       {/* CREATE WORKSPACE MODAL */}
       <Dialog
