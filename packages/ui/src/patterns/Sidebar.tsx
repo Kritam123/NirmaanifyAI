@@ -20,12 +20,12 @@ export interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ items, footer, className }) => {
   return (
-    <aside className={cn('w-64 shrink-0 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col h-screen select-none', className)}>
-      <div className="h-16 px-6 flex items-center border-b border-slate-200 dark:border-[#24293D]">
+    <aside className={cn('w-64 shrink-0 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col h-screen select-none sticky top-0 overflow-hidden', className)}>
+      <div className="h-16 px-6 flex items-center border-b border-slate-200 dark:border-[#24293D] shrink-0">
         <NirmaanLogo size="sm" />
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-hidden">
         {items.map((item) => (
           <button
             key={item.id}
@@ -51,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, footer, className }) =>
       </nav>
 
       {footer && (
-        <div className="p-4 border-t border-slate-200 dark:border-[#24293D]">
+        <div className="p-4 border-t border-slate-200 dark:border-[#24293D] shrink-0">
           {footer}
         </div>
       )}
