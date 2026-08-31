@@ -12,6 +12,7 @@ import { PrismaService } from '../database/prisma.service';
 import {
   RegisterDto,
   LoginDto,
+  OAuthLoginDto,
   ForgotPasswordDto,
   ResetPasswordDto,
   VerifyEmailDto,
@@ -136,9 +137,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const isMatch = await bcrypt.compare(dto.password, userRecord.passwordHash);
-    if (!isMatch) {
-      throw new UnauthorizedException('Invalid email or password');
+    if (userRecord.passwordHash) {
+      const isMatch = await bcrypt.compare(dto.password, userRecord.passwordHash);
+      if (!isMatch) {
+        throw new UnauthorizedException('Invalid email or password');
+      }
     }
 
     const user: UserDto = {
@@ -147,6 +150,8 @@ export class AuthService {
       name: userRecord.name,
       avatarUrl: userRecord.avatarUrl,
       role: userRecord.role,
+      primaryProvider: userRecord.primaryProvider || 'CREDENTIALS',
+      socialAccounts: userRecord.socialAccounts,
       isEmailVerified: userRecord.isEmailVerified,
       isActive: userRecord.isActive,
       createdAt: userRecord.createdAt,
@@ -169,7 +174,124 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign({ sub: user.id, email: user.email });
 
-    this.logger.log(`✓ User logged in: ${email}`);
+    this.logger.log(`✓ User logged in via credentials: ${email}`);
+
+    return {
+      user,
+      accessToken,
+      activeWorkspace,
+      workspaces,
+    };
+  }
+
+  /**
+   * OAuth Social Login and Account Linking
+   * Automatically resolves same-email collisions and registers or links OAuth provider accounts.
+   */
+  async oauthLogin(dto: OAuthLoginDto): Promise<AuthResponseDto> {
+    const email = dto.email.toLowerCase().trim();
+    let userRecord = this.mockUsers.get(email);
+    let userId: string;
+
+    const socialAccount = {
+      id: `soc-${Date.now()}`,
+      userId: '',
+      provider: dto.provider,
+      providerAccountId: dto.providerAccountId,
+      email: dto.email,
+      displayName: dto.name,
+      avatarUrl: dto.avatarUrl,
+      accessToken: dto.accessToken,
+      refreshToken: dto.refreshToken,
+      expiresAt: dto.expiresAt,
+      idToken: dto.idToken,
+      profileData: dto.profileData || {},
+      lastLoginAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (userRecord) {
+      // Existing user: Link new social account and preserve existing data (resolves same-email conflict)
+      userId = userRecord.id;
+      socialAccount.userId = userId;
+      const existingSocials = userRecord.socialAccounts || [];
+      const updatedSocials = [
+        ...existingSocials.filter((s: any) => s.provider !== dto.provider),
+        socialAccount,
+      ];
+      userRecord.socialAccounts = updatedSocials;
+      userRecord.updatedAt = new Date();
+      if (dto.avatarUrl && !userRecord.avatarUrl) {
+        userRecord.avatarUrl = dto.avatarUrl;
+      }
+      this.mockUsers.set(email, userRecord);
+      this.logger.log(`✓ Linked ${dto.provider} account to existing user: ${email}`);
+    } else {
+      // New user registering via OAuth
+      userId = `usr-${Date.now()}`;
+      socialAccount.userId = userId;
+      userRecord = {
+        id: userId,
+        email,
+        name: dto.name || email.split('@')[0],
+        avatarUrl: dto.avatarUrl,
+        role: 'OWNER',
+        primaryProvider: dto.provider,
+        socialAccounts: [socialAccount],
+        isEmailVerified: true,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const personalWs: WorkspaceDto = {
+        id: `ws-${Date.now()}`,
+        name: `${userRecord.name}'s Studio`,
+        slug: `${userRecord.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal`,
+        isPersonal: true,
+        ownerId: userId,
+        role: 'OWNER',
+        projectCount: 0,
+        memberCount: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      this.mockUsers.set(email, userRecord);
+      this.mockWorkspaces.set(userId, [personalWs]);
+      this.logger.log(`✓ Registered new user via ${dto.provider} OAuth: ${email}`);
+    }
+
+    const user: UserDto = {
+      id: userRecord.id,
+      email: userRecord.email,
+      name: userRecord.name,
+      avatarUrl: userRecord.avatarUrl,
+      role: userRecord.role,
+      primaryProvider: userRecord.primaryProvider,
+      socialAccounts: userRecord.socialAccounts,
+      isEmailVerified: userRecord.isEmailVerified,
+      isActive: userRecord.isActive,
+      createdAt: userRecord.createdAt,
+      updatedAt: userRecord.updatedAt,
+    };
+
+    const workspaces = this.mockWorkspaces.get(userId) || [];
+    const activeWorkspace = workspaces[0] || {
+      id: `ws-${userId}`,
+      name: `${user.name}'s Workspace`,
+      slug: `${user.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-workspace`,
+      isPersonal: true,
+      ownerId: userId,
+      role: 'OWNER',
+      projectCount: 0,
+      memberCount: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const accessToken = this.jwtService.sign({ sub: userId, email });
 
     return {
       user,

@@ -5,6 +5,8 @@ import { ThemeProvider } from '@nirmaanify/ui';
 import { ToastProvider } from '@nirmaanify/ui';
 import { AuthProvider } from '../context/auth-context';
 
+import { NextAuthSessionProvider } from '../components/auth/NextAuthSessionProvider';
+
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700', '800'],
@@ -28,13 +30,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 antialiased font-sans transition-colors duration-200">
-        <AuthProvider>
-          <ThemeProvider defaultTheme="dark">
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </ThemeProvider>
-        </AuthProvider>
+        <NextAuthSessionProvider>
+          <AuthProvider>
+            <ThemeProvider defaultTheme="dark">
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </NextAuthSessionProvider>
       </body>
     </html>
   );

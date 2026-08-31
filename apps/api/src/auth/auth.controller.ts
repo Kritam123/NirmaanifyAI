@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import {
   RegisterDto,
   LoginDto,
+  OAuthLoginDto,
   ForgotPasswordDto,
   ResetPasswordDto,
   VerifyEmailDto,
@@ -36,6 +37,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Authenticate user with email and password' })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('oauth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Authenticate or link user via OAuth provider (Google, GitHub)' })
+  async oauthLogin(@Body() dto: OAuthLoginDto) {
+    return this.authService.oauthLogin(dto);
   }
 
   @Get('me')

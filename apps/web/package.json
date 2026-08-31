@@ -9,12 +9,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nirmaanify/api-client": "workspace:*",
     "@nirmaanify/design-tokens": "workspace:*",
     "@nirmaanify/icons": "workspace:*",
     "@nirmaanify/types": "workspace:*",
     "@nirmaanify/ui": "workspace:*",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",
+    "next-auth": "5.0.0-beta.32",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
