@@ -10,4 +10,5 @@ export * from './engine/template-generator';
 export * from './engine/code-generator';
 export * from './engine/nestjs-generator';
 export * from './engine/database-compiler';
+export * from './engine/package-plugin-engine';
 export * from './components/cms-components';

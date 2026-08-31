@@ -8,3 +8,4 @@ export * from './project-schema';
 export * from './cms';
 export * from './backend-builder';
 export * from './database-api-builder';
+export * from './package-plugin-system';

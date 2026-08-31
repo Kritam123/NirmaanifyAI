@@ -48,6 +48,7 @@ import {
   Layers,
   FolderPlus,
   Table,
+  Puzzle,
 } from 'lucide-react';
 import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../context/auth-context';
@@ -59,6 +60,7 @@ import { VisualStudioModal } from '../components/studio/visual-studio-modal';
 import { CmsDashboard } from '../components/cms/cms-dashboard';
 import { BackendDashboard } from '../components/backend/backend-dashboard';
 import { DatabaseApiDashboard } from '../components/database-builder/database-api-dashboard';
+import { PackagesPluginsDashboard } from '../components/packages-plugins/packages-plugins-dashboard';
 import { ProjectCard } from '../components/project-card';
 
 export default function PlatformDashboard() {
@@ -72,7 +74,7 @@ export default function PlatformDashboard() {
     createWorkspace,
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'team' | 'storage' | 'brand'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'plugins' | 'team' | 'storage' | 'brand'>('dashboard');
 
   // AI Planner Modal state
   const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
@@ -165,6 +167,13 @@ export default function PlatformDashboard() {
       icon: <Table className="h-4 w-4" />,
       active: activeTab === 'database-builder',
       onClick: () => setActiveTab('database-builder'),
+    },
+    {
+      id: 'plugins',
+      label: 'Packages & Plugins',
+      icon: <Puzzle className="h-4 w-4" />,
+      active: activeTab === 'plugins',
+      onClick: () => setActiveTab('plugins'),
     },
     {
       id: 'team',
@@ -554,7 +563,15 @@ export default function PlatformDashboard() {
         />
       )}
 
-      {/* 6. TEAM & WORKSPACES TAB */}
+      {/* 6. PACKAGE LIBRARY & PLUGIN ECOSYSTEM TAB (Phase 10) */}
+      {activeTab === 'plugins' && (
+        <PackagesPluginsDashboard
+          projects={projects}
+          activeProjectId={selectedProject?.id || projects[0]?.id}
+        />
+      )}
+
+      {/* 7. TEAM & WORKSPACES TAB */}
       {activeTab === 'team' && (
         <div className="space-y-8">
           <PageHeader

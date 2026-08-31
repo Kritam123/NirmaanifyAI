@@ -10,33 +10,24 @@
 
 Users can choose libraries.
 
-Examples:
+### [x] UI
+- shadcn/ui (Radix UI Primitives)
+- Material UI (MUI Core)
+- Tailwind Variants
 
-### UI
+### [x] Animation
+- Framer Motion (Motion)
+- GSAP (GreenSock)
 
-```text
-shadcn/ui
-Material UI
-Custom Components
-```
+### [x] Forms & Validation
+- React Hook Form
+- Zod Type Validator
 
-### Animation
+### [x] State & Cache
+- TanStack Query (React Query)
+- Zustand
 
-```text
-Framer Motion
-GSAP
-Motion One
-```
-
-### Forms
-
-```text
-React Hook Form
-Formik
-```
-
-Architecture:
-
+### [x] Architecture:
 ```text
 PROJECT
    ↓
@@ -47,60 +38,34 @@ DEPENDENCY MANAGER
 PROJECT PACKAGE.JSON
 ```
 
-Implement compatibility checks.
-
+### [x] Compatibility checks:
 ```text
-Package Selected
-      ↓
-Version Check
-      ↓
-Framework Check
-      ↓
-Conflict Check
-      ↓
-Install
+Package Selected → Version Check → Framework Check → Conflict Check → Install
 ```
 
 ---
 
 ## WEEK 31 — PLUGIN SDK AND MARKETPLACE
 
-Create:
+### [x] Core Specifications:
+- Plugin Manifest (`PluginManifest`)
+- Plugin Permissions (`PluginPermission`)
+- Plugin API & Lifecycle (`INSTALLED`, `ACTIVE`, `INACTIVE`)
+- Plugin Sandbox Strategy
 
-```text
-Plugin Manifest
-Plugin Permissions
-Plugin API
-Plugin Lifecycle
-Plugin Sandbox Strategy
-```
-
-Categories:
-
-```text
-UI
-Animation
-Payments
-Authentication
-Analytics
-SEO
-Forms
-CMS
-Deployment
-```
-
-Plugin structure:
-
-```text
-plugin.json
-frontend/
-backend/
-generator/
-configuration/
-```
+### [x] Supported Categories (9):
+- UI
+- Animation
+- Payments (Stripe Checkout)
+- Authentication (Clerk / NextAuth)
+- Analytics (PostHog)
+- SEO (AI SEO & OpenGraph)
+- Forms
+- CMS
+- Deployment (Vercel & AWS)
 
 ### Deliverable
 
 ```text
-Plugin and Package Ecosystem Foundation
+[x] Plugin and Package Ecosystem Foundation
 ```
