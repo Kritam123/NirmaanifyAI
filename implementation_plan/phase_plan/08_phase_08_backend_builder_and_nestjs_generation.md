@@ -47,10 +47,10 @@ Environment
 Implement:
 
 ```text
-[ ] Enable backend
-[ ] Disable backend
-[ ] Backend settings
-[ ] Module list
+[x] Enable backend
+[x] Disable backend
+[x] Backend settings
+[x] Module list
 ```
 
 ---

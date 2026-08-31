@@ -147,9 +147,57 @@ model Project {
 
   workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members          ProjectMember[]
+  cmsCollections   CmsCollection[]
+  cmsEntries       CmsEntry[]
 
   @@unique([workspaceId, slug])
   @@map("projects")
+}
+
+enum CmsEntryStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ARCHIVED
+}
+
+model CmsCollection {
+  id          String     @id @default(uuid())
+  projectId   String
+  name        String
+  slug        String
+  description String?
+  icon        String?
+  fields      Json       @default("[]")
+  isSystem    Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  entries     CmsEntry[]
+
+  @@unique([projectId, slug])
+  @@map("cms_collections")
+}
+
+model CmsEntry {
+  id                 String         @id @default(uuid())
+  projectId          String
+  collectionId       String
+  slug               String
+  status             CmsEntryStatus @default(DRAFT)
+  data               Json           @default("{}")
+  scheduledPublishAt DateTime?
+  publishedAt        DateTime?
+  authorId           String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  project            Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  collection         CmsCollection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, slug])
+  @@map("cms_entries")
 }
 
 model ProjectMember {

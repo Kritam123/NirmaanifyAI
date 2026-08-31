@@ -55,6 +55,8 @@ import { CreateProjectModal } from '../components/create-project-modal';
 import { EditProjectModal } from '../components/edit-project-modal';
 import { ProjectSettingsModal } from '../components/project-settings-modal';
 import { VisualStudioModal } from '../components/studio/visual-studio-modal';
+import { CmsDashboard } from '../components/cms/cms-dashboard';
+import { BackendDashboard } from '../components/backend/backend-dashboard';
 import { ProjectCard } from '../components/project-card';
 
 export default function PlatformDashboard() {
@@ -68,7 +70,7 @@ export default function PlatformDashboard() {
     createWorkspace,
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'team' | 'storage' | 'brand'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'team' | 'storage' | 'brand'>('dashboard');
 
   // AI Planner Modal state
   const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
@@ -140,6 +142,20 @@ export default function PlatformDashboard() {
       badge: String(projects.filter((p) => !p.isArchived).length),
       active: activeTab === 'projects',
       onClick: () => setActiveTab('projects'),
+    },
+    {
+      id: 'cms',
+      label: 'CMS Collections',
+      icon: <Database className="h-4 w-4" />,
+      active: activeTab === 'cms',
+      onClick: () => setActiveTab('cms'),
+    },
+    {
+      id: 'backend',
+      label: 'Backend & NestJS',
+      icon: <Server className="h-4 w-4" />,
+      active: activeTab === 'backend',
+      onClick: () => setActiveTab('backend'),
     },
     {
       id: 'team',
@@ -505,7 +521,23 @@ export default function PlatformDashboard() {
         </div>
       )}
 
-      {/* 3. TEAM & WORKSPACES TAB */}
+      {/* 3. DYNAMIC CMS & HEADLESS CONTENT MANAGEMENT TAB (Phase 7) */}
+      {activeTab === 'cms' && (
+        <CmsDashboard
+          projects={projects}
+          activeProjectId={selectedProject?.id || projects[0]?.id}
+        />
+      )}
+
+      {/* 4. BACKEND BUILDER & NESTJS GENERATION TAB (Phase 8) */}
+      {activeTab === 'backend' && (
+        <BackendDashboard
+          projects={projects}
+          activeProjectId={selectedProject?.id || projects[0]?.id}
+        />
+      )}
+
+      {/* 5. TEAM & WORKSPACES TAB */}
       {activeTab === 'team' && (
         <div className="space-y-8">
           <PageHeader

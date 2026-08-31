@@ -32,6 +32,7 @@ import {
 import { ProductCardDefinition } from './components/ecommerce-components';
 import { FormDefinition, InputDefinition, TextareaDefinition } from './components/form-components';
 import { MetricCardDefinition } from './components/dashboard-components';
+import { CollectionListDefinition, CollectionDetailDefinition } from './components/cms-components';
 
 // ==========================================
 // MASTER COMPONENT REGISTRY MAP
@@ -63,6 +64,10 @@ export const COMPONENT_REGISTRY: Record<string, ComponentDefinition<any>> = {
 
   // E-commerce
   'product-card': ProductCardDefinition,
+
+  // CMS Dynamic Collections
+  'collection-list': CollectionListDefinition,
+  'collection-detail': CollectionDetailDefinition,
 
   // Forms
   form: FormDefinition,

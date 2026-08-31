@@ -3,9 +3,11 @@
   "compilerOptions": {
     "outDir": "./dist",
     "baseUrl": "./",
+    "jsx": "react-jsx",
     "paths": {
       "@nirmaanify/database": ["../../packages/database/src/index.ts"],
-      "@nirmaanify/types": ["../../packages/types/src/index.ts"]
+      "@nirmaanify/types": ["../../packages/types/src/index.ts"],
+      "@nirmaanify/component-registry": ["../../packages/component-registry/src/index.ts"]
     }
   },
   "include": ["src/**/*"]

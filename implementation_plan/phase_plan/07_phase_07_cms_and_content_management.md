@@ -50,13 +50,13 @@ JSON
 Build:
 
 ```text
-[ ] Content list
-[ ] Create content
-[ ] Edit content
-[ ] Delete content
-[ ] Draft
-[ ] Publish
-[ ] Scheduled publishing
+[x] Content list
+[x] Create content
+[x] Edit content
+[x] Delete content
+[x] Draft
+[x] Publish
+[x] Scheduled publishing
 ```
 
 ---

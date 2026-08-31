@@ -175,6 +175,23 @@ ${childIndent}<h3 className="text-2xl font-black">${val}</h3>
 ${indent}</Card>`;
       }
 
+      case 'collection-list': {
+        const slug = node.props.collectionSlug || 'posts';
+        const cols = node.props.columns || 3;
+        return `${indent}{/* CMS Dynamic Collection: ${slug} */}
+${indent}<div className="w-full grid grid-cols-1 md:grid-cols-${cols} gap-6">
+${childIndent}{/* Bound dynamically to /api/cms/public/:projectSlug/${slug} */}
+${indent}</div>`;
+      }
+
+      case 'collection-detail': {
+        const slug = node.props.collectionSlug || 'posts';
+        return `${indent}{/* CMS Single Record Detail Page: ${slug} */}
+${indent}<article className="max-w-4xl mx-auto py-10 px-4 space-y-6">
+${childIndent}<h1 className="text-4xl font-black tracking-tight">Dynamic CMS Entry</h1>
+${indent}</article>`;
+      }
+
       default: {
         return `${indent}<div className="p-4 border rounded-xl" data-type="${node.type}">${childrenJsx}</div>`;
       }

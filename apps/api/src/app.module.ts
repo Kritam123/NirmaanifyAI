@@ -7,6 +7,8 @@ import { StorageModule } from './storage/storage.module';
 import { AuthModule } from './auth/auth.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 import { ProjectsModule } from './projects/projects.module';
+import { CmsModule } from './cms/cms.module';
+import { BackendBuilderModule } from './backend-builder/backend-builder.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -27,6 +29,8 @@ import { validateEnv } from './config/env.validation';
     AuthModule,
     WorkspacesModule,
     ProjectsModule,
+    CmsModule,
+    BackendBuilderModule,
   ],
 })
 export class AppModule {}
