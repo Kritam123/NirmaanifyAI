@@ -1,7 +1,8 @@
 export const typographyTokens = {
   fontFamilies: {
-    display: 'var(--font-display, "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
-    ui: 'var(--font-ui, "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
+    poppins: 'var(--font-poppins, "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
+    display: 'var(--font-display, "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
+    ui: 'var(--font-ui, "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
     code: 'var(--font-code, "Geist Mono", "JetBrains Mono", monospace)',
   },
   fontSizes: {

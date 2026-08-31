@@ -226,16 +226,16 @@ export default function DesignSystemShowcase() {
           <Card>
             <CardHeader>
               <CardTitle>Typography System</CardTitle>
-              <CardDescription>Geist (Display) • Inter (UI) • Geist Mono (Code)</CardDescription>
+              <CardDescription>Poppins (Display & UI) • Geist Mono (Code)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-4 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                <p className="text-xs font-mono text-slate-400 mb-1">Display (Geist 36px Bold)</p>
-                <h1 className="text-3xl font-extrabold tracking-tight">Imagine. Build. Launch.</h1>
+                <p className="text-xs font-mono text-slate-400 mb-1">Display Heading (Poppins 30px SemiBold)</p>
+                <h1 className="text-3xl font-semibold tracking-tight font-poppins">Imagine. Build. Launch.</h1>
               </div>
               <div className="p-4 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-                <p className="text-xs font-mono text-slate-400 mb-1">Application UI (Inter 14px Medium)</p>
-                <p className="text-sm">Nirmaanify AI empowers developers to visually design, manage CMS records, generate NestJS backends, and deploy full-stack applications with deterministic precision.</p>
+                <p className="text-xs font-mono text-slate-400 mb-1">Application UI (Poppins 14px Regular)</p>
+                <p className="text-sm font-poppins">Nirmaanify AI empowers developers to visually design, manage CMS records, generate NestJS backends, and deploy full-stack applications with deterministic precision.</p>
               </div>
               <div className="p-4 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
                 <p className="text-xs font-mono text-slate-400 mb-1">Code & Schema (Geist Mono 13px)</p>
@@ -338,17 +338,32 @@ export default function DesignSystemShowcase() {
             <Card>
               <CardHeader>
                 <CardTitle>4. Badge, Avatar, Skeleton & Separator</CardTitle>
-                <CardDescription>Status indicators, media and placeholders</CardDescription>
+                <CardDescription>Status indicators, sizes, media and placeholders (Poppins font)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="indigo" dot>Active Platform</Badge>
-                  <Badge variant="success">Deployed</Badge>
-                  <Badge variant="warning">Building</Badge>
-                  <Badge variant="destructive">Error</Badge>
-                  <Badge variant="violet">AI Agent</Badge>
-                  <Badge variant="cyan">Launch Ready</Badge>
+                <div>
+                  <p className="text-xs text-slate-400 mb-2">Variants (Medium size)</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="indigo" dot>Active Platform</Badge>
+                    <Badge variant="success" dot>Deployed</Badge>
+                    <Badge variant="warning" dot>Building</Badge>
+                    <Badge variant="destructive" dot>Error</Badge>
+                    <Badge variant="violet">AI Agent</Badge>
+                    <Badge variant="cyan">Launch Ready</Badge>
+                    <Badge variant="secondary">Secondary</Badge>
+                    <Badge variant="outline">Outline</Badge>
+                  </div>
                 </div>
+
+                <div>
+                  <p className="text-xs text-slate-400 mb-2">Sizing Scale & Padding</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Badge size="sm" variant="indigo" dot>Small (px-2.5 py-0.5)</Badge>
+                    <Badge size="md" variant="indigo" dot>Medium (px-3 py-1)</Badge>
+                    <Badge size="lg" variant="indigo" dot>Large (px-3.5 py-1.5)</Badge>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-4">
                   <Avatar fallback="NL" size="lg" status="online" />
                   <Avatar fallback="AI" size="md" status="busy" />

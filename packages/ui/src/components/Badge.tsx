@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../utils/cn';
 
 export const badgeVariants = cva(
-  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+  'inline-flex items-center rounded-full font-poppins font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
   {
     variants: {
       variant: {
@@ -18,9 +18,9 @@ export const badgeVariants = cva(
         cyan: 'bg-[#22D3EE]/15 text-cyan-700 dark:text-[#67E8F9] border border-[#22D3EE]/30',
       },
       size: {
-        sm: 'px-2 py-0.2 text-[11px]',
-        md: 'px-2.5 py-0.5 text-xs',
-        lg: 'px-3 py-1 text-sm',
+        sm: 'px-2.5 py-0.5 text-[11px] gap-1 leading-4',
+        md: 'px-3 py-1 text-xs gap-1.5 leading-4',
+        lg: 'px-3.5 py-1.5 text-sm gap-2 leading-5',
       },
     },
     defaultVariants: {
@@ -39,7 +39,7 @@ export interface BadgeProps
 export const Badge: React.FC<BadgeProps> = ({ className, variant, size, dot, children, ...props }) => {
   return (
     <div className={cn(badgeVariants({ variant, size }), className)} {...props}>
-      {dot && <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+      {dot && <span className="h-1.5 w-1.5 rounded-full bg-current shrink-0" />}
       {children}
     </div>
   );
