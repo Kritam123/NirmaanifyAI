@@ -11,40 +11,10 @@
 Create:
 
 ```text
-Data Models
-```
-
-Example:
-
-```text
-Product
-
-name
-price
-description
-categoryId
-stock
-createdAt
-```
-
-Support:
-
-```text
-String
-Number
-Boolean
-Date
-Enum
-JSON
-Relation
-```
-
-Start with table configuration first.
-
-Later add:
-
-```text
-Visual ER Diagram
+[x] Data Models (Custom Tables & Schemas)
+[x] Supported Types (String, Number, Boolean, Date, Enum, JSON, Relation)
+[x] Table Configuration Console
+[x] Visual ER Diagram (Entity-Relationship Visualizer)
 ```
 
 ---
@@ -54,25 +24,25 @@ Visual ER Diagram
 Generate:
 
 ```text
-GET
-POST
-PATCH
-DELETE
+[x] GET (List & Get One)
+[x] POST (Create)
+[x] PATCH (Update)
+[x] DELETE (Delete)
 ```
 
 Allow:
 
 ```text
-Authentication
-Permissions
-Validation
-Pagination
-Filtering
-Sorting
+[x] Authentication
+[x] Permissions (Roles)
+[x] Validation
+[x] Pagination
+[x] Filtering
+[x] Sorting
 ```
 
 ### Deliverable
 
 ```text
-Visual Data and API Builder
+[x] Visual Data and API Builder
 ```

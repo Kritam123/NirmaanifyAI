@@ -9,6 +9,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
 import { ProjectsModule } from './projects/projects.module';
 import { CmsModule } from './cms/cms.module';
 import { BackendBuilderModule } from './backend-builder/backend-builder.module';
+import { DatabaseBuilderModule } from './database-builder/database-builder.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -31,6 +32,7 @@ import { validateEnv } from './config/env.validation';
     ProjectsModule,
     CmsModule,
     BackendBuilderModule,
+    DatabaseBuilderModule,
   ],
 })
 export class AppModule {}

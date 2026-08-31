@@ -9,4 +9,5 @@ export * from './engine/validation-engine';
 export * from './engine/template-generator';
 export * from './engine/code-generator';
 export * from './engine/nestjs-generator';
+export * from './engine/database-compiler';
 export * from './components/cms-components';
