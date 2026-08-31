@@ -11,3 +11,4 @@ export * from './database-api-builder';
 export * from './package-plugin-system';
 export * from './agent-orchestration';
 export * from './deployment-export';
+export * from './system-audit-testing';

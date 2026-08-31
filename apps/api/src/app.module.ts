@@ -13,6 +13,7 @@ import { DatabaseBuilderModule } from './database-builder/database-builder.modul
 import { PluginsManagerModule } from './plugins-manager/plugins-manager.module';
 import { AgentOrchestratorModule } from './agent-orchestrator/agent-orchestrator.module';
 import { DeploymentEngineModule } from './deployment-engine/deployment-engine.module';
+import { TestingAuditModule } from './testing-audit/testing-audit.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -39,6 +40,7 @@ import { validateEnv } from './config/env.validation';
     PluginsManagerModule,
     AgentOrchestratorModule,
     DeploymentEngineModule,
+    TestingAuditModule,
   ],
 })
 export class AppModule {}

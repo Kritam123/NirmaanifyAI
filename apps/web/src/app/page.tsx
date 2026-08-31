@@ -51,6 +51,7 @@ import {
   Puzzle,
   Brain,
   Rocket,
+  Award,
 } from 'lucide-react';
 import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../context/auth-context';
@@ -65,6 +66,7 @@ import { DatabaseApiDashboard } from '../components/database-builder/database-ap
 import { PackagesPluginsDashboard } from '../components/packages-plugins/packages-plugins-dashboard';
 import { AiOrchestratorModal } from '../components/orchestrator/ai-orchestrator-modal';
 import { DeploymentDashboard } from '../components/deployment/deployment-dashboard';
+import { MvpLaunchDashboard } from '../components/launch/mvp-launch-dashboard';
 import { ProjectCard } from '../components/project-card';
 
 export default function PlatformDashboard() {
@@ -78,7 +80,7 @@ export default function PlatformDashboard() {
     createWorkspace,
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'plugins' | 'deploy' | 'team' | 'storage' | 'brand'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'plugins' | 'deploy' | 'launch' | 'team' | 'storage' | 'brand'>('dashboard');
 
   // AI Planner & Multi-Agent Orchestrator Modal state
   const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
@@ -186,6 +188,13 @@ export default function PlatformDashboard() {
       icon: <Rocket className="h-4 w-4" />,
       active: activeTab === 'deploy',
       onClick: () => setActiveTab('deploy'),
+    },
+    {
+      id: 'launch',
+      label: 'MVP Release & QA',
+      icon: <Award className="h-4 w-4" />,
+      active: activeTab === 'launch',
+      onClick: () => setActiveTab('launch'),
     },
     {
       id: 'team',
@@ -599,7 +608,15 @@ export default function PlatformDashboard() {
         />
       )}
 
-      {/* 8. TEAM & WORKSPACES TAB */}
+      {/* 8. TESTING, SECURITY & MVP LAUNCH TAB (Phase 13) */}
+      {activeTab === 'launch' && (
+        <MvpLaunchDashboard
+          projects={projects}
+          activeProjectId={selectedProject?.id || projects[0]?.id}
+        />
+      )}
+
+      {/* 9. TEAM & WORKSPACES TAB */}
       {activeTab === 'team' && (
         <div className="space-y-8">
           <PageHeader
