@@ -59,6 +59,8 @@ import {
 } from '@nirmaanify/component-registry';
 import { PluginConfigModal } from './plugin-config-modal';
 
+import { pluginsApi } from '../../core/api';
+
 interface PackagesPluginsDashboardProps {
   projects: ProjectDto[];
   activeProjectId?: string;
@@ -116,13 +118,8 @@ export function PackagesPluginsDashboard({ projects, activeProjectId }: Packages
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem('auth_token');
-        const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/packages-plugins`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
+        const data = await pluginsApi.getEcosystem(activeProject.id);
+        if (data) {
           setEcosystemData(data);
         }
       } catch (err) {
@@ -139,29 +136,13 @@ export function PackagesPluginsDashboard({ projects, activeProjectId }: Packages
   const handleInstallPackage = async (pkg: PackageDefinition) => {
     if (!activeProject) return;
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/packages/install`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          npmPackage: pkg.npmPackage,
-          version: pkg.version,
-          category: pkg.category,
-        }),
+      const updated = await pluginsApi.installPackage(activeProject.id, pkg);
+      setEcosystemData(updated);
+      toast({
+        title: 'Package Installed! 📦',
+        description: `Added "${pkg.npmPackage}@${pkg.version}" to project dependencies.`,
+        type: 'success',
       });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setEcosystemData(updated);
-        toast({
-          title: 'Package Installed! 📦',
-          description: `Added "${pkg.npmPackage}@${pkg.version}" to project dependencies.`,
-          type: 'success',
-        });
-      }
     } catch {
       toast({ title: 'Install Failed', description: 'Could not install package.', type: 'error' });
     }
@@ -171,18 +152,9 @@ export function PackagesPluginsDashboard({ projects, activeProjectId }: Packages
   const handleUninstallPackage = async (npmPackage: string) => {
     if (!activeProject) return;
     try {
-      const token = localStorage.getItem('auth_token');
-      const encoded = encodeURIComponent(npmPackage);
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/packages/${encoded}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setEcosystemData(updated);
-        toast({ title: 'Package Removed', description: `Removed "${npmPackage}".`, type: 'info' });
-      }
+      const updated = await pluginsApi.uninstallPackage(activeProject.id, npmPackage);
+      setEcosystemData(updated);
+      toast({ title: 'Package Removed', description: `Removed "${npmPackage}".`, type: 'info' });
     } catch {
       toast({ title: 'Error', description: 'Could not uninstall package.', type: 'error' });
     }
@@ -192,25 +164,13 @@ export function PackagesPluginsDashboard({ projects, activeProjectId }: Packages
   const handleInstallPlugin = async (manifest: PluginManifest) => {
     if (!activeProject) return;
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/plugins/install`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ pluginId: manifest.id }),
+      const updated = await pluginsApi.installPlugin(activeProject.id, manifest);
+      setEcosystemData(updated);
+      toast({
+        title: 'Plugin Activated! 🧩',
+        description: `Installed "${manifest.name}" into project sandbox.`,
+        type: 'success',
       });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setEcosystemData(updated);
-        toast({
-          title: 'Plugin Activated! 🧩',
-          description: `Installed "${manifest.name}" into project sandbox.`,
-          type: 'success',
-        });
-      }
     } catch {
       toast({ title: 'Plugin Error', description: 'Could not install plugin.', type: 'error' });
     }
@@ -221,20 +181,8 @@ export function PackagesPluginsDashboard({ projects, activeProjectId }: Packages
     if (!activeProject) return;
     const newStatus = plugin.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/plugins/${plugin.pluginId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setEcosystemData(updated);
-      }
+      const updated = await pluginsApi.togglePlugin(activeProject.id, plugin.pluginId, newStatus);
+      setEcosystemData(updated);
     } catch {
       toast({ title: 'Error', description: 'Could not toggle plugin status.', type: 'error' });
     }
@@ -243,19 +191,11 @@ export function PackagesPluginsDashboard({ projects, activeProjectId }: Packages
   // Save Plugin Config
   const handleSavePluginConfig = async (config: Record<string, any>) => {
     if (!selectedPluginToConfig || !activeProject) return;
-    const token = localStorage.getItem('auth_token');
-    const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/plugins/${selectedPluginToConfig.pluginId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ config }),
-    });
-
-    if (res.ok) {
-      const updated = await res.json();
+    try {
+      const updated = await pluginsApi.configurePlugin(activeProject.id, selectedPluginToConfig.pluginId, config);
       setEcosystemData(updated);
+    } catch {
+      // ignore
     }
   };
 
@@ -264,19 +204,11 @@ export function PackagesPluginsDashboard({ projects, activeProjectId }: Packages
     if (!confirm('Are you sure you want to remove this plugin?')) return;
     if (!activeProject) return;
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/plugins/${pluginId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setEcosystemData(updated);
-        toast({ title: 'Plugin Removed', description: 'Plugin uninstalled from project.', type: 'info' });
-      }
+      const updated = await pluginsApi.uninstallPlugin(activeProject.id, pluginId);
+      setEcosystemData(updated);
+      toast({ title: 'Plugin Removed', description: 'Plugin uninstalled from project.', type: 'info' });
     } catch {
-      toast({ title: 'Error', description: 'Could not uninstall plugin.', type: 'error' });
+      toast({ title: 'Error', description: 'Could not remove plugin.', type: 'error' });
     }
   };
 

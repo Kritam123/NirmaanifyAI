@@ -17,12 +17,14 @@
     "@nirmaanify/icons": "workspace:*",
     "@nirmaanify/types": "workspace:*",
     "@nirmaanify/ui": "workspace:*",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/jszip": "^3.4.1",
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

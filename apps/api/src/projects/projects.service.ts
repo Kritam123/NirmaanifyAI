@@ -13,8 +13,8 @@ import { PrismaService } from '../database/prisma.service';
 export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
 
-  // In-memory backing fallback when DB is connecting or in dev
-  private projects: ProjectDto[] = [
+  // In-memory fallback initial projects
+  private memoryProjects: ProjectDto[] = [
     {
       id: 'proj-ecom-001',
       name: 'Fashion Hub Store',
@@ -76,55 +76,105 @@ export class ProjectsService {
 
   constructor(
     private readonly aiPlannerService: AiPlannerService,
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaService
   ) {}
 
   async listProjects(
     workspaceId?: string,
     isArchived?: boolean,
     search?: string,
-    type?: ProjectType,
+    type?: ProjectType
   ): Promise<ProjectDto[]> {
-    let result = [...this.projects];
+    try {
+      // 1. Try Prisma Database Query
+      const where: any = {};
+      if (workspaceId) where.workspaceId = workspaceId;
+      if (isArchived !== undefined) where.isArchived = isArchived;
+      if (type) where.type = type;
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { slug: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ];
+      }
 
-    if (workspaceId) {
-      result = result.filter((p) => p.workspaceId === workspaceId);
+      const dbProjects = await this.prisma.project.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      if (dbProjects.length > 0) {
+        return dbProjects.map((p) => this.mapDbProject(p));
+      }
+    } catch (err: any) {
+      this.logger.warn(`Prisma listProjects fallback to memory: ${err.message}`);
     }
 
-    if (isArchived !== undefined) {
-      result = result.filter((p) => Boolean(p.isArchived) === isArchived);
-    }
-
-    if (type) {
-      result = result.filter((p) => p.type === type);
-    }
-
+    // 2. Memory Fallback
+    let result = [...this.memoryProjects];
+    if (workspaceId) result = result.filter((p) => p.workspaceId === workspaceId);
+    if (isArchived !== undefined) result = result.filter((p) => Boolean(p.isArchived) === isArchived);
+    if (type) result = result.filter((p) => p.type === type);
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.slug.toLowerCase().includes(q) ||
-          (p.description && p.description.toLowerCase().includes(q)),
+          (p.description && p.description.toLowerCase().includes(q))
       );
     }
-
     return result;
   }
 
   async getProject(id: string): Promise<ProjectDto> {
-    const project = this.projects.find((p) => p.id === id);
-    if (!project) {
-      throw new NotFoundException(`Project with ID ${id} not found`);
+    try {
+      const dbProject = await this.prisma.project.findUnique({ where: { id } });
+      if (dbProject) return this.mapDbProject(dbProject);
+    } catch {
+      // Fallback
     }
+
+    const project = this.memoryProjects.find((p) => p.id === id);
+    if (!project) throw new NotFoundException(`Project with ID ${id} not found`);
     return project;
   }
 
   async createProject(data: Partial<ProjectDto>): Promise<ProjectDto> {
-    const newProject: ProjectDto = {
+    const slug = (data.slug || data.name || 'untitled')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    try {
+      const dbProject = await this.prisma.project.create({
+        data: {
+          name: data.name || 'Untitled Project',
+          slug: `${slug}-${Math.floor(Math.random() * 1000)}`,
+          description: data.description || 'Generated with Nirmaanify AI',
+          type: (data.type || 'WEBSITE') as any,
+          workspaceId: data.workspaceId || 'ws-personal-001',
+          framework: data.framework || 'Next.js 15 App Router',
+          uiLibrary: data.uiLibrary || 'shadcn/ui + Tailwind CSS',
+          isBackendEnabled: Boolean(data.isBackendEnabled),
+          isArchived: false,
+          status: 'ACTIVE',
+          projectSchema: (data.projectSchema || { pages: ['/'] }) as any,
+          aiPlan: data.aiPlan ? (data.aiPlan as any) : undefined,
+        },
+      });
+
+      this.logger.log(`✓ [Prisma DB] Created project: "${dbProject.name}" (${dbProject.id})`);
+      return this.mapDbProject(dbProject);
+    } catch (err: any) {
+      this.logger.warn(`Prisma createProject fallback to memory: ${err.message}`);
+    }
+
+    const fallback: ProjectDto = {
       id: data.id || `proj-${Date.now()}`,
       name: data.name || 'Untitled Project',
-      slug: data.slug || (data.name || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      slug: data.slug || `${slug}-${Math.floor(Math.random() * 1000)}`,
       description: data.description || 'Generated with Nirmaanify AI',
       type: data.type || 'WEBSITE',
       workspaceId: data.workspaceId || 'ws-personal-001',
@@ -139,54 +189,74 @@ export class ProjectsService {
       updatedAt: new Date().toISOString(),
     };
 
-    this.projects.unshift(newProject);
-    this.logger.log(`✓ Project created: "${newProject.name}" (${newProject.id})`);
-    return newProject;
+    this.memoryProjects.unshift(fallback);
+    return fallback;
   }
 
   async updateProject(id: string, data: Partial<ProjectDto>): Promise<ProjectDto> {
-    const index = this.projects.findIndex((p) => p.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`Project with ID ${id} not found`);
+    try {
+      const dbProject = await this.prisma.project.update({
+        where: { id },
+        data: {
+          name: data.name,
+          slug: data.slug ? data.slug.toLowerCase().replace(/[^a-z0-9]+/g, '-') : undefined,
+          description: data.description,
+          type: data.type as any,
+          framework: data.framework,
+          uiLibrary: data.uiLibrary,
+          isBackendEnabled: data.isBackendEnabled,
+          isArchived: data.isArchived,
+          status: data.status,
+          projectSchema: data.projectSchema as any,
+          aiPlan: data.aiPlan as any,
+        },
+      });
+      this.logger.log(`✓ [Prisma DB] Updated project: "${dbProject.name}" (${id})`);
+      return this.mapDbProject(dbProject);
+    } catch (err: any) {
+      this.logger.warn(`Prisma updateProject fallback to memory: ${err.message}`);
     }
 
+    const idx = this.memoryProjects.findIndex((p) => p.id === id);
+    if (idx === -1) throw new NotFoundException(`Project with ID ${id} not found`);
+
     const updated: ProjectDto = {
-      ...this.projects[index],
+      ...this.memoryProjects[idx],
       ...data,
-      id, // Preserve ID
+      id,
       updatedAt: new Date().toISOString(),
     };
-
-    this.projects[index] = updated;
-    this.logger.log(`✓ Project updated: "${updated.name}" (${id})`);
+    this.memoryProjects[idx] = updated;
     return updated;
   }
 
   async deleteProject(id: string): Promise<{ success: boolean; id: string }> {
-    const index = this.projects.findIndex((p) => p.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`Project with ID ${id} not found`);
+    try {
+      await this.prisma.project.delete({ where: { id } });
+      this.logger.log(`✓ [Prisma DB] Deleted project: (${id})`);
+      return { success: true, id };
+    } catch {
+      // Fallback
     }
 
-    const deleted = this.projects.splice(index, 1)[0];
-    this.logger.log(`✓ Project deleted: "${deleted.name}" (${id})`);
+    const idx = this.memoryProjects.findIndex((p) => p.id === id);
+    if (idx !== -1) this.memoryProjects.splice(idx, 1);
     return { success: true, id };
   }
 
   async duplicateProject(id: string): Promise<ProjectDto> {
     const source = await this.getProject(id);
-    const duplicated: ProjectDto = {
-      ...source,
-      id: `proj-${Date.now()}`,
-      name: `${source.name} (Copy)`,
-      slug: `${source.slug}-copy-${Math.floor(Math.random() * 1000)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const newName = `${source.name} (Copy)`;
+    const newSlug = `${source.slug}-copy-${Math.floor(Math.random() * 1000)}`;
 
-    this.projects.unshift(duplicated);
-    this.logger.log(`✓ Project duplicated: "${duplicated.name}" from ${id}`);
-    return duplicated;
+    return this.createProject({
+      ...source,
+      id: undefined,
+      name: newName,
+      slug: newSlug,
+      createdAt: undefined,
+      updatedAt: undefined,
+    });
   }
 
   async archiveProject(id: string): Promise<ProjectDto> {
@@ -209,9 +279,7 @@ export class ProjectsService {
 
   async approveAiPlan(dto: ApprovePlanDto): Promise<ProjectDto> {
     const plan = dto.plan;
-    if (!plan) {
-      throw new Error('Valid AI Project Plan is required for approval');
-    }
+    if (!plan) throw new Error('Valid AI Project Plan is required for approval');
 
     const approvedPlan: AIProjectPlan = {
       ...plan,
@@ -222,7 +290,7 @@ export class ProjectsService {
     const projectName = dto.customName || plan.name;
     const projectSlug = dto.customSlug || plan.slug;
 
-    const project = await this.createProject({
+    return this.createProject({
       name: projectName,
       slug: projectSlug,
       description: plan.description,
@@ -243,8 +311,25 @@ export class ProjectsService {
       },
       aiPlan: approvedPlan,
     });
+  }
 
-    this.logger.log(`🚀 AI Project Plan Approved & Scaffolding Generated: "${project.name}" (${project.id})`);
-    return project;
+  private mapDbProject(p: any): ProjectDto {
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      description: p.description || '',
+      type: p.type,
+      workspaceId: p.workspaceId,
+      framework: p.framework,
+      uiLibrary: p.uiLibrary,
+      isBackendEnabled: Boolean(p.isBackendEnabled),
+      isArchived: Boolean(p.isArchived),
+      status: p.status,
+      projectSchema: (p.projectSchema as any) || {},
+      aiPlan: (p.aiPlan as any) || null,
+      createdAt: p.createdAt.toISOString ? p.createdAt.toISOString() : p.createdAt,
+      updatedAt: p.updatedAt.toISOString ? p.updatedAt.toISOString() : p.updatedAt,
+    };
   }
 }

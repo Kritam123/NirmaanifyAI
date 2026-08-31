@@ -46,6 +46,8 @@ import { CollectionBuilderModal } from './collection-builder-modal';
 import { ContentEditorModal } from './content-editor-modal';
 import { useAuth } from '../../context/auth-context';
 
+import { cmsApi } from '../../core/api';
+
 interface CmsDashboardProps {
   projects: ProjectDto[];
   activeProjectId?: string;
@@ -98,15 +100,8 @@ export function CmsDashboard({ projects, activeProjectId }: CmsDashboardProps) {
     const fetchCollections = async () => {
       setIsLoadingCollections(true);
       try {
-        const token = localStorage.getItem('auth_token');
-        const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/cms/collections`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
+        const data = await cmsApi.listCollections(activeProject.id);
+        if (data && Array.isArray(data)) {
           setCollections(data);
           if (data.length > 0 && !selectedCollectionId) {
             setSelectedCollectionId(data[0].id);
@@ -129,19 +124,11 @@ export function CmsDashboard({ projects, activeProjectId }: CmsDashboardProps) {
     const fetchEntries = async () => {
       setIsLoadingEntries(true);
       try {
-        const token = localStorage.getItem('auth_token');
-        const res = await fetch(
-          `http://localhost:4000/projects/${activeProject.id}/cms/collections/${selectedCollection.id}/entries?status=${statusFilter}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (res.ok) {
-          const data = await res.json();
-          setEntries(data.entries || []);
+        const data = await cmsApi.listEntries(activeProject.id, selectedCollection.id, {
+          status: statusFilter,
+        });
+        if (data && data.entries) {
+          setEntries(data.entries);
         }
       } catch (err) {
         console.error('Error fetching CMS entries:', err);
@@ -168,33 +155,19 @@ export function CmsDashboard({ projects, activeProjectId }: CmsDashboardProps) {
 
   // Save Collection Handler
   const handleSaveCollection = async (dto: CreateCollectionDto) => {
-    const token = localStorage.getItem('auth_token');
-    const url = editingCollection
-      ? `http://localhost:4000/projects/${activeProject.id}/cms/collections/${editingCollection.id}`
-      : `http://localhost:4000/projects/${activeProject.id}/cms/collections`;
+    try {
+      const saved = editingCollection
+        ? await cmsApi.updateCollection(activeProject.id, editingCollection.id, dto)
+        : await cmsApi.createCollection(activeProject.id, dto);
 
-    const method = editingCollection ? 'PUT' : 'POST';
-
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(dto),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
+      if (editingCollection) {
+        setCollections(collections.map((c) => (c.id === saved.id ? saved : c)));
+      } else {
+        setCollections([...collections, saved]);
+        setSelectedCollectionId(saved.id);
+      }
+    } catch (err: any) {
       throw new Error(err.message || 'Failed to save collection');
-    }
-
-    const saved = await res.json();
-    if (editingCollection) {
-      setCollections(collections.map((c) => (c.id === saved.id ? saved : c)));
-    } else {
-      setCollections([...collections, saved]);
-      setSelectedCollectionId(saved.id);
     }
   };
 
@@ -203,12 +176,7 @@ export function CmsDashboard({ projects, activeProjectId }: CmsDashboardProps) {
     if (!confirm('Are you sure you want to delete this collection and all its content?')) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
-      await fetch(`http://localhost:4000/projects/${activeProject.id}/cms/collections/${collectionId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      await cmsApi.deleteCollection(activeProject.id, collectionId);
       const updated = collections.filter((c) => c.id !== collectionId);
       setCollections(updated);
       if (updated.length > 0) setSelectedCollectionId(updated[0].id);
@@ -220,49 +188,27 @@ export function CmsDashboard({ projects, activeProjectId }: CmsDashboardProps) {
 
   // Save Entry Handler
   const handleSaveEntry = async (dto: CreateEntryDto) => {
-    const token = localStorage.getItem('auth_token');
-    const url = editingEntry
-      ? `http://localhost:4000/projects/${activeProject.id}/cms/entries/${editingEntry.id}`
-      : `http://localhost:4000/projects/${activeProject.id}/cms/collections/${selectedCollection.id}/entries`;
+    try {
+      const saved = editingEntry
+        ? await cmsApi.updateEntry(activeProject.id, editingEntry.id, dto)
+        : await cmsApi.createEntry(activeProject.id, selectedCollection.id, dto);
 
-    const method = editingEntry ? 'PUT' : 'POST';
-
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(dto),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
+      if (editingEntry) {
+        setEntries(entries.map((e) => (e.id === saved.id ? saved : e)));
+      } else {
+        setEntries([saved, ...entries]);
+      }
+    } catch (err: any) {
       throw new Error(err.message || 'Failed to save entry');
-    }
-
-    const saved = await res.json();
-    if (editingEntry) {
-      setEntries(entries.map((e) => (e.id === saved.id ? saved : e)));
-    } else {
-      setEntries([saved, ...entries]);
     }
   };
 
   // Quick Action: Publish Entry
   const handlePublishEntry = async (entry: CmsEntry) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/cms/entries/${entry.id}/publish`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setEntries(entries.map((e) => (e.id === updated.id ? updated : e)));
-        toast({ title: 'Published Live! 🚀', description: `Entry "${entry.slug}" is now published.`, type: 'success' });
-      }
+      const updated = await cmsApi.publishEntry(activeProject.id, entry.id);
+      setEntries(entries.map((e) => (e.id === updated.id ? updated : e)));
+      toast({ title: 'Published Live! 🚀', description: `Entry "${entry.slug}" is now published.`, type: 'success' });
     } catch {
       toast({ title: 'Error', description: 'Could not publish entry.', type: 'error' });
     }
@@ -271,17 +217,9 @@ export function CmsDashboard({ projects, activeProjectId }: CmsDashboardProps) {
   // Quick Action: Archive Entry
   const handleArchiveEntry = async (entry: CmsEntry) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/cms/entries/${entry.id}/archive`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setEntries(entries.map((e) => (e.id === updated.id ? updated : e)));
-        toast({ title: 'Archived', description: `Moved entry to archive.`, type: 'info' });
-      }
+      const updated = await cmsApi.archiveEntry(activeProject.id, entry.id);
+      setEntries(entries.map((e) => (e.id === updated.id ? updated : e)));
+      toast({ title: 'Archived', description: `Moved entry to archive.`, type: 'info' });
     } catch {
       toast({ title: 'Error', description: 'Could not archive entry.', type: 'error' });
     }
@@ -292,12 +230,7 @@ export function CmsDashboard({ projects, activeProjectId }: CmsDashboardProps) {
     if (!confirm('Are you sure you want to permanently delete this entry?')) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
-      await fetch(`http://localhost:4000/projects/${activeProject.id}/cms/entries/${entryId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      await cmsApi.deleteEntry(activeProject.id, entryId);
       setEntries(entries.filter((e) => e.id !== entryId));
       toast({ title: 'Entry Deleted', description: 'Removed entry from collection.', type: 'info' });
     } catch {
@@ -307,7 +240,7 @@ export function CmsDashboard({ projects, activeProjectId }: CmsDashboardProps) {
 
   const handleCopyPublicApiUrl = () => {
     if (!activeProject || !selectedCollection) return;
-    const url = `http://localhost:4000/cms/public/${activeProject.slug}/${selectedCollection.slug}`;
+    const url = `http://localhost:4000/api/v1/cms/public/${activeProject.slug}/${selectedCollection.slug}`;
     navigator.clipboard.writeText(url);
     setCopiedEndpoint(true);
     setTimeout(() => setCopiedEndpoint(false), 2000);

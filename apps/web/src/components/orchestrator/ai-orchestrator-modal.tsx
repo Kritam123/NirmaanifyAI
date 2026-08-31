@@ -37,6 +37,8 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
+import { orchestratorApi } from '../../core/api';
+
 interface AiOrchestratorModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -85,17 +87,8 @@ export function AiOrchestratorModal({
 
   const fetchMemoryStack = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(
-        `http://localhost:4000/projects/${project.id}/orchestrator/memory?designMode=${designMode}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setMemoryStack(data);
-      }
+      const data = await orchestratorApi.getMemory(project.id, designMode);
+      if (data) setMemoryStack(data);
     } catch {
       // ignore
     }
@@ -109,18 +102,8 @@ export function AiOrchestratorModal({
 
     setIsPlanning(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${project.id}/orchestrator/plan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ prompt, designMode }),
-      });
-
-      if (res.ok) {
-        const plan = await res.json();
+      const plan = await orchestratorApi.plan(project.id, prompt, designMode);
+      if (plan) {
         setActivePlan(plan);
         toast({
           title: 'Multi-Agent Plan Dispatched! 🚀',
@@ -139,20 +122,8 @@ export function AiOrchestratorModal({
     if (!activePlan) return;
     setIsExecutingStep(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${project.id}/orchestrator/execute-step`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ planId: activePlan.id, stepId }),
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setActivePlan(updated);
-      }
+      const updated = await orchestratorApi.executeStep(project.id, activePlan.id, stepId);
+      if (updated) setActivePlan(updated);
     } catch {
       toast({ title: 'Execution Error', description: 'Could not run step simulation.', type: 'error' });
     } finally {
@@ -163,18 +134,8 @@ export function AiOrchestratorModal({
   const handleApproveStep = async (stepId: string) => {
     if (!activePlan) return;
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${project.id}/orchestrator/approve-step`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ planId: activePlan.id, stepId }),
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
+      const updated = await orchestratorApi.approveStep(project.id, activePlan.id, stepId);
+      if (updated) {
         setActivePlan(updated);
         toast({ title: 'Proposal Approved', description: 'AST modification applied to project.', type: 'success' });
       }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   UserDto,
   WorkspaceDto,
@@ -10,6 +10,8 @@ import {
   GeneratePlanDto,
   ApprovePlanDto,
 } from '@nirmaanify/types';
+import { authApi, projectsApi } from '../core/api';
+import { tokenStorage } from '../core/storage/token-storage';
 
 interface AuthContextType {
   user: UserDto | null;
@@ -17,6 +19,7 @@ interface AuthContextType {
   workspaces: WorkspaceDto[];
   projects: ProjectDto[];
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, pass?: string) => Promise<void>;
   register: (name: string, email: string, pass?: string) => Promise<void>;
   logout: () => void;
@@ -32,6 +35,7 @@ interface AuthContextType {
   modifyAiPlan: (planId: string, updates: Partial<AIProjectPlan>) => Promise<AIProjectPlan>;
   approveAiPlan: (dto: ApprovePlanDto) => Promise<ProjectDto>;
   inviteMember: (email: string, role: UserRole) => Promise<void>;
+  refreshProjects: () => Promise<void>;
 }
 
 const DEFAULT_USER: UserDto = {
@@ -133,66 +137,140 @@ const INITIAL_PROJECTS: ProjectDto[] = [
   },
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserDto | null>(DEFAULT_USER);
+  const [user, setUser] = useState<UserDto | null>(() => tokenStorage.getCachedUser<UserDto>() || DEFAULT_USER);
   const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>(DEFAULT_WORKSPACES);
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceDto | null>(DEFAULT_WORKSPACES[0]);
   const [projects, setProjects] = useState<ProjectDto[]>(INITIAL_PROJECTS);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const login = async (email: string) => {
-    const u: UserDto = {
-      id: `usr-${Date.now()}`,
-      name: email.split('@')[0],
-      email,
-      role: 'OWNER',
-      isEmailVerified: true,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  const refreshProjects = useCallback(async () => {
+    try {
+      const data = await projectsApi.list({
+        workspaceId: activeWorkspace?.id,
+      });
+      if (data && data.length > 0) {
+        setProjects(data);
+      }
+    } catch {
+      // Fallback
+    }
+  }, [activeWorkspace?.id]);
+
+  // Initial session hydration
+  useEffect(() => {
+    const hydrateSession = async () => {
+      const token = tokenStorage.getAuthToken();
+      if (token) {
+        try {
+          const profile = await authApi.getProfile();
+          if (profile) {
+            setUser(profile);
+            tokenStorage.setCachedUser(profile);
+          }
+        } catch {
+          // Keep current user
+        }
+      }
+      await refreshProjects();
     };
-    setUser(u);
+
+    hydrateSession();
+  }, [refreshProjects]);
+
+  const login = async (email: string, pass?: string) => {
+    setIsLoading(true);
+    try {
+      const res = await authApi.login({ email, password: pass });
+      tokenStorage.setAuthToken(res.accessToken);
+      tokenStorage.setCachedUser(res.user);
+      setUser(res.user);
+      if (res.workspaces?.length > 0) {
+        setWorkspaces(res.workspaces);
+        setActiveWorkspace(res.activeWorkspace || res.workspaces[0]);
+      }
+      await refreshProjects();
+    } catch {
+      // Offline fallback
+      const u: UserDto = {
+        id: `usr-${Date.now()}`,
+        name: email.split('@')[0],
+        email,
+        avatarUrl: DEFAULT_USER.avatarUrl,
+        role: 'OWNER',
+        isEmailVerified: true,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      tokenStorage.setAuthToken('simulated_jwt_token');
+      tokenStorage.setCachedUser(u);
+      setUser(u);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const register = async (name: string, email: string) => {
-    const u: UserDto = {
-      id: `usr-${Date.now()}`,
-      name,
-      email,
-      role: 'OWNER',
-      isEmailVerified: true,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const ws: WorkspaceDto = {
-      id: `ws-${Date.now()}`,
-      name: `${name}'s Workspace`,
-      slug: `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal`,
-      isPersonal: true,
-      ownerId: u.id,
-      role: 'OWNER',
-      projectCount: 0,
-      memberCount: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setUser(u);
-    setWorkspaces([ws]);
-    setActiveWorkspace(ws);
+  const register = async (name: string, email: string, pass?: string) => {
+    setIsLoading(true);
+    try {
+      const res = await authApi.register({ name, email, password: pass });
+      tokenStorage.setAuthToken(res.accessToken);
+      tokenStorage.setCachedUser(res.user);
+      setUser(res.user);
+      if (res.workspaces?.length > 0) {
+        setWorkspaces(res.workspaces);
+        setActiveWorkspace(res.activeWorkspace || res.workspaces[0]);
+      }
+      await refreshProjects();
+    } catch {
+      const u: UserDto = {
+        id: `usr-${Date.now()}`,
+        name,
+        email,
+        avatarUrl: DEFAULT_USER.avatarUrl,
+        role: 'OWNER',
+        isEmailVerified: true,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const ws: WorkspaceDto = {
+        id: `ws-${Date.now()}`,
+        name: `${name}'s Workspace`,
+        slug: `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal`,
+        isPersonal: true,
+        ownerId: u.id,
+        role: 'OWNER',
+        projectCount: 0,
+        memberCount: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      tokenStorage.setAuthToken('simulated_jwt_token');
+      tokenStorage.setCachedUser(u);
+      setUser(u);
+      setWorkspaces([ws]);
+      setActiveWorkspace(ws);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
+    tokenStorage.clearAuthToken();
     setUser(null);
     setActiveWorkspace(null);
   };
 
   const switchWorkspace = (workspaceId: string) => {
     const ws = workspaces.find((w) => w.id === workspaceId);
-    if (ws) setActiveWorkspace(ws);
+    if (ws) {
+      setActiveWorkspace(ws);
+      tokenStorage.setActiveWorkspaceId(workspaceId);
+    }
   };
 
   const createWorkspace = async (name: string) => {
@@ -210,20 +288,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     setWorkspaces((prev) => [...prev, newWs]);
     setActiveWorkspace(newWs);
+    tokenStorage.setActiveWorkspaceId(newWs.id);
   };
 
   const createProject = async (data: Partial<ProjectDto>): Promise<ProjectDto> => {
     try {
-      const res = await fetch(`${API_BASE}/projects`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          workspaceId: activeWorkspace?.id || 'ws-personal-001',
-        }),
+      const created = await projectsApi.create({
+        ...data,
+        workspaceId: activeWorkspace?.id || 'ws-personal-001',
       });
-      if (res.ok) {
-        const created = await res.json();
+      if (created && created.id) {
         setProjects((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
         return created;
       }
@@ -254,13 +328,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProject = async (id: string, updates: Partial<ProjectDto>): Promise<ProjectDto> => {
     try {
-      const res = await fetch(`${API_BASE}/projects/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (res.ok) {
-        const updated = await res.json();
+      const updated = await projectsApi.update(id, updates);
+      if (updated && updated.id) {
         setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
         return updated;
       }
@@ -276,14 +345,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return updatedProject;
         }
         return p;
-      }),
+      })
     );
     return updatedProject!;
   };
 
   const deleteProject = async (id: string): Promise<void> => {
     try {
-      await fetch(`${API_BASE}/projects/${id}`, { method: 'DELETE' });
+      await projectsApi.delete(id);
     } catch {
       // Fallback
     }
@@ -292,9 +361,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const duplicateProject = async (id: string): Promise<ProjectDto> => {
     try {
-      const res = await fetch(`${API_BASE}/projects/${id}/duplicate`, { method: 'POST' });
-      if (res.ok) {
-        const duplicated = await res.json();
+      const duplicated = await projectsApi.duplicate(id);
+      if (duplicated && duplicated.id) {
         setProjects((prev) => [duplicated, ...prev]);
         return duplicated;
       }
@@ -317,9 +385,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const archiveProject = async (id: string): Promise<ProjectDto> => {
     try {
-      const res = await fetch(`${API_BASE}/projects/${id}/archive`, { method: 'PATCH' });
-      if (res.ok) {
-        const updated = await res.json();
+      const updated = await projectsApi.archive(id);
+      if (updated && updated.id) {
         setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
         return updated;
       }
@@ -331,9 +398,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const unarchiveProject = async (id: string): Promise<ProjectDto> => {
     try {
-      const res = await fetch(`${API_BASE}/projects/${id}/unarchive`, { method: 'PATCH' });
-      if (res.ok) {
-        const updated = await res.json();
+      const updated = await projectsApi.unarchive(id);
+      if (updated && updated.id) {
         setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
         return updated;
       }
@@ -345,19 +411,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const generateAiPlan = async (dto: GeneratePlanDto): Promise<AIProjectPlan> => {
     try {
-      const res = await fetch(`${API_BASE}/projects/ai/plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
+      const plan = await projectsApi.generateAiPlan(dto);
+      if (plan && plan.id) return plan;
     } catch {
       // Fallback
     }
 
-    // Client-side fallback if server is unreachable
     const words = dto.prompt.split(/\s+/).slice(0, 3).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     const title = words || 'AI Application';
     return {
@@ -415,14 +474,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const modifyAiPlan = async (planId: string, updates: Partial<AIProjectPlan>): Promise<AIProjectPlan> => {
     try {
-      const res = await fetch(`${API_BASE}/projects/ai/plan/${planId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
+      const updated = await projectsApi.modifyAiPlan(planId, updates);
+      if (updated && updated.id) return updated;
     } catch {
       // Fallback
     }
@@ -431,13 +484,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const approveAiPlan = async (dto: ApprovePlanDto): Promise<ProjectDto> => {
     try {
-      const res = await fetch(`${API_BASE}/projects/ai/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-      });
-      if (res.ok) {
-        const project = await res.json();
+      const project = await projectsApi.approveAiPlan(dto);
+      if (project && project.id) {
         setProjects((prev) => [project, ...prev.filter((p) => p.id !== project.id)]);
         return project;
       }
@@ -474,6 +522,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         workspaces,
         projects,
         isAuthenticated: user !== null,
+        isLoading,
         login,
         register,
         logout,
@@ -489,6 +538,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         modifyAiPlan,
         approveAiPlan,
         inviteMember,
+        refreshProjects,
       }}
     >
       {children}

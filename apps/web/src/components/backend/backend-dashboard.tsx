@@ -45,6 +45,7 @@ import {
   ChevronRight,
   ExternalLink,
 } from 'lucide-react';
+import { backendApi } from '../../core/api';
 
 interface BackendDashboardProps {
   projects: ProjectDto[];
@@ -102,13 +103,8 @@ export function BackendDashboard({ projects, activeProjectId }: BackendDashboard
     const fetchConfig = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem('auth_token');
-        const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/backend/config`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
+        const data = await backendApi.getConfig(activeProject.id);
+        if (data) {
           setBackendConfig(data);
         }
       } catch (err) {
@@ -149,21 +145,9 @@ export function BackendDashboard({ projects, activeProjectId }: BackendDashboard
     if (!activeProject) return;
     setIsSaving(true);
     try {
-      const token = localStorage.getItem('auth_token');
       const payload = configToSave || backendConfig;
-
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/backend/config`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        toast({ title: 'Backend Settings Saved', description: 'Updated project architecture schema.', type: 'success' });
-      }
+      await backendApi.updateConfig(activeProject.id, payload);
+      toast({ title: 'Backend Settings Saved', description: 'Updated project architecture schema.', type: 'success' });
     } catch {
       toast({ title: 'Save Failed', description: 'Could not update backend configuration.', type: 'error' });
     } finally {
@@ -176,14 +160,8 @@ export function BackendDashboard({ projects, activeProjectId }: BackendDashboard
     if (!activeProject) return;
     setIsGenerating(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/backend/generate`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
+      const data = await backendApi.getGeneratedFiles(activeProject.id);
+      if (data) {
         setGeneratedFiles(data.files || []);
         setSelectedFileIndex(0);
         setActiveTab('codegen');
@@ -205,7 +183,6 @@ export function BackendDashboard({ projects, activeProjectId }: BackendDashboard
     if (!selectedEndpoint || !activeProject) return;
     setIsTestingApi(true);
     try {
-      const token = localStorage.getItem('auth_token');
       let parsedBody: any = undefined;
       try {
         if (['POST', 'PUT', 'PATCH'].includes(selectedEndpoint.method)) {
@@ -215,25 +192,15 @@ export function BackendDashboard({ projects, activeProjectId }: BackendDashboard
         // use raw
       }
 
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/backend/test-endpoint`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          method: selectedEndpoint.method,
-          path: selectedEndpoint.path,
-          body: parsedBody,
-        }),
+      const res = await backendApi.testEndpoint(activeProject.id, {
+        method: selectedEndpoint.method,
+        path: selectedEndpoint.path,
+        body: parsedBody,
       });
 
-      if (res.ok) {
-        const result = await res.json();
-        setApiResponse(result);
-      }
+      setApiResponse(res);
     } catch (err: any) {
-      setApiResponse({ error: err.message || 'API request failed' });
+      setApiResponse({ error: err.message || 'API request simulation failed' });
     } finally {
       setIsTestingApi(false);
     }

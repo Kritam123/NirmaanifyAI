@@ -43,6 +43,8 @@ import {
 import { DatabaseModelModal } from './database-model-modal';
 import { DatabaseCompiler } from '@nirmaanify/component-registry';
 
+import { databaseApi } from '../../core/api';
+
 interface DatabaseApiDashboardProps {
   projects: ProjectDto[];
   activeProjectId?: string;
@@ -81,13 +83,8 @@ export function DatabaseApiDashboard({ projects, activeProjectId }: DatabaseApiD
     const fetchSchema = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem('auth_token');
-        const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/database/schema`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
+        const data = await databaseApi.getSchema(activeProject.id);
+        if (data) {
           setDbSchema(data);
           if (data.models?.length > 0 && !selectedModelId) {
             setSelectedModelId(data.models[0].id);
@@ -110,49 +107,27 @@ export function DatabaseApiDashboard({ projects, activeProjectId }: DatabaseApiD
   // Save or update model
   const handleSaveModel = async (model: DataModel) => {
     if (!activeProject) return;
-    const token = localStorage.getItem('auth_token');
     const isEdit = Boolean(editingModel);
-    const url = isEdit
-      ? `http://localhost:4000/projects/${activeProject.id}/database/models/${editingModel!.id}`
-      : `http://localhost:4000/projects/${activeProject.id}/database/models`;
+    try {
+      const updated = isEdit
+        ? await databaseApi.updateModel(activeProject.id, editingModel!.id, model)
+        : await databaseApi.createModel(activeProject.id, model);
 
-    const method = isEdit ? 'PUT' : 'POST';
-
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(model),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
+      setDbSchema(updated);
+      setSelectedModelId(model.id);
+    } catch (err: any) {
       throw new Error(err.message || 'Failed to save model');
     }
-
-    const updated = await res.json();
-    setDbSchema(updated);
-    setSelectedModelId(model.id);
   };
 
   // Delete model
   const handleDeleteModel = async (modelId: string) => {
     if (!confirm('Are you sure you want to delete this table and its generated API routes?')) return;
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/database/models/${modelId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setDbSchema(updated);
-        if (updated.models?.length > 0) setSelectedModelId(updated.models[0].id);
-        toast({ title: 'Model Deleted', description: 'Removed table and associated API routes.', type: 'info' });
-      }
+      const updated = await databaseApi.deleteModel(activeProject.id, modelId);
+      setDbSchema(updated);
+      if (updated.models?.length > 0) setSelectedModelId(updated.models[0].id);
+      toast({ title: 'Model Deleted', description: 'Removed table and associated API routes.', type: 'info' });
     } catch {
       toast({ title: 'Error', description: 'Could not delete table.', type: 'error' });
     }
@@ -179,7 +154,6 @@ export function DatabaseApiDashboard({ projects, activeProjectId }: DatabaseApiD
     if (!selectedRoute || !activeProject) return;
     setIsExecutingQuery(true);
     try {
-      const token = localStorage.getItem('auth_token');
       let parsedBody: any = undefined;
       if (['POST', 'PATCH'].includes(selectedRoute.method)) {
         try {
@@ -189,26 +163,16 @@ export function DatabaseApiDashboard({ projects, activeProjectId }: DatabaseApiD
         }
       }
 
-      const res = await fetch(`http://localhost:4000/projects/${activeProject.id}/database/query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          modelName: selectedRoute.modelName,
-          method: selectedRoute.method,
-          path: selectedRoute.path,
-          body: parsedBody,
-        }),
+      const res = await databaseApi.executeQuery(activeProject.id, {
+        modelName: selectedRoute.modelName,
+        method: selectedRoute.method,
+        path: selectedRoute.path,
+        body: parsedBody,
       });
 
-      if (res.ok) {
-        const result = await res.json();
-        setSandboxResponse(result);
-      }
+      setSandboxResponse(res);
     } catch (err: any) {
-      setSandboxResponse({ error: err.message || 'Query execution failed' });
+      setSandboxResponse({ error: err.message || 'Query execution simulation failed' });
     } finally {
       setIsExecutingQuery(false);
     }
