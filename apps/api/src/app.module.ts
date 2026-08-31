@@ -14,6 +14,7 @@ import { PluginsManagerModule } from './plugins-manager/plugins-manager.module';
 import { AgentOrchestratorModule } from './agent-orchestrator/agent-orchestrator.module';
 import { DeploymentEngineModule } from './deployment-engine/deployment-engine.module';
 import { TestingAuditModule } from './testing-audit/testing-audit.module';
+import { GovernanceModule } from './governance/governance.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -41,6 +42,7 @@ import { validateEnv } from './config/env.validation';
     AgentOrchestratorModule,
     DeploymentEngineModule,
     TestingAuditModule,
+    GovernanceModule,
   ],
 })
 export class AppModule {}

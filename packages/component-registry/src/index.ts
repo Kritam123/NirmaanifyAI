@@ -14,4 +14,5 @@ export * from './engine/package-plugin-engine';
 export * from './engine/agent-orchestrator';
 export * from './engine/fullstack-exporter';
 export * from './engine/testing-security-engine';
+export * from './engine/governance-engine';
 export * from './components/cms-components';

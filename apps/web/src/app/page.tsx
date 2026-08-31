@@ -52,6 +52,7 @@ import {
   Brain,
   Rocket,
   Award,
+  Compass,
 } from 'lucide-react';
 import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../context/auth-context';
@@ -67,6 +68,7 @@ import { PackagesPluginsDashboard } from '../components/packages-plugins/package
 import { AiOrchestratorModal } from '../components/orchestrator/ai-orchestrator-modal';
 import { DeploymentDashboard } from '../components/deployment/deployment-dashboard';
 import { MvpLaunchDashboard } from '../components/launch/mvp-launch-dashboard';
+import { ArchitectureGovernanceDashboard } from '../components/governance/architecture-governance-dashboard';
 import { ProjectCard } from '../components/project-card';
 
 export default function PlatformDashboard() {
@@ -80,7 +82,7 @@ export default function PlatformDashboard() {
     createWorkspace,
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'plugins' | 'deploy' | 'launch' | 'team' | 'storage' | 'brand'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'plugins' | 'deploy' | 'launch' | 'governance' | 'team' | 'storage' | 'brand'>('dashboard');
 
   // AI Planner & Multi-Agent Orchestrator Modal state
   const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
@@ -195,6 +197,13 @@ export default function PlatformDashboard() {
       icon: <Award className="h-4 w-4" />,
       active: activeTab === 'launch',
       onClick: () => setActiveTab('launch'),
+    },
+    {
+      id: 'governance',
+      label: 'Architecture & Rules',
+      icon: <Compass className="h-4 w-4" />,
+      active: activeTab === 'governance',
+      onClick: () => setActiveTab('governance'),
     },
     {
       id: 'team',
@@ -616,7 +625,14 @@ export default function PlatformDashboard() {
         />
       )}
 
-      {/* 9. TEAM & WORKSPACES TAB */}
+      {/* 9. ARCHITECTURE GOVERNANCE & MASTER FLOW TAB (Phase 14) */}
+      {activeTab === 'governance' && (
+        <ArchitectureGovernanceDashboard
+          onNavigateTab={(tab) => setActiveTab(tab as any)}
+        />
+      )}
+
+      {/* 10. TEAM & WORKSPACES TAB */}
       {activeTab === 'team' && (
         <div className="space-y-8">
           <PageHeader
