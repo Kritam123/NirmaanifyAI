@@ -12,4 +12,5 @@ export * from './engine/nestjs-generator';
 export * from './engine/database-compiler';
 export * from './engine/package-plugin-engine';
 export * from './engine/agent-orchestrator';
+export * from './engine/fullstack-exporter';
 export * from './components/cms-components';

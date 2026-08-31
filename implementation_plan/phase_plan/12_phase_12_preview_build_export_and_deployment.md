@@ -11,11 +11,11 @@
 Build:
 
 ```text
-Live Preview
-Build Validation
-Error Logs
-Build Logs
-Environment Validation
+[x] Live Preview (Multi-Device Viewport: Desktop, Tablet, Mobile)
+[x] Build Validation (Routes, Missing Components, Prisma AST)
+[x] Error Logs & Compiler Diagnostics
+[x] Build Logs (Live Streaming Log Terminal)
+[x] Environment Validation (.env.example verification)
 ```
 
 Flow:
@@ -25,7 +25,7 @@ PROJECT SCHEMA
       ↓
 GENERATED PROJECT
       ↓
-BUILD
+BUILD & VALIDATE
       ↓
 PREVIEW
 ```
@@ -37,9 +37,9 @@ PREVIEW
 Allow export:
 
 ```text
-Download ZIP
-Git Repository
-GitHub Push
+[x] Download ZIP (Full-Stack Monorepo In-Memory Bundle)
+[x] Git Repository & Commit Hash Tracker
+[x] GitHub Push & Deployment Pipelines
 ```
 
 Generated structure:
@@ -47,31 +47,31 @@ Generated structure:
 ```text
 my-project/
 │
-├── frontend/
-│   └── Next.js
+├── [x] frontend/
+│   └── Next.js 15 (App Router, React 19, Tailwind)
 │
-├── backend/
-│   └── NestJS
+├── [x] backend/
+│   └── NestJS 11 (Controllers, Services, Prisma)
 │
-├── docker-compose.yml
+├── [x] docker-compose.yml (Next.js + NestJS + PostgreSQL 16 + Redis)
 │
-├── README.md
+├── [x] README.md (Setup & Run Guide)
 │
-└── .env.example
+└── [x] .env.example (Unified Environment Template)
 ```
 
-Deployment options can later include:
+Deployment options:
 
 ```text
-Vercel
-Render
-Railway
-Docker
-Self-hosted
+[x] Vercel (Edge CDN Frontend)
+[x] Render (render.yaml PaaS)
+[x] Railway (railway.json CI/CD)
+[x] Docker (Multi-Container Compose)
+[x] Self-hosted (PM2 & Caddy Scripts)
 ```
 
 ### Deliverable
 
 ```text
-Exportable and Deployable Projects
+[x] Exportable and Deployable Projects
 ```

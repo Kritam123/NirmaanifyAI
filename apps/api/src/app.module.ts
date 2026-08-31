@@ -12,6 +12,7 @@ import { BackendBuilderModule } from './backend-builder/backend-builder.module';
 import { DatabaseBuilderModule } from './database-builder/database-builder.module';
 import { PluginsManagerModule } from './plugins-manager/plugins-manager.module';
 import { AgentOrchestratorModule } from './agent-orchestrator/agent-orchestrator.module';
+import { DeploymentEngineModule } from './deployment-engine/deployment-engine.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -37,6 +38,7 @@ import { validateEnv } from './config/env.validation';
     DatabaseBuilderModule,
     PluginsManagerModule,
     AgentOrchestratorModule,
+    DeploymentEngineModule,
   ],
 })
 export class AppModule {}

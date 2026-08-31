@@ -50,6 +50,7 @@ import {
   Table,
   Puzzle,
   Brain,
+  Rocket,
 } from 'lucide-react';
 import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../context/auth-context';
@@ -63,6 +64,7 @@ import { BackendDashboard } from '../components/backend/backend-dashboard';
 import { DatabaseApiDashboard } from '../components/database-builder/database-api-dashboard';
 import { PackagesPluginsDashboard } from '../components/packages-plugins/packages-plugins-dashboard';
 import { AiOrchestratorModal } from '../components/orchestrator/ai-orchestrator-modal';
+import { DeploymentDashboard } from '../components/deployment/deployment-dashboard';
 import { ProjectCard } from '../components/project-card';
 
 export default function PlatformDashboard() {
@@ -76,7 +78,7 @@ export default function PlatformDashboard() {
     createWorkspace,
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'plugins' | 'team' | 'storage' | 'brand'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'plugins' | 'deploy' | 'team' | 'storage' | 'brand'>('dashboard');
 
   // AI Planner & Multi-Agent Orchestrator Modal state
   const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
@@ -177,6 +179,13 @@ export default function PlatformDashboard() {
       icon: <Puzzle className="h-4 w-4" />,
       active: activeTab === 'plugins',
       onClick: () => setActiveTab('plugins'),
+    },
+    {
+      id: 'deploy',
+      label: 'Preview & Deploy',
+      icon: <Rocket className="h-4 w-4" />,
+      active: activeTab === 'deploy',
+      onClick: () => setActiveTab('deploy'),
     },
     {
       id: 'team',
@@ -582,7 +591,15 @@ export default function PlatformDashboard() {
         />
       )}
 
-      {/* 7. TEAM & WORKSPACES TAB */}
+      {/* 7. PREVIEW, BUILD, EXPORT & DEPLOYMENT TAB (Phase 12) */}
+      {activeTab === 'deploy' && (
+        <DeploymentDashboard
+          projects={projects}
+          activeProjectId={selectedProject?.id || projects[0]?.id}
+        />
+      )}
+
+      {/* 8. TEAM & WORKSPACES TAB */}
       {activeTab === 'team' && (
         <div className="space-y-8">
           <PageHeader
