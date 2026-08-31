@@ -11,6 +11,7 @@ import { CmsModule } from './cms/cms.module';
 import { BackendBuilderModule } from './backend-builder/backend-builder.module';
 import { DatabaseBuilderModule } from './database-builder/database-builder.module';
 import { PluginsManagerModule } from './plugins-manager/plugins-manager.module';
+import { AgentOrchestratorModule } from './agent-orchestrator/agent-orchestrator.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -35,6 +36,7 @@ import { validateEnv } from './config/env.validation';
     BackendBuilderModule,
     DatabaseBuilderModule,
     PluginsManagerModule,
+    AgentOrchestratorModule,
   ],
 })
 export class AppModule {}

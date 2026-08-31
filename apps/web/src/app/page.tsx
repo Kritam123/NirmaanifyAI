@@ -49,6 +49,7 @@ import {
   FolderPlus,
   Table,
   Puzzle,
+  Brain,
 } from 'lucide-react';
 import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../context/auth-context';
@@ -61,6 +62,7 @@ import { CmsDashboard } from '../components/cms/cms-dashboard';
 import { BackendDashboard } from '../components/backend/backend-dashboard';
 import { DatabaseApiDashboard } from '../components/database-builder/database-api-dashboard';
 import { PackagesPluginsDashboard } from '../components/packages-plugins/packages-plugins-dashboard';
+import { AiOrchestratorModal } from '../components/orchestrator/ai-orchestrator-modal';
 import { ProjectCard } from '../components/project-card';
 
 export default function PlatformDashboard() {
@@ -76,8 +78,9 @@ export default function PlatformDashboard() {
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'cms' | 'backend' | 'database-builder' | 'plugins' | 'team' | 'storage' | 'brand'>('dashboard');
 
-  // AI Planner Modal state
+  // AI Planner & Multi-Agent Orchestrator Modal state
   const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
+  const [orchestratorModalOpen, setOrchestratorModalOpen] = useState(false);
   const [aiInitialPrompt, setAiInitialPrompt] = useState('');
   const [dashboardAiPrompt, setDashboardAiPrompt] = useState('');
 
@@ -309,12 +312,20 @@ export default function PlatformDashboard() {
                   Create Project
                 </Button>
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
                   leftIcon={<Sparkles className="h-4 w-4" />}
                   onClick={() => handleLaunchAiPlanner()}
                 >
-                  AI Project Planner
+                  AI Planner
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  leftIcon={<Brain className="h-4 w-4" />}
+                  onClick={() => setOrchestratorModalOpen(true)}
+                >
+                  AI Agent Orchestrator
                 </Button>
               </div>
             }
@@ -843,6 +854,14 @@ export default function PlatformDashboard() {
           />
         </div>
       </Dialog>
+
+      {/* AI MULTI-AGENT ORCHESTRATOR MODAL (Phase 11) */}
+      <AiOrchestratorModal
+        isOpen={orchestratorModalOpen}
+        onClose={() => setOrchestratorModalOpen(false)}
+        project={selectedProject || projects[0]}
+        initialPrompt={dashboardAiPrompt}
+      />
     </AppShell>
   );
 }
