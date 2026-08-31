@@ -1,8 +1,16 @@
 import type { Metadata } from 'next';
+import { Poppins } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@nirmaanify/ui';
 import { ToastProvider } from '@nirmaanify/ui';
 import { AuthProvider } from '../context/auth-context';
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Nirmaanify AI — Imagine. Build. Launch.',
