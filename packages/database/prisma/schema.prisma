@@ -200,6 +200,7 @@ model Project {
 
   workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members          ProjectMember[]
+  aiPlans          AIProjectPlan[]
 
   @@unique([workspaceId, slug])
   @@map("projects")
@@ -217,6 +218,26 @@ model ProjectMember {
 
   @@unique([projectId, userId])
   @@map("project_members")
+}
+
+model AIProjectPlan {
+  id           String     @id @default(uuid())
+  workspaceId  String
+  projectId    String?
+  prompt       String     @db.Text
+  plan         Json
+  status       String     @default("DRAFT")
+  createdById  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  expiresAt    DateTime?
+
+  project      Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([expiresAt])
+  @@map("ai_project_plans")
 }
 
 model AuditLog {

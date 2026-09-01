@@ -128,8 +128,11 @@ export class ProjectsController {
   @Post('ai/plan')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Generate structured AI Project Plan from prompt' })
-  async generatePlan(@Body() dto: GeneratePlanDto) {
-    return this.projectsService.generateAiPlan(dto);
+  async generatePlan(
+    @Body() dto: GeneratePlanDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.projectsService.generateAiPlan(dto, userId);
   }
 
   @Patch('ai/plan/:planId')

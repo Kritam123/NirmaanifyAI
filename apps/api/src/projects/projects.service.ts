@@ -341,8 +341,8 @@ export class ProjectsService {
 
   // --- AI Planner & Approval Flow ---
 
-  async generateAiPlan(dto: GeneratePlanDto): Promise<AIProjectPlan> {
-    return this.aiPlannerService.generatePlan(dto);
+  async generateAiPlan(dto: GeneratePlanDto, userId?: string): Promise<AIProjectPlan> {
+    return this.aiPlannerService.generatePlan(dto, userId);
   }
 
   async modifyAiPlan(planId: string, updates: Partial<AIProjectPlan>): Promise<AIProjectPlan> {
@@ -388,6 +388,12 @@ export class ProjectsService {
       },
       userId,
     );
+
+    try {
+      await this.prisma.aIProjectPlan.delete({ where: { id: plan.id } }).catch(() => undefined);
+    } catch {
+      // Best-effort cleanup; the plan stays valid even if delete fails
+    }
 
     this.logger.log(`🚀 AI Project Plan Approved & Scaffolding Generated: "${project.name}" (${project.id})`);
     return project;

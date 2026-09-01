@@ -1,105 +1,195 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, Button, useToast } from '@nirmaanify/ui';
-import { Sparkles, Zap } from 'lucide-react';
+import { Card, Button, Input, useToast } from '@nirmaanify/ui';
+import { Layers, ArrowRight } from 'lucide-react';
+import { ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
+import { AiPlannerModal } from './AiPlannerModal';
+
+interface ScaffoldTemplate {
+  code: string;
+  label: string;
+  hint: string;
+  preferredType: ProjectType;
+  prompt: string;
+}
+
+const TEMPLATES: ScaffoldTemplate[] = [
+  {
+    code: 'ECOM',
+    label: 'Clothing boutique',
+    hint: 'Catalog · Stripe · Orders',
+    preferredType: 'ECOMMERCE',
+    prompt:
+      'Online clothing boutique with Next.js 15, Stripe checkout, variant selector, and order history.',
+  },
+  {
+    code: 'SAAS',
+    label: 'AI video studio',
+    hint: 'Multi-tenant · Stripe · Workers',
+    preferredType: 'SAAS',
+    prompt:
+      'Generative AI video studio platform with subscription tiers, BullMQ workers, and credit metering.',
+  },
+  {
+    code: 'BLOG',
+    label: 'Engineering journal',
+    hint: 'MDX · Syntax · Newsletter',
+    preferredType: 'BLOG',
+    prompt:
+      'Engineering blog with MDX, syntax highlighting, author profiles, and newsletter capture.',
+  },
+  {
+    code: 'DASH',
+    label: 'Analytics hub',
+    hint: 'Recharts · TanStack · CSV',
+    preferredType: 'DASHBOARD',
+    prompt:
+      'Executive KPI dashboard with Recharts, date filters, TanStack table, and CSV export.',
+  },
+  {
+    code: 'PORT',
+    label: 'Agency portfolio',
+    hint: 'Case studies · MDX · Leads',
+    preferredType: 'PORTFOLIO',
+    prompt:
+      'Agency portfolio with case studies, MDX content, image galleries, and project intake form.',
+  },
+  {
+    code: 'SITE',
+    label: 'Marketing landing',
+    hint: 'Hero · Pricing · Lead form',
+    preferredType: 'WEBSITE',
+    prompt:
+      'High-conversion marketing landing page with hero, feature sections, pricing cards, and lead capture.',
+  },
+];
 
 export const AiPlannerBar: React.FC = () => {
   const { toast } = useToast();
-  const { createProject } = useAuth();
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { activeWorkspace } = useAuth();
+  const [prompt, setPrompt] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const templates = [
-    'Next.js 15 Luxury Fashion Store',
-    'AI Video Generator SaaS Platform',
-    'High-Performance Developer Docs & Tech Journal',
-    'Real-time Multi-tenant Analytics Dashboard',
-  ];
-
-  const handleAiGenerate = async () => {
-    if (!aiPrompt.trim()) return;
-    setIsGenerating(true);
-
-    toast({
-      title: 'AI Architect Activated',
-      description: `Analyzing: "${aiPrompt.slice(0, 45)}..."`,
-      type: 'info',
-    });
-
-    setTimeout(async () => {
-      try {
-        await createProject({
-          name:
-            aiPrompt
-              .split(' ')
-              .slice(0, 3)
-              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-              .join(' ') + ' App',
-          description: aiPrompt,
-          type: 'SAAS',
-          isBackendEnabled: true,
-          framework: 'Next.js 15 App Router',
-          uiLibrary: 'shadcn/ui + Tailwind CSS',
-        });
-        setAiPrompt('');
-        toast({
-          title: 'Full-Stack Project Scaffolded!',
-          description: 'Next.js 15 App Router & NestJS backend generator ready.',
-          type: 'success',
-        });
-      } catch {
-        // Handled
-      } finally {
-        setIsGenerating(false);
-      }
-    }, 1000);
+  const handleContinue = () => {
+    if (!prompt.trim()) {
+      toast({
+        title: 'Describe what you want to build',
+        description: 'A short sentence is enough — the planner handles the rest.',
+        type: 'info',
+      });
+      return;
+    }
+    if (!activeWorkspace) {
+      toast({
+        title: 'No active workspace',
+        description: 'Create or select a workspace before scaffolding a project.',
+        type: 'error',
+      });
+      return;
+    }
+    setIsModalOpen(true);
   };
 
-  return (
-    <Card className="p-2 bg-gradient-to-r from-[#635BFF]/10 via-[#8B5CF6]/10 to-[#22D3EE]/10 border-[#635BFF]/30 shadow-lg shadow-[#635BFF]/5">
-      <div className="flex flex-col sm:flex-row items-center gap-2 p-2">
-        <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-[#635BFF] dark:text-[#A5AEFD] shrink-0">
-          <Sparkles className="h-4 w-4 animate-pulse" />
-          <span>AI Project Planner</span>
-        </div>
+  const activeTemplate = TEMPLATES.find((t) => t.prompt === prompt);
 
-        <input
-          type="text"
-          value={aiPrompt}
-          onChange={(e) => setAiPrompt(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleAiGenerate()}
-          placeholder="Describe what you want to build (e.g. AI-powered newsletter SaaS with Next.js 15, NestJS, Stripe)..."
-          aria-label="AI Project Prompt"
-          className="w-full bg-transparent border-0 text-sm focus-visible:outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 px-2"
+  return (
+    <>
+      <Card className="relative overflow-hidden border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A]">
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-1 bg-[#635BFF]"
         />
 
-        <Button
-          variant="default"
-          size="sm"
-          isLoading={isGenerating}
-          onClick={handleAiGenerate}
-          leftIcon={<Zap className="h-3.5 w-3.5" />}
-          className="shrink-0 w-full sm:w-auto font-semibold shadow-md shadow-[#635BFF]/20"
-        >
-          Generate Project
-        </Button>
-      </div>
+        <div className="p-5 sm:p-6 space-y-4">
+          {/* Header / Input Row */}
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+            <div className="flex items-center gap-2.5 shrink-0 lg:min-w-[260px]">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-[#24293D] bg-slate-50 dark:bg-[#141724] text-[#635BFF]">
+                <Layers className="h-4 w-4" />
+              </span>
+              <div className="leading-tight">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  Project scaffolder
+                </p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Scaffold a new full-stack application
+                </p>
+              </div>
+            </div>
 
-      <div className="px-4 pb-2 pt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-        <span className="font-medium">Quick templates:</span>
-        {templates.map((tpl) => (
-          <button
-            key={tpl}
-            type="button"
-            onClick={() => setAiPrompt(tpl)}
-            className="px-2.5 py-0.5 rounded-full bg-white/70 dark:bg-[#161926] hover:bg-[#635BFF]/15 hover:text-[#635BFF] dark:hover:text-[#A5AEFD] text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#635BFF]"
-          >
-            {tpl}
-          </button>
-        ))}
-      </div>
-    </Card>
+            <div className="flex-1 min-w-0">
+              <Input
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
+                placeholder="e.g. AI-powered newsletter SaaS with Next.js 15, NestJS, and Stripe billing"
+                aria-label="Project description"
+              />
+            </div>
+
+            <Button
+              variant="default"
+              size="md"
+              onClick={handleContinue}
+              rightIcon={<ArrowRight className="h-4 w-4" />}
+              className="shrink-0 lg:w-auto w-full"
+            >
+              Continue
+            </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-slate-100 dark:bg-[#1E2337]" />
+
+          {/* Templates Row */}
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+              <span>Start from a template</span>
+              <span className="text-slate-300 dark:text-[#3B4366]">·</span>
+              <span className="font-medium normal-case tracking-normal text-slate-500 dark:text-slate-400">
+                Click a tile to prefill the description
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              {TEMPLATES.map((tpl) => {
+                const isActive = activeTemplate?.code === tpl.code;
+                return (
+                  <button
+                    key={tpl.code}
+                    type="button"
+                    onClick={() => setPrompt(tpl.prompt)}
+                    className={[
+                      'group flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left transition-colors',
+                      isActive
+                        ? 'border-[#635BFF] bg-[#635BFF]/5'
+                        : 'border-slate-200 dark:border-[#24293D] bg-slate-50 dark:bg-[#141724] hover:border-slate-300 dark:hover:border-[#3B4366] hover:bg-white dark:hover:bg-[#1E2337]',
+                    ].join(' ')}
+                  >
+                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-[#635BFF]">
+                      {tpl.code}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                      {tpl.label}
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                      {tpl.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <AiPlannerModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        initialPrompt={prompt}
+        initialPreferredType={activeTemplate?.preferredType}
+      />
+    </>
   );
 };
