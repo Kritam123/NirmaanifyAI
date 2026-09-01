@@ -14,46 +14,24 @@ export function useStorage() {
       label: 'Local Filesystem',
       isActive: true,
       isConfigured: true,
-      description: 'Zero-config local directory storage for rapid development',
+      description: 'Local directory storage in workspace runtime',
     },
     {
       name: 's3',
       label: 'AWS S3 / MinIO',
       isActive: false,
       isConfigured: true,
-      description: 'Enterprise scalable object storage with multi-region replication',
+      description: 'Scalable object storage with S3 compatible API',
     },
     {
       name: 'vercel-blob',
       label: 'Vercel Blob Storage',
       isActive: false,
       isConfigured: true,
-      description: 'Ultra-fast global edge CDN asset storage for static media',
+      description: 'Edge asset storage for deployed media',
     },
   ]);
-  const [files, setFiles] = useState<StorageFileInfo[]>([
-    {
-      key: 'uploads/hero-banner-v2.png',
-      url: '/uploads/hero-banner-v2.png',
-      size: 1024 * 450,
-      uploadedAt: new Date(Date.now() - 3600000).toISOString(),
-      driver: 'local',
-    },
-    {
-      key: 'uploads/app-schema-manifest.json',
-      url: '/uploads/app-schema-manifest.json',
-      size: 1024 * 18,
-      uploadedAt: new Date(Date.now() - 7200000).toISOString(),
-      driver: 'local',
-    },
-    {
-      key: 'uploads/brand-typography-spec.pdf',
-      url: '/uploads/brand-typography-spec.pdf',
-      size: 1024 * 1200,
-      uploadedAt: new Date(Date.now() - 14400000).toISOString(),
-      driver: 'local',
-    },
-  ]);
+  const [files, setFiles] = useState<StorageFileInfo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
@@ -67,7 +45,7 @@ export function useStorage() {
         setDrivers(res.drivers);
       }
     } catch {
-      // Keep state
+      // Ignored
     }
   }, []);
 
@@ -82,7 +60,7 @@ export function useStorage() {
         setActiveDriver(res.activeDriver);
       }
     } catch {
-      // Keep state
+      setFiles([]);
     } finally {
       setIsLoading(false);
     }
@@ -109,19 +87,11 @@ export function useStorage() {
         type: 'success',
       });
       await fetchFiles();
-    } catch {
-      // Optimistic switch
-      setActiveDriver(driver);
-      setDrivers((prev) =>
-        prev.map((d) => ({
-          ...d,
-          isActive: d.name === driver,
-        }))
-      );
+    } catch (err: any) {
       toast({
-        title: 'Storage Driver Switched',
-        description: `Active engine is now ${driver.toUpperCase()} (Mock)`,
-        type: 'success',
+        title: 'Failed to Switch Storage Driver',
+        description: err?.message || 'Could not switch storage engine',
+        type: 'error',
       });
     }
   };
@@ -146,22 +116,13 @@ export function useStorage() {
         type: 'success',
       });
       return result;
-    } catch {
-      // Fallback local file insertion
-      const mockResult: StorageFileInfo = {
-        key: `${folder}/${file.name}`,
-        url: URL.createObjectURL(file),
-        size: file.size,
-        uploadedAt: new Date().toISOString(),
-        driver: activeDriver,
-      };
-      setFiles((prev) => [mockResult, ...prev]);
+    } catch (err: any) {
       toast({
-        title: 'File Uploaded',
-        description: `${file.name} saved to ${activeDriver.toUpperCase()} (Local preview)`,
-        type: 'success',
+        title: 'Upload Failed',
+        description: err?.message || `Failed to upload ${file.name}`,
+        type: 'error',
       });
-      return mockResult;
+      throw err;
     } finally {
       setIsUploading(false);
     }
@@ -176,12 +137,11 @@ export function useStorage() {
         description: `Removed ${key}`,
         type: 'info',
       });
-    } catch {
-      setFiles((prev) => prev.filter((f) => f.key !== key));
+    } catch (err: any) {
       toast({
-        title: 'File Deleted',
-        description: `Removed ${key}`,
-        type: 'info',
+        title: 'Delete Failed',
+        description: err?.message || `Could not delete ${key}`,
+        type: 'error',
       });
     }
   };

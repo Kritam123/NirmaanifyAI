@@ -44,10 +44,10 @@ export class AuthService {
   }
 
   /**
-   * Request a password reset link/token for the provided email
+   * Request a password reset link for the provided email
    */
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string; mockResetToken?: string }> {
-    return this.http.post<{ message: string; mockResetToken?: string }>(
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
       API_ENDPOINTS.AUTH.FORGOT_PASSWORD,
       dto
     );

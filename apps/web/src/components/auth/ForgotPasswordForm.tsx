@@ -16,7 +16,6 @@ export const ForgotPasswordForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,11 +23,8 @@ export const ForgotPasswordForm: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const res = await forgotPassword(email);
+      await forgotPassword(email);
       setIsSubmitted(true);
-      if (res.mockResetToken) {
-        setGeneratedToken(res.mockResetToken);
-      }
       toast({
         title: 'Reset Link Dispatched',
         description: 'Check your email inbox for recovery instructions.',

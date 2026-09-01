@@ -50,8 +50,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current authenticated user profile and workspaces' })
-  async getProfile(@CurrentUser('id') userId: string) {
-    return this.authService.getProfile(userId);
+  async getProfile(@CurrentUser() user: any) {
+    return this.authService.getProfile(user?.id, user?.email);
   }
 
   @Post('forgot-password')

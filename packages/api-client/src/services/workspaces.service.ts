@@ -53,4 +53,13 @@ export class WorkspacesService {
       API_ENDPOINTS.WORKSPACES.REMOVE_MEMBER(workspaceId, userId)
     );
   }
+
+  /**
+   * Delete workspace and cascade delete all associated projects
+   */
+  async deleteWorkspace(workspaceId: string): Promise<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(
+      API_ENDPOINTS.WORKSPACES.DELETE(workspaceId)
+    );
+  }
 }

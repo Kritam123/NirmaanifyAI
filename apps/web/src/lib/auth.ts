@@ -10,6 +10,7 @@ const getCleanEnv = (val?: string): string | undefined => {
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     GitHub({
       clientId: getCleanEnv(process.env.AUTH_GITHUB_ID) || getCleanEnv(process.env.GITHUB_CLIENT_ID),

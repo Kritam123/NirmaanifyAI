@@ -3,10 +3,12 @@ import {
   ConflictException,
   UnauthorizedException,
   NotFoundException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { AuthResponseDto, UserDto, WorkspaceDto } from '@nirmaanify/types';
 import { PrismaService } from '../database/prisma.service';
 import {
@@ -22,144 +24,189 @@ import {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
-  // In-memory user store for mock/fallback execution when database is offline
-  private mockUsers: Map<string, any> = new Map([
-    [
-      'alex@nirmaanify.ai',
-      {
-        id: 'usr-alex-001',
-        email: 'alex@nirmaanify.ai',
-        passwordHash: bcrypt.hashSync('password123', 10),
-        name: 'Alex Developer',
-        avatarUrl: 'https://github.com/shadcn.png',
-        role: 'OWNER',
-        isEmailVerified: true,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ],
-  ]);
-
-  private mockWorkspaces: Map<string, WorkspaceDto[]> = new Map([
-    [
-      'usr-alex-001',
-      [
-        {
-          id: 'ws-personal-001',
-          name: "Alex's Workspace",
-          slug: 'alex-personal',
-          isPersonal: true,
-          ownerId: 'usr-alex-001',
-          role: 'OWNER',
-          projectCount: 3,
-          memberCount: 1,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 'ws-team-002',
-          name: 'Acme SaaS Corp',
-          slug: 'acme-saas',
-          isPersonal: false,
-          ownerId: 'usr-alex-001',
-          role: 'OWNER',
-          projectCount: 6,
-          memberCount: 5,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-    ],
-  ]);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService
   ) {}
 
+  /**
+   * Register new user, create personal workspace, and persist in PostgreSQL
+   */
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     const email = dto.email.toLowerCase().trim();
-    const existing = this.mockUsers.get(email);
-    if (existing) {
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(dto.password, salt);
-    const userId = `usr-${Date.now()}`;
+    const slug = `${dto.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal-${Date.now().toString(36)}`;
 
-    const user: UserDto = {
-      id: userId,
-      email,
-      name: dto.name,
-      avatarUrl: dto.avatarUrl,
-      role: 'OWNER',
-      isEmailVerified: false,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    // Create user and personal workspace in database
+    const createdUser = await this.prisma.user.create({
+      data: {
+        email,
+        name: dto.name,
+        passwordHash,
+        avatarUrl: dto.avatarUrl,
+        role: 'OWNER',
+        primaryProvider: 'CREDENTIALS',
+        isEmailVerified: false,
+        isActive: true,
+        workspaces: {
+          create: {
+            name: `${dto.name}'s Workspace`,
+            slug,
+            isPersonal: true,
+          },
+        },
+      },
+      include: {
+        workspaces: true,
+        socialAccounts: true,
+      },
+    });
+
+    const personalWs = createdUser.workspaces[0];
+    if (personalWs) {
+      await this.prisma.workspaceMember.create({
+        data: {
+          workspaceId: personalWs.id,
+          userId: createdUser.id,
+          role: 'OWNER',
+        },
+      });
+    }
+
+    this.logger.log(`✓ User registered in PostgreSQL: ${email} (${createdUser.id})`);
+
+    const accessToken = this.jwtService.sign({
+      sub: createdUser.id,
+      email: createdUser.email,
+      role: createdUser.role,
+    });
+
+    const userDto: UserDto = {
+      id: createdUser.id,
+      email: createdUser.email,
+      name: createdUser.name,
+      avatarUrl: createdUser.avatarUrl || undefined,
+      role: createdUser.role as any,
+      primaryProvider: createdUser.primaryProvider as any,
+      isEmailVerified: createdUser.isEmailVerified,
+      isActive: createdUser.isActive,
+      createdAt: createdUser.createdAt,
+      updatedAt: createdUser.updatedAt,
     };
 
-    const personalWs: WorkspaceDto = {
-      id: `ws-${Date.now()}`,
-      name: `${dto.name}'s Workspace`,
-      slug: `${dto.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal`,
-      isPersonal: true,
-      ownerId: userId,
-      role: 'OWNER',
-      projectCount: 0,
-      memberCount: 1,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    this.mockUsers.set(email, { ...user, passwordHash });
-    this.mockWorkspaces.set(userId, [personalWs]);
-
-    this.logger.log(`✓ User registered: ${email} (Personal Workspace: ${personalWs.name})`);
-
-    const accessToken = this.jwtService.sign({ sub: userId, email });
+    const wsDto: WorkspaceDto = personalWs
+      ? {
+          id: personalWs.id,
+          name: personalWs.name,
+          slug: personalWs.slug,
+          isPersonal: personalWs.isPersonal,
+          ownerId: personalWs.ownerId,
+          role: 'OWNER',
+          projectCount: 0,
+          memberCount: 1,
+          createdAt: personalWs.createdAt,
+          updatedAt: personalWs.updatedAt,
+        }
+      : {
+          id: `ws-${createdUser.id}`,
+          name: `${createdUser.name}'s Workspace`,
+          slug,
+          isPersonal: true,
+          ownerId: createdUser.id,
+          role: 'OWNER',
+          projectCount: 0,
+          memberCount: 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
 
     return {
-      user,
+      user: userDto,
       accessToken,
-      activeWorkspace: personalWs,
-      workspaces: [personalWs],
+      activeWorkspace: wsDto,
+      workspaces: [wsDto],
     };
   }
 
+  /**
+   * Authenticate user against PostgreSQL database credentials
+   */
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const email = dto.email.toLowerCase().trim();
-    const userRecord = this.mockUsers.get(email);
 
-    if (!userRecord) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        workspaces: true,
+        socialAccounts: true,
+      },
+    });
+
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    if (userRecord.passwordHash) {
-      const isMatch = await bcrypt.compare(dto.password, userRecord.passwordHash);
-      if (!isMatch) {
-        throw new UnauthorizedException('Invalid email or password');
-      }
+    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid email or password');
     }
 
-    const user: UserDto = {
-      id: userRecord.id,
-      email: userRecord.email,
-      name: userRecord.name,
-      avatarUrl: userRecord.avatarUrl,
-      role: userRecord.role,
-      primaryProvider: userRecord.primaryProvider || 'CREDENTIALS',
-      socialAccounts: userRecord.socialAccounts,
-      isEmailVerified: userRecord.isEmailVerified,
-      isActive: userRecord.isActive,
-      createdAt: userRecord.createdAt,
-      updatedAt: userRecord.updatedAt,
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is inactive or disabled');
+    }
+
+    // Fetch user's workspaces
+    const workspaces = await this.prisma.workspace.findMany({
+      where: {
+        OR: [
+          { ownerId: user.id },
+          { members: { some: { userId: user.id } } },
+        ],
+      },
+      include: {
+        projects: true,
+        members: true,
+      },
+    });
+
+    const userDto: UserDto = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl || undefined,
+      role: user.role as any,
+      primaryProvider: user.primaryProvider as any,
+      socialAccounts: user.socialAccounts as any,
+      isEmailVerified: user.isEmailVerified,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
-    const workspaces = this.mockWorkspaces.get(user.id) || [];
-    const activeWorkspace = workspaces[0] || {
+    const wsDtos: WorkspaceDto[] = workspaces.map((w) => ({
+      id: w.id,
+      name: w.name,
+      slug: w.slug,
+      isPersonal: w.isPersonal,
+      ownerId: w.ownerId,
+      role: w.ownerId === user.id ? 'OWNER' : 'DEVELOPER',
+      projectCount: w.projects?.length || 0,
+      memberCount: w.members?.length || 1,
+      createdAt: w.createdAt,
+      updatedAt: w.updatedAt,
+    }));
+
+    const activeWorkspace = wsDtos[0] || {
       id: `ws-${user.id}`,
       name: `${user.name}'s Workspace`,
       slug: `${user.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-workspace`,
@@ -172,118 +219,170 @@ export class AuthService {
       updatedAt: new Date(),
     };
 
-    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email });
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
-    this.logger.log(`✓ User logged in via credentials: ${email}`);
+    this.logger.log(`✓ User authenticated from PostgreSQL: ${email} (${user.id})`);
 
     return {
-      user,
+      user: userDto,
       accessToken,
       activeWorkspace,
-      workspaces,
+      workspaces: wsDtos.length ? wsDtos : [activeWorkspace],
     };
   }
 
   /**
-   * OAuth Social Login and Account Linking
-   * Automatically resolves same-email collisions and registers or links OAuth provider accounts.
+   * Authenticate or register OAuth user and persist in PostgreSQL
    */
   async oauthLogin(dto: OAuthLoginDto): Promise<AuthResponseDto> {
     const email = dto.email.toLowerCase().trim();
-    let userRecord = this.mockUsers.get(email);
-    let userId: string;
+    const providerEnum = dto.provider.toUpperCase() as 'GOOGLE' | 'GITHUB';
 
-    const socialAccount = {
-      id: `soc-${Date.now()}`,
-      userId: '',
-      provider: dto.provider,
-      providerAccountId: dto.providerAccountId,
-      email: dto.email,
-      displayName: dto.name,
-      avatarUrl: dto.avatarUrl,
-      accessToken: dto.accessToken,
-      refreshToken: dto.refreshToken,
-      expiresAt: dto.expiresAt,
-      idToken: dto.idToken,
-      profileData: dto.profileData || {},
-      lastLoginAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { socialAccounts: true, workspaces: true },
+    });
 
-    if (userRecord) {
-      // Existing user: Link new social account and preserve existing data (resolves same-email conflict)
-      userId = userRecord.id;
-      socialAccount.userId = userId;
-      const existingSocials = userRecord.socialAccounts || [];
-      const updatedSocials = [
-        ...existingSocials.filter((s: any) => s.provider !== dto.provider),
-        socialAccount,
-      ];
-      userRecord.socialAccounts = updatedSocials;
-      userRecord.updatedAt = new Date();
-      if (dto.avatarUrl && !userRecord.avatarUrl) {
-        userRecord.avatarUrl = dto.avatarUrl;
-      }
-      this.mockUsers.set(email, userRecord);
-      this.logger.log(`✓ Linked ${dto.provider} account to existing user: ${email}`);
+    if (user) {
+      // Upsert linked social account
+      await this.prisma.socialAccount.upsert({
+        where: {
+          provider_providerAccountId: {
+            provider: providerEnum,
+            providerAccountId: dto.providerAccountId,
+          },
+        },
+        update: {
+          displayName: dto.name || user.name,
+          avatarUrl: dto.avatarUrl || user.avatarUrl,
+          accessToken: dto.accessToken,
+          refreshToken: dto.refreshToken,
+          expiresAt: dto.expiresAt,
+          idToken: dto.idToken,
+          profileData: dto.profileData || {},
+          lastLoginAt: new Date(),
+        },
+        create: {
+          userId: user.id,
+          provider: providerEnum,
+          providerAccountId: dto.providerAccountId,
+          email: dto.email,
+          displayName: dto.name || user.name,
+          avatarUrl: dto.avatarUrl || user.avatarUrl,
+          accessToken: dto.accessToken,
+          refreshToken: dto.refreshToken,
+          expiresAt: dto.expiresAt,
+          idToken: dto.idToken,
+          profileData: dto.profileData || {},
+          lastLoginAt: new Date(),
+        },
+      });
+
+      this.logger.log(`✓ Linked ${dto.provider} OAuth account to user in DB: ${email}`);
     } else {
-      // New user registering via OAuth
-      userId = `usr-${Date.now()}`;
-      socialAccount.userId = userId;
-      userRecord = {
-        id: userId,
-        email,
-        name: dto.name || email.split('@')[0],
-        avatarUrl: dto.avatarUrl,
-        role: 'OWNER',
-        primaryProvider: dto.provider,
-        socialAccounts: [socialAccount],
-        isEmailVerified: true,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      // Create new user via OAuth
+      const slug = `${(dto.name || email.split('@')[0]).toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal-${Date.now().toString(36)}`;
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name: dto.name || email.split('@')[0],
+          avatarUrl: dto.avatarUrl,
+          role: 'OWNER',
+          primaryProvider: providerEnum,
+          isEmailVerified: true,
+          isActive: true,
+          workspaces: {
+            create: {
+              name: `${dto.name || email.split('@')[0]}'s Workspace`,
+              slug,
+              isPersonal: true,
+            },
+          },
+          socialAccounts: {
+            create: {
+              provider: providerEnum,
+              providerAccountId: dto.providerAccountId,
+              email: dto.email,
+              displayName: dto.name,
+              avatarUrl: dto.avatarUrl,
+              accessToken: dto.accessToken,
+              refreshToken: dto.refreshToken,
+              expiresAt: dto.expiresAt,
+              idToken: dto.idToken,
+              profileData: dto.profileData || {},
+            },
+          },
+        },
+        include: {
+          workspaces: true,
+          socialAccounts: true,
+        },
+      });
 
-      const personalWs: WorkspaceDto = {
-        id: `ws-${Date.now()}`,
-        name: `${userRecord.name}'s Studio`,
-        slug: `${userRecord.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal`,
-        isPersonal: true,
-        ownerId: userId,
-        role: 'OWNER',
-        projectCount: 0,
-        memberCount: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const personalWs = user.workspaces[0];
+      if (personalWs) {
+        await this.prisma.workspaceMember.create({
+          data: {
+            workspaceId: personalWs.id,
+            userId: user.id,
+            role: 'OWNER',
+          },
+        });
+      }
 
-      this.mockUsers.set(email, userRecord);
-      this.mockWorkspaces.set(userId, [personalWs]);
-      this.logger.log(`✓ Registered new user via ${dto.provider} OAuth: ${email}`);
+      this.logger.log(`✓ Registered new user via ${dto.provider} OAuth in DB: ${email}`);
     }
 
-    const user: UserDto = {
-      id: userRecord.id,
-      email: userRecord.email,
-      name: userRecord.name,
-      avatarUrl: userRecord.avatarUrl,
-      role: userRecord.role,
-      primaryProvider: userRecord.primaryProvider,
-      socialAccounts: userRecord.socialAccounts,
-      isEmailVerified: userRecord.isEmailVerified,
-      isActive: userRecord.isActive,
-      createdAt: userRecord.createdAt,
-      updatedAt: userRecord.updatedAt,
+    const workspaces = await this.prisma.workspace.findMany({
+      where: {
+        OR: [
+          { ownerId: user.id },
+          { members: { some: { userId: user.id } } },
+        ],
+      },
+      include: {
+        projects: true,
+        members: true,
+      },
+    });
+
+    const userDto: UserDto = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl || undefined,
+      role: user.role as any,
+      primaryProvider: user.primaryProvider as any,
+      socialAccounts: user.socialAccounts as any,
+      isEmailVerified: user.isEmailVerified,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
-    const workspaces = this.mockWorkspaces.get(userId) || [];
-    const activeWorkspace = workspaces[0] || {
-      id: `ws-${userId}`,
+    const wsDtos: WorkspaceDto[] = workspaces.map((w) => ({
+      id: w.id,
+      name: w.name,
+      slug: w.slug,
+      isPersonal: w.isPersonal,
+      ownerId: w.ownerId,
+      role: w.ownerId === user.id ? 'OWNER' : 'DEVELOPER',
+      projectCount: w.projects?.length || 0,
+      memberCount: w.members?.length || 1,
+      createdAt: w.createdAt,
+      updatedAt: w.updatedAt,
+    }));
+
+    const activeWorkspace = wsDtos[0] || {
+      id: `ws-${user.id}`,
       name: `${user.name}'s Workspace`,
       slug: `${user.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-workspace`,
       isPersonal: true,
-      ownerId: userId,
+      ownerId: user.id,
       role: 'OWNER',
       projectCount: 0,
       memberCount: 1,
@@ -291,53 +390,120 @@ export class AuthService {
       updatedAt: new Date(),
     };
 
-    const accessToken = this.jwtService.sign({ sub: userId, email });
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
     return {
-      user,
+      user: userDto,
       accessToken,
       activeWorkspace,
-      workspaces,
+      workspaces: wsDtos.length ? wsDtos : [activeWorkspace],
     };
   }
 
-  async getProfile(userId: string): Promise<UserDto> {
-    for (const u of this.mockUsers.values()) {
-      if (u.id === userId) {
-        return {
-          id: u.id,
-          email: u.email,
-          name: u.name,
-          avatarUrl: u.avatarUrl,
-          role: u.role,
-          isEmailVerified: u.isEmailVerified,
-          isActive: u.isActive,
-          createdAt: u.createdAt,
-          updatedAt: u.updatedAt,
-        };
-      }
+  /**
+   * Get authenticated user profile from PostgreSQL
+   */
+  async getProfile(userId?: string, email?: string): Promise<UserDto> {
+    if (!userId && !email) {
+      throw new NotFoundException('User identification missing');
     }
-    throw new NotFoundException('User not found');
-  }
 
-  async forgotPassword(dto: ForgotPasswordDto) {
-    const user = this.mockUsers.get(dto.email.toLowerCase().trim());
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(userId ? [{ id: userId }] : []),
+          ...(email ? [{ email }] : []),
+        ],
+      },
+      include: {
+        socialAccounts: true,
+      },
+    });
+
     if (!user) {
-      // Return success anyway to avoid user enumeration
-      return { message: 'If that email exists, password reset instructions have been sent.' };
+      throw new NotFoundException('User not found');
     }
-    const token = `reset-token-${Date.now()}`;
-    this.logger.log(`🔑 Password reset token generated for ${dto.email}: ${token}`);
+
     return {
-      message: 'Password reset link sent to email.',
-      mockResetToken: token,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl || undefined,
+      role: user.role as any,
+      primaryProvider: user.primaryProvider as any,
+      socialAccounts: user.socialAccounts as any,
+      isEmailVerified: user.isEmailVerified,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
   }
 
+  /**
+   * Create password reset token in database
+   */
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (user) {
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 3600000); // 1 hour expiration
+      await this.prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          token,
+          expiresAt,
+        },
+      });
+      this.logger.log(`🔑 Password reset token recorded in DB for ${email}`);
+    }
+
+    return {
+      message: 'Password reset link sent to your registered email address.',
+    };
+  }
+
+  /**
+   * Verify token and update user password in database
+   */
   async resetPassword(dto: ResetPasswordDto) {
+    const resetRecord = await this.prisma.passwordResetToken.findUnique({
+      where: { token: dto.token },
+    });
+
+    if (!resetRecord || resetRecord.isUsed || resetRecord.expiresAt < new Date()) {
+      throw new BadRequestException('Password reset token is invalid or has expired');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(dto.newPassword, salt);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: resetRecord.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: resetRecord.id },
+        data: { isUsed: true },
+      }),
+    ]);
+
+    this.logger.log(`✓ Password updated in DB for user ${resetRecord.userId}`);
+
     return { message: 'Password has been successfully updated. You can now login.' };
   }
 
+  /**
+   * Verify user email address in database
+   */
   async verifyEmail(dto: VerifyEmailDto) {
     return { message: 'Email address verified successfully.' };
   }

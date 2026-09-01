@@ -10,33 +10,38 @@ import { ROUTES } from '../../lib/routes';
 export const QuickMetrics: React.FC = () => {
   const { projects, activeWorkspace } = useAuth();
 
+  const activeBackends = projects.filter((p) => p.isBackendEnabled).length;
+  const memberCount = activeWorkspace?.isPersonal
+    ? 1
+    : activeWorkspace?.memberCount || 1;
+
   const metrics = [
     {
       label: 'Active Projects',
       val: projects.length,
       icon: <Boxes className="h-5 w-5 text-[#635BFF]" />,
-      sub: 'Applications in current workspace',
+      sub: `${projects.length} application${projects.length === 1 ? '' : 's'} in workspace`,
       href: ROUTES.DASHBOARD.PROJECTS,
     },
     {
-      label: 'Cloud Deployments',
-      val: '2 Live',
+      label: 'Backends & Services',
+      val: activeBackends,
       icon: <Globe className="h-5 w-5 text-[#22D3EE]" />,
-      sub: 'Vercel Edge & Docker',
-      href: ROUTES.DASHBOARD.STORAGE,
+      sub: `${activeBackends} NestJS / PostgreSQL backend${activeBackends === 1 ? '' : 's'}`,
+      href: ROUTES.DASHBOARD.PROJECTS,
     },
     {
       label: 'Workspace Members',
-      val: activeWorkspace?.isPersonal ? '1 (Personal)' : '5 Members',
+      val: `${memberCount} Member${memberCount === 1 ? '' : 's'}`,
       icon: <Users className="h-5 w-5 text-[#8B5CF6]" />,
       sub: `Role: ${activeWorkspace?.role || 'OWNER'}`,
       href: ROUTES.DASHBOARD.WORKSPACES,
     },
     {
       label: 'Storage Driver',
-      val: 'LOCAL / S3',
+      val: 'MULTI-DRIVER',
       icon: <HardDrive className="h-5 w-5 text-emerald-400" />,
-      sub: 'Multi-Driver Ready',
+      sub: 'Local, S3 & Vercel Blob Ready',
       href: ROUTES.DASHBOARD.STORAGE,
     },
   ];

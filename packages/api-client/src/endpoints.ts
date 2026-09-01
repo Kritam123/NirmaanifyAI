@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
     MEMBERS: (id: string) => `${API_PREFIX}/workspaces/${id}/members`,
     INVITE: (id: string) => `${API_PREFIX}/workspaces/${id}/invites`,
     REMOVE_MEMBER: (id: string, userId: string) => `${API_PREFIX}/workspaces/${id}/members/${userId}`,
+    DELETE: (id: string) => `${API_PREFIX}/workspaces/${id}`,
   },
   PROJECTS: {
     BASE: `${API_PREFIX}/projects`,

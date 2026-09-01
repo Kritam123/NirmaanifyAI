@@ -62,8 +62,17 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({ onOpenCr
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {projects.slice(0, 6).map((proj) => (
+      {projects.length === 0 ? (
+        <div className="py-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-[#24293D] p-6 space-y-3 bg-white/40 dark:bg-[#0F111A]/40">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No projects in this workspace yet</p>
+          <p className="text-xs text-slate-400">Scaffold your first full-stack Next.js + NestJS application or microservice.</p>
+          <Button variant="default" size="sm" onClick={onOpenCreateModal} leftIcon={<Plus className="h-3.5 w-3.5" />}>
+            Create First Project
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.slice(0, 6).map((proj) => (
           <Card key={proj.id} hoverable className="flex flex-col justify-between overflow-hidden group">
             <CardHeader className="p-5">
               <div className="flex items-start justify-between">
@@ -125,7 +134,8 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({ onOpenCr
             </CardFooter>
           </Card>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

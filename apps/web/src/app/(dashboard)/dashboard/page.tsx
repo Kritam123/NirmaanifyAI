@@ -4,16 +4,16 @@ import React, { useState } from 'react';
 import { PageHeader, Button } from '@nirmaanify/ui';
 import { Plus, Building2 } from 'lucide-react';
 import { useAuth } from '../../../context/auth-context';
+import { useWorkspaceModal } from '../../../context/workspace-modal-context';
 import { AiPlannerBar } from '../../../components/dashboard/AiPlannerBar';
 import { QuickMetrics } from '../../../components/dashboard/QuickMetrics';
 import { RecentProjectsGrid } from '../../../components/dashboard/RecentProjectsGrid';
 import { CreateProjectDialog } from '../../../components/projects/CreateProjectDialog';
-import { CreateWorkspaceDialog } from '../../../components/workspaces/CreateWorkspaceDialog';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { openCreateWorkspaceModal } = useWorkspaceModal();
   const [createProjectModal, setCreateProjectModal] = useState(false);
-  const [createWorkspaceModal, setCreateWorkspaceModal] = useState(false);
 
   return (
     <div className="space-y-8">
@@ -27,7 +27,7 @@ export default function DashboardPage() {
               variant="outline"
               size="sm"
               leftIcon={<Building2 className="h-4 w-4" />}
-              onClick={() => setCreateWorkspaceModal(true)}
+              onClick={() => openCreateWorkspaceModal()}
             >
               New Workspace
             </Button>
@@ -52,15 +52,10 @@ export default function DashboardPage() {
       {/* Recent Projects Grid */}
       <RecentProjectsGrid onOpenCreateModal={() => setCreateProjectModal(true)} />
 
-      {/* Modals */}
+      {/* Project Creation Modal */}
       <CreateProjectDialog
         isOpen={createProjectModal}
         onClose={() => setCreateProjectModal(false)}
-      />
-
-      <CreateWorkspaceDialog
-        isOpen={createWorkspaceModal}
-        onClose={() => setCreateWorkspaceModal(false)}
       />
     </div>
   );

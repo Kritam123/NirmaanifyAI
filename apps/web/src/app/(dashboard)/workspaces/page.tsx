@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { PageHeader, Button } from '@nirmaanify/ui';
 import { Plus, Building2, UserPlus } from 'lucide-react';
 import { useWorkspaces } from '../../../hooks/use-workspaces';
+import { useWorkspaceModal } from '../../../context/workspace-modal-context';
 import { WorkspaceCard } from '../../../components/workspaces/WorkspaceCard';
 import { MembersList } from '../../../components/workspaces/MembersList';
-import { CreateWorkspaceDialog } from '../../../components/workspaces/CreateWorkspaceDialog';
 import { InviteMemberDialog } from '../../../components/workspaces/InviteMemberDialog';
 
 export default function WorkspacesPage() {
@@ -18,8 +18,8 @@ export default function WorkspacesPage() {
     inviteMember,
     removeMember,
   } = useWorkspaces();
+  const { openCreateWorkspaceModal } = useWorkspaceModal();
 
-  const [createWsModal, setCreateWsModal] = useState(false);
   const [inviteModal, setInviteModal] = useState(false);
 
   return (
@@ -32,7 +32,7 @@ export default function WorkspacesPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCreateWsModal(true)}
+              onClick={() => openCreateWorkspaceModal()}
               leftIcon={<Building2 className="h-4 w-4" />}
             >
               New Workspace
@@ -52,16 +52,31 @@ export default function WorkspacesPage() {
       {/* Workspaces Grid */}
       <div className="space-y-4">
         <h3 className="text-base font-bold text-slate-900 dark:text-white">Your Workspaces</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {workspaces.map((ws) => (
-            <WorkspaceCard
-              key={ws.id}
-              workspace={ws}
-              isActive={ws.id === activeWorkspace?.id}
-              onSwitch={switchWorkspace}
-            />
-          ))}
-        </div>
+        {workspaces.length === 0 ? (
+          <div className="py-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-[#24293D] p-6 space-y-3 bg-white/40 dark:bg-[#0F111A]/40">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No workspaces found</p>
+            <p className="text-xs text-slate-400">You don't have any workspaces in PostgreSQL yet. Create your first workspace to start collaborating.</p>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => openCreateWorkspaceModal()}
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+            >
+              Create Workspace
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {workspaces.map((ws) => (
+              <WorkspaceCard
+                key={ws.id}
+                workspace={ws}
+                isActive={ws.id === activeWorkspace?.id}
+                onSwitch={switchWorkspace}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Active Workspace Member Roster */}
@@ -71,12 +86,7 @@ export default function WorkspacesPage() {
         onRemoveMember={removeMember}
       />
 
-      {/* Modals */}
-      <CreateWorkspaceDialog
-        isOpen={createWsModal}
-        onClose={() => setCreateWsModal(false)}
-      />
-
+      {/* Invite Modal */}
       <InviteMemberDialog
         isOpen={inviteModal}
         onClose={() => setInviteModal(false)}

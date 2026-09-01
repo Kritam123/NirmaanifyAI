@@ -11,6 +11,8 @@ import {
 } from '@nirmaanify/types';
 import { apiClient, getStoredToken, setStoredToken } from '../lib/api';
 
+const ACTIVE_WS_KEY = 'nirmaanify_active_ws';
+
 interface AuthContextType {
   user: UserDto | null;
   activeWorkspace: WorkspaceDto | null;
@@ -21,13 +23,14 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, pass: string) => Promise<AuthResponseDto>;
   register: (name: string, email: string, pass: string) => Promise<AuthResponseDto>;
-  logout: () => void;
-  switchWorkspace: (workspaceId: string) => void;
-  createWorkspace: (name: string, slug?: string) => Promise<WorkspaceDto>;
+  logout: () => Promise<void>;
+  switchWorkspace: (workspaceId: string) => Promise<void>;
+  createWorkspace: (name: string, slug?: string, isPersonal?: boolean) => Promise<WorkspaceDto>;
+  deleteWorkspace: (workspaceId: string) => Promise<void>;
   createProject: (project: Partial<ProjectDto>) => Promise<ProjectDto>;
   inviteMember: (email: string, role: UserRole) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
-  forgotPassword: (email: string) => Promise<{ message: string; mockResetToken?: string }>;
+  forgotPassword: (email: string) => Promise<{ message: string }>;
   resetPassword: (token: string, newPassword: string) => Promise<{ message: string }>;
   verifyEmail: (token: string) => Promise<{ message: string }>;
   refreshData: () => Promise<void>;
@@ -67,29 +70,102 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(syncedUser);
 
       if ((nextAuthSession as any).accessToken) {
-        setTokenState((nextAuthSession as any).accessToken);
-        setStoredToken((nextAuthSession as any).accessToken);
-        apiClient.setToken((nextAuthSession as any).accessToken);
-      }
+        const nextToken = (nextAuthSession as any).accessToken;
+        setTokenState(nextToken);
+        setStoredToken(nextToken);
+        apiClient.setToken(nextToken);
 
-      if (socialUser.activeWorkspace) {
-        setActiveWorkspace(socialUser.activeWorkspace);
+        // Fetch workspaces from PostgreSQL for social user
+        apiClient.workspaces
+          .listWorkspaces()
+          .then(async (wsList) => {
+            if (Array.isArray(wsList) && wsList.length > 0) {
+              setWorkspaces(wsList);
+              const savedWsId = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_WS_KEY) : null;
+              const matched = wsList.find((w) => w.id === savedWsId) || wsList[0];
+              setActiveWorkspace(matched);
+              if (typeof window !== 'undefined' && matched) {
+                localStorage.setItem(ACTIVE_WS_KEY, matched.id);
+              }
+              try {
+                const projList = await apiClient.projects.listProjects(matched.id);
+                if (Array.isArray(projList)) setProjects(projList);
+              } catch {
+                // Ignored
+              }
+            } else {
+              setWorkspaces([]);
+              setActiveWorkspace(null);
+              setProjects([]);
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem(ACTIVE_WS_KEY);
+              }
+            }
+          })
+          .catch(() => {
+            setWorkspaces([]);
+            setActiveWorkspace(null);
+            setProjects([]);
+          })
+          .finally(() => setIsLoading(false));
+      } else {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
   }, [nextAuthSession]);
 
-  // Initialize auth state on mount from stored token
+  // Initialize auth state on mount from stored token and reload workspaces + profile
   useEffect(() => {
     const savedToken = getStoredToken();
     if (savedToken) {
       setTokenState(savedToken);
       apiClient.setToken(savedToken);
-      // Fetch fresh profile from API
-      apiClient.auth
-        .getProfile()
-        .then((profile) => {
-          if (profile) setUser(profile);
+
+      // Concurrently fetch profile and real workspaces from PostgreSQL
+      Promise.allSettled([
+        apiClient.auth.getProfile(),
+        apiClient.workspaces.listWorkspaces(),
+      ])
+        .then(async ([profileRes, wsRes]) => {
+          if (profileRes.status === 'fulfilled' && profileRes.value) {
+            setUser(profileRes.value);
+          }
+
+          let currentWs: WorkspaceDto | null = null;
+          if (wsRes.status === 'fulfilled' && Array.isArray(wsRes.value)) {
+            const realWorkspaces = wsRes.value;
+            setWorkspaces(realWorkspaces);
+
+            if (realWorkspaces.length > 0) {
+              const savedWsId = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_WS_KEY) : null;
+              currentWs = realWorkspaces.find((w) => w.id === savedWsId) || realWorkspaces[0];
+              setActiveWorkspace(currentWs);
+              if (typeof window !== 'undefined' && currentWs) {
+                localStorage.setItem(ACTIVE_WS_KEY, currentWs.id);
+              }
+            } else {
+              // Real DB returned 0 workspaces: clear active workspace & projects
+              setActiveWorkspace(null);
+              setProjects([]);
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem(ACTIVE_WS_KEY);
+              }
+            }
+          }
+
+          // Fetch projects for the real active workspace
+          if (currentWs) {
+            try {
+              const projList = await apiClient.projects.listProjects(currentWs.id);
+              if (Array.isArray(projList)) {
+                setProjects(projList);
+              }
+            } catch {
+              setProjects([]);
+            }
+          } else {
+            setProjects([]);
+          }
         })
         .catch(() => {
           // If token verification fails, clear invalid token
@@ -97,6 +173,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setStoredToken(null);
           apiClient.setToken(null);
           setUser(null);
+          setWorkspaces([]);
+          setActiveWorkspace(null);
+          setProjects([]);
         })
         .finally(() => setIsLoading(false));
     } else {
@@ -113,14 +192,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         apiClient.projects.listProjects(activeWorkspace?.id),
       ]);
 
-      if (fetchedWs.status === 'fulfilled' && fetchedWs.value?.length) {
-        setWorkspaces(fetchedWs.value);
-        if (!activeWorkspace || !fetchedWs.value.some((w) => w.id === activeWorkspace.id)) {
-          setActiveWorkspace(fetchedWs.value[0]);
+      if (fetchedWs.status === 'fulfilled' && Array.isArray(fetchedWs.value)) {
+        const wsList = fetchedWs.value;
+        setWorkspaces(wsList);
+
+        if (wsList.length === 0) {
+          setActiveWorkspace(null);
+          setProjects([]);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(ACTIVE_WS_KEY);
+          }
+        } else if (!activeWorkspace || !wsList.some((w) => w.id === activeWorkspace.id)) {
+          const savedWsId = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_WS_KEY) : null;
+          const fallback = wsList.find((w) => w.id === savedWsId) || wsList[0];
+          setActiveWorkspace(fallback);
+          if (typeof window !== 'undefined' && fallback) {
+            localStorage.setItem(ACTIVE_WS_KEY, fallback.id);
+          }
         }
       }
 
-      if (fetchedProjects.status === 'fulfilled' && fetchedProjects.value?.length) {
+      if (fetchedProjects.status === 'fulfilled' && Array.isArray(fetchedProjects.value)) {
         setProjects(fetchedProjects.value);
       }
     } catch {
@@ -135,12 +227,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStoredToken(res.accessToken);
     apiClient.setToken(res.accessToken);
 
-    if (res.workspaces?.length) {
+    if (Array.isArray(res.workspaces) && res.workspaces.length > 0) {
       setWorkspaces(res.workspaces);
+      const ws = res.activeWorkspace || res.workspaces[0];
+      setActiveWorkspace(ws);
+      if (typeof window !== 'undefined' && ws) {
+        localStorage.setItem(ACTIVE_WS_KEY, ws.id);
+      }
+      try {
+        const projList = await apiClient.projects.listProjects(ws.id);
+        if (Array.isArray(projList)) setProjects(projList);
+      } catch {
+        // Ignored
+      }
+    } else {
+      setWorkspaces([]);
+      setActiveWorkspace(null);
+      setProjects([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(ACTIVE_WS_KEY);
+      }
     }
-    if (res.activeWorkspace) {
-      setActiveWorkspace(res.activeWorkspace);
-    }
+
     return res;
   };
 
@@ -151,16 +259,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStoredToken(res.accessToken);
     apiClient.setToken(res.accessToken);
 
-    if (res.workspaces?.length) {
+    if (Array.isArray(res.workspaces) && res.workspaces.length > 0) {
       setWorkspaces(res.workspaces);
+      const ws = res.activeWorkspace || res.workspaces[0];
+      setActiveWorkspace(ws);
+      if (typeof window !== 'undefined' && ws) {
+        localStorage.setItem(ACTIVE_WS_KEY, ws.id);
+      }
+    } else {
+      setWorkspaces([]);
+      setActiveWorkspace(null);
+      setProjects([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(ACTIVE_WS_KEY);
+      }
     }
-    if (res.activeWorkspace) {
-      setActiveWorkspace(res.activeWorkspace);
-    }
+
     return res;
   };
 
-  const logout = () => {
+  const logout = async () => {
     setUser(null);
     setTokenState(null);
     setStoredToken(null);
@@ -168,28 +286,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setActiveWorkspace(null);
     setWorkspaces([]);
     setProjects([]);
-    try {
-      nextAuthSignOut({ redirect: false });
-    } catch {
-      // Ignore if next-auth not initialized
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ACTIVE_WS_KEY);
+      localStorage.removeItem('nirmaanify_auth_token');
+    }
+    if (nextAuthSession) {
+      try {
+        await nextAuthSignOut({ redirect: false });
+      } catch {
+        // Ignored
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
     }
   };
 
-  const switchWorkspace = (workspaceId: string) => {
+  const switchWorkspace = async (workspaceId: string) => {
     const ws = workspaces.find((w) => w.id === workspaceId);
     if (ws) {
       setActiveWorkspace(ws);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(ACTIVE_WS_KEY, ws.id);
+      }
+      try {
+        const projList = await apiClient.projects.listProjects(ws.id);
+        if (Array.isArray(projList)) setProjects(projList);
+      } catch {
+        // Ignored
+      }
     }
   };
 
-  const createWorkspace = async (name: string, slug?: string): Promise<WorkspaceDto> => {
+  const createWorkspace = async (
+    name: string,
+    slug?: string,
+    isPersonal?: boolean
+  ): Promise<WorkspaceDto> => {
     const created = await apiClient.workspaces.createWorkspace({
       name,
       slug: slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      isPersonal: false,
+      isPersonal: Boolean(isPersonal),
     });
-    setWorkspaces((prev) => [...prev, created]);
+    setWorkspaces((prev) => [created, ...prev.filter((w) => w.id !== created.id)]);
     setActiveWorkspace(created);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(ACTIVE_WS_KEY, created.id);
+    }
     return created;
   };
 
@@ -205,11 +348,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const inviteMember = async (email: string, role: UserRole): Promise<void> => {
     if (!activeWorkspace) throw new Error('No active workspace selected');
     await apiClient.workspaces.inviteMember(activeWorkspace.id, { email, role });
+    await refreshData();
   };
 
   const removeMember = async (userId: string): Promise<void> => {
     if (!activeWorkspace) throw new Error('No active workspace selected');
     await apiClient.workspaces.removeMember(activeWorkspace.id, userId);
+    await refreshData();
+  };
+
+  const deleteWorkspace = async (workspaceId: string): Promise<void> => {
+    await apiClient.workspaces.deleteWorkspace(workspaceId);
+
+    const updatedWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
+    setWorkspaces(updatedWorkspaces);
+
+    // If the deleted workspace was the active one, smoothly switch to the next workspace or null
+    if (activeWorkspace?.id === workspaceId) {
+      if (updatedWorkspaces.length > 0) {
+        const nextWs = updatedWorkspaces[0];
+        setActiveWorkspace(nextWs);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(ACTIVE_WS_KEY, nextWs.id);
+        }
+        try {
+          const projList = await apiClient.projects.listProjects(nextWs.id);
+          if (Array.isArray(projList)) {
+            setProjects(projList);
+          } else {
+            setProjects([]);
+          }
+        } catch {
+          setProjects([]);
+        }
+      } else {
+        // No workspaces left: smoothly reset active state without UI crashes
+        setActiveWorkspace(null);
+        setProjects([]);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(ACTIVE_WS_KEY);
+        }
+      }
+    }
   };
 
   const forgotPassword = async (email: string) => {
@@ -239,6 +419,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         switchWorkspace,
         createWorkspace,
+        deleteWorkspace,
         createProject,
         inviteMember,
         removeMember,

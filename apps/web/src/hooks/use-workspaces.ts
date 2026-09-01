@@ -12,6 +12,7 @@ export function useWorkspaces() {
     activeWorkspace,
     switchWorkspace,
     createWorkspace: contextCreateWorkspace,
+    deleteWorkspace: contextDeleteWorkspace,
     inviteMember: contextInviteMember,
     removeMember: contextRemoveMember,
   } = useAuth();
@@ -22,61 +23,17 @@ export function useWorkspaces() {
 
   const fetchMembers = useCallback(async (wsId?: string) => {
     const targetId = wsId || activeWorkspace?.id;
-    if (!targetId) return;
+    if (!targetId) {
+      setMembers([]);
+      return;
+    }
 
     setIsLoadingMembers(true);
     try {
       const list = await apiClient.workspaces.listMembers(targetId);
-      if (list && list.length > 0) {
-        setMembers(list);
-      } else {
-        // Fallback default members
-        setMembers([
-          {
-            id: 'mem-1',
-            workspaceId: targetId,
-            userId: 'usr-alex-001',
-            role: 'OWNER',
-            user: { id: 'usr-alex-001', name: 'Alex Developer', email: 'alex@nirmaanify.ai' },
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: 'mem-2',
-            workspaceId: targetId,
-            userId: 'usr-sarah-002',
-            role: 'DEVELOPER',
-            user: { id: 'usr-sarah-002', name: 'Sarah Chen', email: 'sarah.chen@acme.com' },
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: 'mem-3',
-            workspaceId: targetId,
-            userId: 'usr-david-003',
-            role: 'EDITOR',
-            user: { id: 'usr-david-003', name: 'David Miller', email: 'david.miller@acme.com' },
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-      }
+      setMembers(list || []);
     } catch {
-      setMembers([
-        {
-          id: 'mem-1',
-          workspaceId: targetId,
-          userId: 'usr-alex-001',
-          role: 'OWNER',
-          user: { id: 'usr-alex-001', name: 'Alex Developer', email: 'alex@nirmaanify.ai' },
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 'mem-2',
-          workspaceId: targetId,
-          userId: 'usr-sarah-002',
-          role: 'DEVELOPER',
-          user: { id: 'usr-sarah-002', name: 'Sarah Chen', email: 'sarah.chen@acme.com' },
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      setMembers([]);
     } finally {
       setIsLoadingMembers(false);
     }
@@ -85,6 +42,8 @@ export function useWorkspaces() {
   useEffect(() => {
     if (activeWorkspace?.id) {
       fetchMembers(activeWorkspace.id);
+    } else {
+      setMembers([]);
     }
   }, [activeWorkspace?.id, fetchMembers]);
 
@@ -110,21 +69,7 @@ export function useWorkspaces() {
   const inviteMember = async (email: string, role: UserRole) => {
     try {
       await contextInviteMember(email, role);
-      setMembers((prev) => [
-        ...prev,
-        {
-          id: `mem-${Date.now()}`,
-          workspaceId: activeWorkspace?.id || 'ws-001',
-          userId: `usr-${Date.now()}`,
-          role,
-          user: {
-            id: `usr-${Date.now()}`,
-            name: email.split('@')[0],
-            email,
-          },
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      await fetchMembers();
       toast({
         title: 'Invitation Sent',
         description: `Invite successfully sent to ${email} as ${role}`,
@@ -157,6 +102,24 @@ export function useWorkspaces() {
     }
   };
 
+  const deleteWorkspace = async (workspaceId: string) => {
+    try {
+      await contextDeleteWorkspace(workspaceId);
+      toast({
+        title: 'Workspace Deleted',
+        description: 'The workspace and all associated projects have been permanently deleted.',
+        type: 'info',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Delete Failed',
+        description: err?.message || 'Could not delete workspace',
+        type: 'error',
+      });
+      throw err;
+    }
+  };
+
   return {
     workspaces,
     activeWorkspace,
@@ -164,6 +127,7 @@ export function useWorkspaces() {
     isLoadingMembers,
     switchWorkspace,
     createWorkspace,
+    deleteWorkspace,
     inviteMember,
     removeMember,
     fetchMembers,

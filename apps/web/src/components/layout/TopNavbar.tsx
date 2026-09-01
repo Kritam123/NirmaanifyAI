@@ -70,17 +70,19 @@ export const TopNavbar: React.FC = () => {
         <div className="h-4 w-[1px] bg-slate-200 dark:bg-[#24293D]" />
 
         {/* User Avatar & Role */}
-        <div className="flex items-center gap-2.5">
-          <Avatar fallback={user?.name?.slice(0, 2).toUpperCase() || 'AD'} size="sm" status="online" />
-          <div className="hidden lg:block text-left">
-            <p className="text-xs font-bold leading-tight text-slate-900 dark:text-white truncate max-w-[120px]">
-              {user?.name || 'Developer'}
-            </p>
-            <div className="mt-0.5">
-              <RoleBadge role={user?.role} size="sm" />
+        {user && (
+          <div className="flex items-center gap-2.5">
+            <Avatar fallback={user.name?.slice(0, 2).toUpperCase() || 'US'} size="sm" status="online" />
+            <div className="hidden lg:block text-left">
+              <p className="text-xs font-bold leading-tight text-slate-900 dark:text-white truncate max-w-[120px]">
+                {user.name}
+              </p>
+              <div className="mt-0.5">
+                <RoleBadge role={user.role} size="sm" />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </header>
   );

@@ -37,39 +37,45 @@ export const MembersList: React.FC<MembersListProps> = ({
       </CardHeader>
 
       <CardContent className="p-6 pt-0 divide-y divide-slate-100 dark:divide-[#1E2337]">
-        {members.map((member) => (
-          <div key={member.id} className="py-3.5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar
-                fallback={member.user?.name?.slice(0, 2).toUpperCase() || 'US'}
-                size="sm"
-                status={member.role === 'OWNER' ? 'online' : 'offline'}
-              />
-              <div>
-                <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                  {member.user?.name || 'Member'}
-                </p>
-                <p className="text-xs text-slate-400">{member.user?.email}</p>
+        {members.length === 0 ? (
+          <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs">
+            No invited members yet. Invite team members to collaborate on this workspace.
+          </div>
+        ) : (
+          members.map((member) => (
+            <div key={member.id} className="py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar
+                  fallback={member.user?.name?.slice(0, 2).toUpperCase() || 'US'}
+                  size="sm"
+                  status={member.role === 'OWNER' ? 'online' : 'offline'}
+                />
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    {member.user?.name || 'Member'}
+                  </p>
+                  <p className="text-xs text-slate-400">{member.user?.email}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <RoleBadge role={member.role} showIcon />
+
+                {canRemoveMembers && member.role !== 'OWNER' && onRemoveMember && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => onRemoveMember(member.userId)}
+                    className="text-slate-400 hover:text-rose-500"
+                    aria-label={`Remove ${member.user?.name || 'member'}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              <RoleBadge role={member.role} showIcon />
-
-              {canRemoveMembers && member.role !== 'OWNER' && onRemoveMember && (
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => onRemoveMember(member.userId)}
-                  className="text-slate-400 hover:text-rose-500"
-                  aria-label={`Remove ${member.user?.name || 'member'}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </CardContent>
     </Card>
   );
