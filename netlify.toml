@@ -7,8 +7,8 @@
   # Root base directory
   base = ""
 
-  # Build command to compile all monorepo packages and Next.js frontend
-  command = "pnpm --filter @nirmaanify/database build && pnpm --filter @nirmaanify/types build && pnpm --filter @nirmaanify/design-tokens build && pnpm --filter @nirmaanify/icons build && pnpm --filter @nirmaanify/ui build && pnpm --filter @nirmaanify/api-client build && pnpm --filter web build"
+  # Build command to compile all monorepo dependencies and Next.js frontend
+  command = "pnpm --filter web... build"
 
   # Directory published to Netlify
   publish = "apps/web/.next"
