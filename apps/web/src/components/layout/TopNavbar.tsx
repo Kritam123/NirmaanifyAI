@@ -3,11 +3,15 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import { Avatar, Badge, IconButton, useTheme } from '@nirmaanify/ui';
-import { Search, Moon, Sun } from 'lucide-react';
+import { Search, Moon, Sun, Menu } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { RoleBadge } from '../auth/RoleGate';
 
-export const TopNavbar: React.FC = () => {
+export interface TopNavbarProps {
+  onMenuToggle?: () => void;
+}
+
+export const TopNavbar: React.FC<TopNavbarProps> = ({ onMenuToggle }) => {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { user, activeWorkspace } = useAuth();
@@ -26,9 +30,18 @@ export const TopNavbar: React.FC = () => {
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <header className="h-16 border-b border-slate-200 dark:border-[#24293D] bg-white/80 dark:bg-[#0F111A]/80 backdrop-blur-md px-6 flex items-center justify-between select-none shrink-0 transition-colors duration-200">
-      {/* Breadcrumbs */}
+    <header className="h-16 border-b border-slate-200 dark:border-[#24293D] bg-white/80 dark:bg-[#0F111A]/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between select-none shrink-0 transition-colors duration-200">
+      {/* Breadcrumbs & Mobile Trigger */}
       <div className="flex items-center gap-3">
+        {onMenuToggle && (
+          <IconButton
+            icon={<Menu className="h-4 w-4" />}
+            variant="ghost"
+            aria-label="Toggle navigation menu"
+            onClick={onMenuToggle}
+            className="md:hidden"
+          />
+        )}
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           {breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={crumb + idx}>

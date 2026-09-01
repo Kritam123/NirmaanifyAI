@@ -10,8 +10,9 @@ import {
   Avatar,
   Badge,
   Button,
+  EmptyState,
 } from '@nirmaanify/ui';
-import { UserX, LogOut, Shield, Settings2 } from 'lucide-react';
+import { UserX, LogOut, Shield, Settings2, Users } from 'lucide-react';
 import { WorkspaceMemberDto, WorkspaceDto, UserRole } from '@nirmaanify/types';
 import { useRBAC } from '../../hooks/use-rbac';
 import { useAuth } from '../../context/auth-context';
@@ -70,8 +71,13 @@ export const MembersList: React.FC<MembersListProps> = ({
 
         <CardContent className="p-6 pt-0 divide-y divide-slate-100 dark:divide-[#1E2337]">
           {members.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs">
-              No invited members yet. Invite team members to collaborate on this workspace.
+            <div className="py-4">
+              <EmptyState
+                compact
+                icon={<Users className="h-6 w-6 text-slate-400" />}
+                title="No invited members yet"
+                description="Invite colleagues and team members to collaborate on this workspace with custom RBAC permissions."
+              />
             </div>
           ) : (
             members.map((member) => {
@@ -169,7 +175,7 @@ export const MembersList: React.FC<MembersListProps> = ({
                         variant="ghost"
                         size="xs"
                         onClick={() => setIsLeaveModalOpen(true)}
-                        className=" text-red-500 hover:text-red-600 hover:bg-amber-500/10 px-2.5 py-1 h-auto text-xs font-semibold gap-1.5 rounded-lg border border-amber-500/20 transition-colors"
+                        className="text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 px-2.5 py-1 h-auto text-xs font-semibold gap-1.5 rounded-lg border border-amber-500/20 transition-colors"
                         title="Leave this workspace"
                       >
                         <LogOut className="h-3.5 w-3.5" />

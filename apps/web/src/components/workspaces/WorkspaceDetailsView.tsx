@@ -8,6 +8,7 @@ import {
   CardTitle,
   Badge,
   Button,
+  PageHeader,
 } from '@nirmaanify/ui';
 import { ArrowLeft, Plus, ExternalLink, Trash2, AlertTriangle, LogOut } from 'lucide-react';
 import { WorkspaceDto } from '@nirmaanify/types';
@@ -43,46 +44,40 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link href={ROUTES.DASHBOARD.WORKSPACES}>
-            <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="h-4 w-4" />}>
-              Back
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">{workspace.name}</h2>
-              <Badge variant="indigo">{workspace.isPersonal ? 'Personal' : 'Organization'}</Badge>
-            </div>
-            <p className="text-xs text-slate-400 font-mono mt-0.5">/{workspace.slug}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Dedicated Redirect Button to Open Workspace in New Tab */}
-          <a
-            href={workspaceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#24293D] hover:border-[#635BFF] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-[#635BFF] bg-white dark:bg-[#0F111A] shadow-sm transition-all"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            <span>Open in New Tab</span>
-          </a>
-
-          {canInviteMembers && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setInviteModalOpen(true)}
-              leftIcon={<Plus className="h-4 w-4" />}
+      {/* Page Header */}
+      <PageHeader
+        title={workspace.name}
+        description={`Slug: /${workspace.slug} • ${workspace.isPersonal ? 'Personal Studio' : 'Organization Workspace'}`}
+        badge={<Badge variant="indigo">{workspace.isPersonal ? 'Personal' : 'Organization'}</Badge>}
+        backAction={{
+          label: 'Back to Workspaces',
+          href: ROUTES.DASHBOARD.WORKSPACES,
+        }}
+        actions={
+          <>
+            <a
+              href={workspaceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#24293D] hover:border-[#635BFF] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-[#635BFF] bg-white dark:bg-[#0F111A] shadow-sm transition-all"
             >
-              Invite Member
-            </Button>
-          )}
-        </div>
-      </div>
+              <ExternalLink className="h-3.5 w-3.5" />
+              <span>Open in New Tab</span>
+            </a>
+
+            {canInviteMembers && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setInviteModalOpen(true)}
+                leftIcon={<Plus className="h-4 w-4" />}
+              >
+                Invite Member
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

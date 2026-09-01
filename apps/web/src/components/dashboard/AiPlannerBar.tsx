@@ -71,7 +71,8 @@ export const AiPlannerBar: React.FC = () => {
           onChange={(e) => setAiPrompt(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAiGenerate()}
           placeholder="Describe what you want to build (e.g. AI-powered newsletter SaaS with Next.js 15, NestJS, Stripe)..."
-          className="w-full bg-transparent border-0 text-sm focus:outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 px-2"
+          aria-label="AI Project Prompt"
+          className="w-full bg-transparent border-0 text-sm focus-visible:outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 px-2"
         />
 
         <Button
@@ -80,19 +81,20 @@ export const AiPlannerBar: React.FC = () => {
           isLoading={isGenerating}
           onClick={handleAiGenerate}
           leftIcon={<Zap className="h-3.5 w-3.5" />}
-          className="shrink-0 w-full sm:w-auto"
+          className="shrink-0 w-full sm:w-auto font-semibold shadow-md shadow-[#635BFF]/20"
         >
           Generate Project
         </Button>
       </div>
 
       <div className="px-4 pb-2 pt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-        <span>Quick templates:</span>
+        <span className="font-medium">Quick templates:</span>
         {templates.map((tpl) => (
           <button
             key={tpl}
+            type="button"
             onClick={() => setAiPrompt(tpl)}
-            className="px-2.5 py-0.5 rounded-full bg-white/70 dark:bg-[#161926] hover:bg-[#635BFF]/20 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/50 dark:border-slate-800"
+            className="px-2.5 py-0.5 rounded-full bg-white/70 dark:bg-[#161926] hover:bg-[#635BFF]/15 hover:text-[#635BFF] dark:hover:text-[#A5AEFD] text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#635BFF]"
           >
             {tpl}
           </button>

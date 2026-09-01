@@ -47,7 +47,7 @@ export const LeaveWorkspaceDialog: React.FC<LeaveWorkspaceDialogProps> = ({
             isLoading={isLoading}
             onClick={handleLeave}
             leftIcon={<LogOut className="h-4 w-4" />}
-            className="font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20"
+            className="font-bold shadow-md shadow-rose-600/20"
           >
             Leave Workspace
           </Button>
@@ -55,12 +55,12 @@ export const LeaveWorkspaceDialog: React.FC<LeaveWorkspaceDialogProps> = ({
       }
     >
       <div className="space-y-4 py-2 text-slate-900 dark:text-slate-100">
-        <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-          <div className="text-xs text-red-600 dark:text-red-400 space-y-1">
+        <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+          <div className="text-xs text-rose-600 dark:text-rose-400 space-y-1">
             <p className="font-bold">Access Warning</p>
             <p className="leading-relaxed">
-              You will immediately lose access to all projects, repositories, and configurations in <strong className="font-semibold text-red-700 dark:text-red-300">{workspace.name}</strong>.
+              You will immediately lose access to all projects, repositories, and configurations in <strong className="font-semibold text-rose-700 dark:text-rose-300">{workspace.name}</strong>.
             </p>
           </div>
         </div>

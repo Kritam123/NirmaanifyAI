@@ -8,6 +8,8 @@ import {
   Button,
   Badge,
   IconButton,
+  LoadingState,
+  ErrorState,
   useToast,
   useTheme,
 } from '@nirmaanify/ui';
@@ -119,12 +121,11 @@ function InviteContent() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 p-4 transition-colors duration-200">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-6">
           <Link href="/" className="inline-block transition-transform hover:scale-[1.02]">
             <NirmaanLogo size="md" showTagline />
           </Link>
-          <div className="w-8 h-8 border-2 border-[#635BFF] border-t-transparent rounded-full animate-spin mx-auto mt-4" />
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Verifying invitation credentials...</p>
+          <LoadingState message="Verifying invitation credentials..." />
         </div>
       </div>
     );
@@ -149,22 +150,13 @@ function InviteContent() {
             <NirmaanLogo size="md" showTagline />
           </Link>
 
-          <Card className="p-8 text-center space-y-6 border-rose-500/30 bg-white/90 dark:bg-[#0F111A]/90 backdrop-blur-xl shadow-2xl">
-            <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-500">
-              <AlertTriangle className="h-7 w-7" />
-            </div>
-            <div className="space-y-1.5">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Invalid Invitation</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                {error || 'This invitation link is invalid, expired, or has already been used.'}
-              </p>
-            </div>
-            <Link href={ROUTES.AUTH.LOGIN}>
-              <Button variant="outline" size="sm" className="w-full">
-                Back to Login
-              </Button>
-            </Link>
-          </Card>
+          <ErrorState
+            title="Invalid Invitation"
+            message={error || 'This invitation link is invalid, expired, or has already been used.'}
+            actionLabel="Back to Login"
+            actionIcon={<ArrowRight className="h-3.5 w-3.5" />}
+            onRetry={() => router.push(ROUTES.AUTH.LOGIN)}
+          />
         </div>
       </div>
     );

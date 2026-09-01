@@ -4,8 +4,8 @@ import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useProjects } from '../../../../hooks/use-projects';
 import { ProjectDetailsView } from '../../../../components/projects/ProjectDetailsView';
-import { Button, Card, CardHeader, CardTitle, CardDescription } from '@nirmaanify/ui';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { LoadingState, ErrorState } from '@nirmaanify/ui';
+import { ArrowLeft } from 'lucide-react';
 import { ROUTES } from '../../../../lib/routes';
 
 export default function SingleProjectPage() {
@@ -16,34 +16,26 @@ export default function SingleProjectPage() {
 
   const project = allProjects.find((p) => p.id === projectId);
 
-  if (!project && !isLoading) {
+  if (isLoading) {
     return (
-      <div className="max-w-2xl mx-auto py-12">
-        <Card className="p-8 text-center space-y-4">
-          <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 dark:bg-[#161926] flex items-center justify-center text-slate-400">
-            <AlertCircle className="h-6 w-6" />
-          </div>
-          <div className="space-y-1">
-            <CardTitle>Project Not Found</CardTitle>
-            <CardDescription>
-              The project you requested does not exist or has been removed from this workspace.
-            </CardDescription>
-          </div>
-          <Button
-            variant="default"
-            size="sm"
-            leftIcon={<ArrowLeft className="h-4 w-4" />}
-            onClick={() => router.push(ROUTES.DASHBOARD.PROJECTS)}
-          >
-            Back to Projects
-          </Button>
-        </Card>
+      <div className="py-20">
+        <LoadingState message="Loading project blueprint & configuration..." />
       </div>
     );
   }
 
   if (!project) {
-    return null;
+    return (
+      <div className="max-w-2xl mx-auto py-12">
+        <ErrorState
+          title="Project Not Found"
+          message="The requested project does not exist or has been removed from this workspace."
+          actionLabel="Back to Projects"
+          actionIcon={<ArrowLeft className="h-4 w-4" />}
+          onRetry={() => router.push(ROUTES.DASHBOARD.PROJECTS)}
+        />
+      </div>
+    );
   }
 
   return <ProjectDetailsView project={project} />;

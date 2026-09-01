@@ -28,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 antialiased font-sans transition-colors duration-200">
+    <html lang="en" className={poppins.variable} suppressHydrationWarning>
+      <body className={`${poppins.variable} min-h-screen bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 antialiased font-sans transition-colors duration-200`}>
         <NextAuthSessionProvider>
           <AuthProvider>
             <ThemeProvider defaultTheme="dark">

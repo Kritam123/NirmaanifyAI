@@ -19,7 +19,12 @@ import { useAuth } from '../../context/auth-context';
 import { useWorkspaceModal } from '../../context/workspace-modal-context';
 import { ROUTES } from '../../lib/routes';
 
-export const NavigationSidebar: React.FC = () => {
+export interface NavigationSidebarProps {
+  onClose?: () => void;
+  className?: string;
+}
+
+export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ onClose, className }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
@@ -75,10 +80,10 @@ export const NavigationSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-64 shrink-0 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col h-screen select-none transition-colors duration-200">
+    <aside className={`w-64 shrink-0 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col h-screen select-none transition-colors duration-200 ${className || ''}`}>
       {/* Brand Header */}
       <div className="h-16 px-6 flex items-center justify-between border-b border-slate-200 dark:border-[#24293D]">
-        <Link href={ROUTES.DASHBOARD.OVERVIEW}>
+        <Link href={ROUTES.DASHBOARD.OVERVIEW} onClick={onClose}>
           <NirmaanLogo size="sm" />
         </Link>
       </div>
@@ -89,6 +94,7 @@ export const NavigationSidebar: React.FC = () => {
           <Link
             key={item.id}
             href={item.href}
+            onClick={onClose}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
               item.active
                 ? 'bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD]'
@@ -126,13 +132,18 @@ export const NavigationSidebar: React.FC = () => {
             </div>
             <div className="mt-2 pt-2 border-t border-slate-200 dark:border-[#24293D] flex items-center justify-between text-[11px] text-slate-400">
               <button
-                onClick={() => openCreateWorkspaceModal()}
-                className="hover:text-[#635BFF] transition-colors flex items-center gap-1 font-medium"
+                type="button"
+                onClick={() => {
+                  onClose?.();
+                  openCreateWorkspaceModal();
+                }}
+                className="hover:text-[#635BFF] transition-colors flex items-center gap-1 font-medium cursor-pointer"
               >
                 <Plus className="h-3 w-3" /> New Workspace
               </button>
               <Link
                 href={ROUTES.DASHBOARD.WORKSPACES}
+                onClick={onClose}
                 className="hover:text-[#635BFF] transition-colors flex items-center gap-0.5"
               >
                 <span>Manage</span>
@@ -144,8 +155,12 @@ export const NavigationSidebar: React.FC = () => {
           <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#161926] border border-dashed border-slate-200 dark:border-[#24293D] text-center">
             <p className="text-xs text-slate-400 mb-2">No active workspace</p>
             <button
-              onClick={() => openCreateWorkspaceModal()}
-              className="w-full py-1.5 px-3 rounded-lg bg-[#635BFF] text-white text-xs font-bold hover:bg-[#5248e5] transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+              type="button"
+              onClick={() => {
+                onClose?.();
+                openCreateWorkspaceModal();
+              }}
+              className="w-full py-1.5 px-3 rounded-lg bg-[#635BFF] text-white text-xs font-bold hover:bg-[#5248e5] transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" /> Create Workspace
             </button>
@@ -165,9 +180,11 @@ export const NavigationSidebar: React.FC = () => {
               </div>
             </div>
             <button
+              type="button"
               onClick={handleLogout}
               title="Sign Out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+              aria-label="Sign Out"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors focus-visible:ring-2 focus-visible:ring-[#635BFF] focus-visible:outline-none"
             >
               <LogOut className="h-3.5 w-3.5" />
             </button>

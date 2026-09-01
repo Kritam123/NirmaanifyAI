@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PageHeader, Button } from '@nirmaanify/ui';
-import { Plus } from 'lucide-react';
+import { PageHeader, Button, EmptyState } from '@nirmaanify/ui';
+import { Plus, Boxes } from 'lucide-react';
 import { useProjects } from '../../../hooks/use-projects';
 import { ProjectCard } from '../../../components/projects/ProjectCard';
 import { ProjectFilters } from '../../../components/projects/ProjectFilters';
@@ -46,13 +46,18 @@ export default function ProjectsPage() {
 
       {/* Projects Grid */}
       {projects.length === 0 ? (
-        <div className="py-16 text-center rounded-2xl border border-dashed border-slate-300 dark:border-[#24293D] p-8 space-y-3">
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No matching projects found</p>
-          <p className="text-xs text-slate-400">Try changing your search query or filter selection.</p>
-          <Button variant="subtle" size="sm" onClick={() => setCreateModalOpen(true)}>
-            Create New Project
-          </Button>
-        </div>
+        <EmptyState
+          icon={<Boxes className="h-8 w-8 text-[#635BFF]" />}
+          title="No matching projects found"
+          description={
+            searchQuery || filterType !== 'ALL'
+              ? 'Try changing your search query or filter selection.'
+              : 'You have not created any projects in this workspace yet.'
+          }
+          actionLabel="Create Project"
+          actionIcon={<Plus className="h-3.5 w-3.5" />}
+          onAction={() => setCreateModalOpen(true)}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((proj) => (
