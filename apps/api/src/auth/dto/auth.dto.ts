@@ -1,0 +1,129 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+
+export class RegisterDto {
+  @ApiProperty({ example: 'alex@nirmaanify.ai' })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiProperty({ example: 'password123', minLength: 6 })
+  @IsString()
+  @MinLength(6)
+  password!: string;
+
+  @ApiProperty({ example: 'Alex Developer' })
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'https://github.com/alex.png' })
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
+}
+
+export class LoginDto {
+  @ApiProperty({ example: 'alex@nirmaanify.ai' })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiProperty({ example: 'password123' })
+  @IsString()
+  @IsNotEmpty()
+  password!: string;
+}
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'alex@nirmaanify.ai' })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: 'reset-token-uuid' })
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
+
+  @ApiProperty({ example: 'newPassword123', minLength: 6 })
+  @IsString()
+  @MinLength(6)
+  newPassword!: string;
+}
+
+export class VerifyEmailDto {
+  @ApiPropertyOptional({ example: 'verification-token-uuid' })
+  @IsOptional()
+  @IsString()
+  token?: string;
+
+  @ApiPropertyOptional({ example: '123456' })
+  @IsOptional()
+  @IsString()
+  otp?: string;
+
+  @ApiPropertyOptional({ example: 'alex@company.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
+export class ResendVerificationDto {
+  @ApiProperty({ example: 'alex@company.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+}
+
+export class OAuthLoginDto {
+  @ApiProperty({ example: 'GOOGLE', enum: ['GOOGLE', 'GITHUB'] })
+  @IsString()
+  @IsNotEmpty()
+  provider!: 'GOOGLE' | 'GITHUB';
+
+  @ApiProperty({ example: '1092837465' })
+  @IsString()
+  @IsNotEmpty()
+  providerAccountId!: string;
+
+  @ApiProperty({ example: 'alex@company.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiPropertyOptional({ example: 'Alex Developer' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'https://avatars.githubusercontent.com/u/12345' })
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  accessToken?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  refreshToken?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  expiresAt?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  idToken?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  profileData?: Record<string, any>;
+}

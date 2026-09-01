@@ -7,7 +7,10 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "db:push": "pnpm --filter @nirmaanify/database exec prisma db push",
+    "db:generate": "pnpm --filter @nirmaanify/database exec prisma generate",
+    "db:studio": "pnpm --filter @nirmaanify/database studio"
   },
   "devDependencies": {
     "turbo": "^2.4.0",

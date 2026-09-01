@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
 import { Poppins } from 'next/font/google';
 import './globals.css';
-import { ThemeProvider, ToastProvider } from '@nirmaanify/ui';
+import { ThemeProvider } from '@nirmaanify/ui';
+import { ToastProvider } from '@nirmaanify/ui';
+import { AuthProvider } from '../context/auth-context';
+
+import { NextAuthSessionProvider } from '../components/auth/NextAuthSessionProvider';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -11,8 +15,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: 'Nirmaanify AI — Design System & Platform Foundation',
-  description: 'Imagine. Build. Launch.',
+  title: 'Nirmaanify AI — Imagine. Build. Launch.',
+  description: 'AI-first full-stack application builder platform.',
   icons: {
     icon: '/favicon.svg',
   },
@@ -20,17 +24,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en" className={`dark ${poppins.variable}`} suppressHydrationWarning>
-      <body className={`${poppins.className} font-sans antialiased`}>
-        <ThemeProvider defaultTheme="dark">
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </ThemeProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 antialiased font-sans transition-colors duration-200">
+        <NextAuthSessionProvider>
+          <AuthProvider>
+            <ThemeProvider defaultTheme="dark">
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </NextAuthSessionProvider>
       </body>
     </html>
   );
