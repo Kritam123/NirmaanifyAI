@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { NirmaanLogo } from '@nirmaanify/icons';
+import { NirmaanLogo, NirmaanIcon } from '@nirmaanify/icons';
 import { Avatar, Badge, useToast } from '@nirmaanify/ui';
 import {
   LayoutDashboard,
@@ -20,11 +20,16 @@ import { useWorkspaceModal } from '../../context/workspace-modal-context';
 import { ROUTES } from '../../lib/routes';
 
 export interface NavigationSidebarProps {
+  isCollapsed?: boolean;
   onClose?: () => void;
   className?: string;
 }
 
-export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ onClose, className }) => {
+export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
+  isCollapsed = false,
+  onClose,
+  className,
+}) => {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
@@ -41,14 +46,14 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ onClose, c
       id: 'dashboard',
       label: 'Dashboard',
       href: ROUTES.DASHBOARD.OVERVIEW,
-      icon: <LayoutDashboard className="h-4 w-4" />,
+      icon: <LayoutDashboard className="h-4 w-4 shrink-0" />,
       active: pathname === ROUTES.DASHBOARD.OVERVIEW || pathname === ROUTES.HOME,
     },
     {
       id: 'projects',
       label: 'Projects',
       href: ROUTES.DASHBOARD.PROJECTS,
-      icon: <Boxes className="h-4 w-4" />,
+      icon: <Boxes className="h-4 w-4 shrink-0" />,
       badge: String(projects.length),
       active: pathname.startsWith(ROUTES.DASHBOARD.PROJECTS),
     },
@@ -56,14 +61,14 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ onClose, c
       id: 'workspaces',
       label: 'Workspaces & Team',
       href: ROUTES.DASHBOARD.WORKSPACES,
-      icon: <Users className="h-4 w-4" />,
+      icon: <Users className="h-4 w-4 shrink-0" />,
       active: pathname.startsWith(ROUTES.DASHBOARD.WORKSPACES),
     },
     {
       id: 'storage',
       label: 'Storage Engine',
       href: ROUTES.DASHBOARD.STORAGE,
-      icon: <HardDrive className="h-4 w-4" />,
+      icon: <HardDrive className="h-4 w-4 shrink-0" />,
       badge: 'Multi-Driver',
       active: pathname.startsWith(ROUTES.DASHBOARD.STORAGE),
     },
@@ -80,104 +85,153 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ onClose, c
   };
 
   return (
-    <aside className={`w-64 shrink-0 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col h-screen select-none transition-colors duration-200 ${className || ''}`}>
+    <aside
+      className={`shrink-0 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col h-screen select-none transition-all duration-300 ease-in-out ${
+        isCollapsed ? 'w-20' : 'w-64'
+      } ${className || ''}`}
+    >
       {/* Brand Header */}
-      <div className="h-16 px-6 flex items-center justify-between border-b border-slate-200 dark:border-[#24293D]">
-        <Link href={ROUTES.DASHBOARD.OVERVIEW} onClick={onClose}>
-          <NirmaanLogo size="sm" />
+      <div
+        className={`h-16 flex items-center border-b border-slate-200 dark:border-[#24293D] ${
+          isCollapsed ? 'justify-center px-2' : 'justify-between px-6'
+        }`}
+      >
+        <Link
+          href={ROUTES.DASHBOARD.OVERVIEW}
+          onClick={onClose}
+          className="flex items-center justify-center overflow-hidden"
+          title="Nirmaanify AI"
+        >
+          {isCollapsed ? <NirmaanIcon size={28} /> : <NirmaanLogo size="sm" />}
         </Link>
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+      <nav className={`flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden ${isCollapsed ? 'px-2 py-4' : 'px-3 py-4'}`}>
         {navItems.map((item) => (
           <Link
             key={item.id}
             href={item.href}
             onClick={onClose}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+            title={isCollapsed ? item.label : undefined}
+            className={`w-full flex items-center rounded-lg text-xs font-semibold transition-all group relative ${
+              isCollapsed
+                ? 'justify-center p-2.5'
+                : 'justify-between px-3 py-2'
+            } ${
               item.active
                 ? 'bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD]'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#161926] hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <span className={item.active ? 'text-[#635BFF]' : 'text-slate-400'}>{item.icon}</span>
-              <span>{item.label}</span>
+            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+              <span className={item.active ? 'text-[#635BFF]' : 'text-slate-400'}>
+                {item.icon}
+              </span>
+              {!isCollapsed && <span>{item.label}</span>}
             </div>
-            {item.badge && (
+
+            {!isCollapsed && item.badge && (
               <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#635BFF]/15 text-[#635BFF] dark:text-[#A5AEFD]">
                 {item.badge}
               </span>
+            )}
+
+            {isCollapsed && item.badge && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#635BFF] animate-pulse" />
             )}
           </Link>
         ))}
       </nav>
 
       {/* Sidebar Footer: Workspace Switcher & User Profile */}
-      <div className="p-3 border-t border-slate-200 dark:border-[#24293D] space-y-2.5">
+      <div className={`border-t border-slate-200 dark:border-[#24293D] ${isCollapsed ? 'p-2 space-y-2' : 'p-3 space-y-2.5'}`}>
         {/* Workspace Switcher Selector */}
         {activeWorkspace ? (
-          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <Building2 className="h-4 w-4 text-[#635BFF] shrink-0" />
-                <span className="text-xs font-bold truncate text-slate-800 dark:text-slate-200">
-                  {activeWorkspace.name}
-                </span>
+          isCollapsed ? (
+            <Link
+              href={ROUTES.DASHBOARD.WORKSPACES}
+              onClick={onClose}
+              title={`Workspace: ${activeWorkspace.name} (${activeWorkspace.role || 'OWNER'})`}
+              className="w-full flex items-center justify-center p-2 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] hover:border-[#635BFF] text-[#635BFF] transition-colors"
+            >
+              <Building2 className="h-4 w-4" />
+            </Link>
+          ) : (
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <Building2 className="h-4 w-4 text-[#635BFF] shrink-0" />
+                  <span className="text-xs font-bold truncate text-slate-800 dark:text-slate-200">
+                    {activeWorkspace.name}
+                  </span>
+                </div>
+                <Badge variant="indigo" size="sm">
+                  {activeWorkspace.role || 'OWNER'}
+                </Badge>
               </div>
-              <Badge variant="indigo" size="sm">
-                {activeWorkspace.role || 'OWNER'}
-              </Badge>
+              <div className="mt-2 pt-2 border-t border-slate-200 dark:border-[#24293D] flex items-center justify-between text-[11px] text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose?.();
+                    openCreateWorkspaceModal();
+                  }}
+                  className="hover:text-[#635BFF] transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                >
+                  <Plus className="h-3 w-3" /> New Workspace
+                </button>
+                <Link
+                  href={ROUTES.DASHBOARD.WORKSPACES}
+                  onClick={onClose}
+                  className="hover:text-[#635BFF] transition-colors flex items-center gap-0.5"
+                >
+                  <span>Manage</span>
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
             </div>
-            <div className="mt-2 pt-2 border-t border-slate-200 dark:border-[#24293D] flex items-center justify-between text-[11px] text-slate-400">
+          )
+        ) : (
+          !isCollapsed && (
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#161926] border border-dashed border-slate-200 dark:border-[#24293D] text-center">
+              <p className="text-xs text-slate-400 mb-2">No active workspace</p>
               <button
                 type="button"
                 onClick={() => {
                   onClose?.();
                   openCreateWorkspaceModal();
                 }}
-                className="hover:text-[#635BFF] transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                className="w-full py-1.5 px-3 rounded-lg bg-[#635BFF] text-white text-xs font-bold hover:bg-[#5248e5] transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
-                <Plus className="h-3 w-3" /> New Workspace
+                <Plus className="h-3.5 w-3.5" /> Create Workspace
               </button>
-              <Link
-                href={ROUTES.DASHBOARD.WORKSPACES}
-                onClick={onClose}
-                className="hover:text-[#635BFF] transition-colors flex items-center gap-0.5"
-              >
-                <span>Manage</span>
-                <ChevronRight className="h-3 w-3" />
-              </Link>
             </div>
-          </div>
-        ) : (
-          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#161926] border border-dashed border-slate-200 dark:border-[#24293D] text-center">
-            <p className="text-xs text-slate-400 mb-2">No active workspace</p>
-            <button
-              type="button"
-              onClick={() => {
-                onClose?.();
-                openCreateWorkspaceModal();
-              }}
-              className="w-full py-1.5 px-3 rounded-lg bg-[#635BFF] text-white text-xs font-bold hover:bg-[#5248e5] transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" /> Create Workspace
-            </button>
-          </div>
+          )
         )}
 
         {/* User Profile */}
         {user && (
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <Avatar fallback={user.name?.slice(0, 2).toUpperCase() || 'US'} size="sm" status="online" />
-              <div className="overflow-hidden">
-                <p className="text-xs font-bold truncate text-slate-900 dark:text-white leading-tight">
-                  {user.name}
-                </p>
-                <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
-              </div>
+          <div
+            className={`flex items-center ${
+              isCollapsed ? 'flex-col gap-1.5 justify-center pt-1' : 'justify-between pt-1'
+            }`}
+          >
+            <div className={`flex items-center overflow-hidden ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
+              <Avatar
+                fallback={user.name?.slice(0, 2).toUpperCase() || 'US'}
+                size="sm"
+                status="online"
+                title={`${user.name} (${user.email})`}
+              />
+              {!isCollapsed && (
+                <div className="overflow-hidden">
+                  <p className="text-xs font-bold truncate text-slate-900 dark:text-white leading-tight">
+                    {user.name}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+                </div>
+              )}
             </div>
             <button
               type="button"
