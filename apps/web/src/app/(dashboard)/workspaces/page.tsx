@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PageHeader, Button } from '@nirmaanify/ui';
-import { Plus, Building2, UserPlus } from 'lucide-react';
+import { PageHeader, Button, EmptyState } from '@nirmaanify/ui';
+import { Plus, Building2, UserPlus, Users } from 'lucide-react';
 import { useWorkspaces } from '../../../hooks/use-workspaces';
 import { useWorkspaceModal } from '../../../context/workspace-modal-context';
 import { WorkspaceCard } from '../../../components/workspaces/WorkspaceCard';
@@ -55,18 +55,14 @@ export default function WorkspacesPage() {
       <div className="space-y-4">
         <h3 className="text-base font-bold text-slate-900 dark:text-white">Your Workspaces</h3>
         {workspaces.length === 0 ? (
-          <div className="py-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-[#24293D] p-6 space-y-3 bg-white/40 dark:bg-[#0F111A]/40">
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No workspaces found</p>
-            <p className="text-xs text-slate-400">You don't have any workspaces in PostgreSQL yet. Create your first workspace to start collaborating.</p>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => openCreateWorkspaceModal()}
-              leftIcon={<Plus className="h-3.5 w-3.5" />}
-            >
-              Create Workspace
-            </Button>
-          </div>
+          <EmptyState
+            icon={<Building2 className="h-8 w-8 text-[#635BFF]" />}
+            title="No workspaces found"
+            description="You don't have any active workspaces yet. Create your first workspace to collaborate with your team."
+            actionLabel="Create Workspace"
+            actionIcon={<Plus className="h-3.5 w-3.5" />}
+            onAction={() => openCreateWorkspaceModal()}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {workspaces.map((ws) => (

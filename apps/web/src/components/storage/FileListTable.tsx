@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button } from '@nirmaanify/ui';
-import { File, Trash2, ExternalLink, Download } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, EmptyState } from '@nirmaanify/ui';
+import { File, Trash2, ExternalLink, Download, HardDrive } from 'lucide-react';
 import { StorageFileInfo, StorageDriverType } from '@nirmaanify/types';
 
 interface FileListTableProps {
@@ -41,8 +41,13 @@ export const FileListTable: React.FC<FileListTableProps> = ({
 
       <CardContent className="p-6 pt-0 divide-y divide-slate-100 dark:divide-[#1E2337]">
         {files.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400">
-            No files uploaded to this driver yet. Use the dropzone above to upload assets.
+          <div className="py-4">
+            <EmptyState
+              compact
+              icon={<HardDrive className="h-6 w-6 text-slate-400" />}
+              title={`No files in ${activeDriver.toUpperCase()} engine`}
+              description="Drop assets into the upload dropzone above to store static files or media."
+            />
           </div>
         ) : (
           files.map((file) => (

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Input } from '@nirmaanify/ui';
+import { Input, Tabs } from '@nirmaanify/ui';
 import { Search } from 'lucide-react';
 
 interface ProjectFiltersProps {
@@ -18,34 +18,28 @@ export const ProjectFilters: React.FC<ProjectFiltersProps> = ({
   onSearchChange,
 }) => {
   const types = [
-    { label: 'All Projects', value: 'ALL' },
-    { label: 'SaaS', value: 'SAAS' },
-    { label: 'E-commerce', value: 'ECOMMERCE' },
-    { label: 'Blog & Docs', value: 'BLOG' },
-    { label: 'Dashboard', value: 'DASHBOARD' },
+    { id: 'ALL', label: 'All Projects' },
+    { id: 'SAAS', label: 'SaaS' },
+    { id: 'ECOMMERCE', label: 'E-commerce' },
+    { id: 'BLOG', label: 'Blog & Docs' },
+    { id: 'DASHBOARD', label: 'Dashboard' },
   ];
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-      {/* Category Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-        {types.map((t) => (
-          <button
-            key={t.value}
-            onClick={() => onFilterChange(t.value)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-              filterType === t.value
-                ? 'bg-[#635BFF] text-white shadow-sm shadow-[#635BFF]/30'
-                : 'bg-white dark:bg-[#161926] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#24293D] hover:text-slate-900 dark:hover:text-slate-100'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Category Pills using Tabs Pattern */}
+      <div className="overflow-x-auto w-full sm:w-auto">
+        <Tabs
+          items={types}
+          activeTab={filterType}
+          onChange={onFilterChange}
+          variant="pills"
+          className="space-y-0"
+        />
       </div>
 
       {/* Search Input */}
-      <div className="w-full sm:w-64">
+      <div className="w-full sm:w-72">
         <Input
           placeholder="Filter by name or keyword..."
           value={searchQuery}
