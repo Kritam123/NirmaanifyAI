@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
     FORGOT_PASSWORD: `${API_PREFIX}/auth/forgot-password`,
     RESET_PASSWORD: `${API_PREFIX}/auth/reset-password`,
     VERIFY_EMAIL: `${API_PREFIX}/auth/verify-email`,
+    RESEND_VERIFICATION: `${API_PREFIX}/auth/resend-verification`,
   },
   WORKSPACES: {
     BASE: `${API_PREFIX}/workspaces`,
@@ -22,6 +23,7 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string) => `${API_PREFIX}/workspaces/${id}`,
     MEMBERS: (id: string) => `${API_PREFIX}/workspaces/${id}/members`,
     INVITE: (id: string) => `${API_PREFIX}/workspaces/${id}/invites`,
+    UPDATE_MEMBER_ROLE: (id: string, userId: string) => `${API_PREFIX}/workspaces/${id}/members/${userId}`,
     REMOVE_MEMBER: (id: string, userId: string) => `${API_PREFIX}/workspaces/${id}/members/${userId}`,
     INVITATION_DETAILS: (token: string) => `${API_PREFIX}/workspaces/invitations/${token}`,
     ACCEPT_INVITATION: (token: string) => `${API_PREFIX}/workspaces/invitations/${token}/accept`,

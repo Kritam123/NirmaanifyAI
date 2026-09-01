@@ -11,19 +11,21 @@ import {
   Badge,
   Button,
 } from '@nirmaanify/ui';
-import { UserX, LogOut, Shield } from 'lucide-react';
-import { WorkspaceMemberDto, WorkspaceDto } from '@nirmaanify/types';
+import { UserX, LogOut, Shield, Settings2 } from 'lucide-react';
+import { WorkspaceMemberDto, WorkspaceDto, UserRole } from '@nirmaanify/types';
 import { useRBAC } from '../../hooks/use-rbac';
 import { useAuth } from '../../context/auth-context';
 import { RoleBadge } from '../auth/RoleGate';
 import { KickMemberDialog } from './KickMemberDialog';
 import { LeaveWorkspaceDialog } from './LeaveWorkspaceDialog';
+import { EditMemberRoleDialog } from './EditMemberRoleDialog';
 
 interface MembersListProps {
   members: WorkspaceMemberDto[];
   workspace?: WorkspaceDto;
   workspaceName?: string;
   onRemoveMember?: (userId: string) => Promise<void>;
+  onUpdateMemberRole?: (userId: string, role: UserRole) => Promise<void>;
   onLeaveWorkspace?: () => Promise<void>;
 }
 
@@ -32,12 +34,14 @@ export const MembersList: React.FC<MembersListProps> = ({
   workspace,
   workspaceName,
   onRemoveMember,
+  onUpdateMemberRole,
   onLeaveWorkspace,
 }) => {
   const { user } = useAuth();
-  const { canRemoveMembers, role: myRole } = useRBAC();
+  const { canRemoveMembers, canInviteMembers, role: myRole } = useRBAC();
 
   const [memberToKick, setMemberToKick] = useState<WorkspaceMemberDto | null>(null);
+  const [memberToEditRole, setMemberToEditRole] = useState<WorkspaceMemberDto | null>(null);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
 
   const wsName = workspace?.name || workspaceName || 'current workspace';
@@ -79,6 +83,17 @@ export const MembersList: React.FC<MembersListProps> = ({
               const isMemberOwner =
                 member.role === 'OWNER' ||
                 (Boolean(workspace?.ownerId) && member.userId === workspace?.ownerId);
+
+              // Owner can edit role of any other member; Admins can edit role of non-admins and non-owners
+              const canEditThisMemberRole =
+                !isMemberOwner &&
+                !isSelf &&
+                (isCallerOwner ||
+                  (canInviteMembers &&
+                    myRole !== 'DEVELOPER' &&
+                    myRole !== 'VIEWER' &&
+                    myRole !== 'EDITOR' &&
+                    member.role !== 'ADMIN'));
 
               // Owner can kick any other member; Admins can kick non-owners and non-admins
               const canKickThisMember =
@@ -134,13 +149,27 @@ export const MembersList: React.FC<MembersListProps> = ({
                     {/* Role Badge */}
                     <RoleBadge role={member.role} showIcon />
 
+                    {/* Edit Role Action (Owner / Admin) */}
+                    {canEditThisMemberRole && onUpdateMemberRole && (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => setMemberToEditRole(member)}
+                        className="text-slate-400 hover:text-[#635BFF] hover:bg-[#635BFF]/10 p-1.5 rounded-lg transition-colors"
+                        aria-label={`Edit role for ${member.user?.name || 'member'}`}
+                        title="Edit member role & permissions"
+                      >
+                        <Shield className="h-4 w-4" />
+                      </Button>
+                    )}
+
                     {/* Non-Owner Member Self Leave Action */}
                     {canLeaveThisWorkspace && onLeaveWorkspace && (
                       <Button
                         variant="ghost"
                         size="xs"
                         onClick={() => setIsLeaveModalOpen(true)}
-                        className=" text-red-500  hover:text-red-600 hover:bg-amber-500/10 px-2.5 py-1  h-auto text-xs font-semibold gap-1.5 rounded-lg border border-amber-500/20 transition-colors"
+                        className=" text-red-500 hover:text-red-600 hover:bg-amber-500/10 px-2.5 py-1 h-auto text-xs font-semibold gap-1.5 rounded-lg border border-amber-500/20 transition-colors"
                         title="Leave this workspace"
                       >
                         <LogOut className="h-3.5 w-3.5" />
@@ -167,6 +196,17 @@ export const MembersList: React.FC<MembersListProps> = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Member Role Dialog */}
+      {memberToEditRole && onUpdateMemberRole && (
+        <EditMemberRoleDialog
+          isOpen={Boolean(memberToEditRole)}
+          onClose={() => setMemberToEditRole(null)}
+          member={memberToEditRole}
+          workspaceName={wsName}
+          onConfirm={onUpdateMemberRole}
+        />
+      )}
 
       {/* Kick Member Confirmation Dialog */}
       {memberToKick && onRemoveMember && (

@@ -126,7 +126,13 @@ export interface ResetPasswordDto {
 }
 
 export interface VerifyEmailDto {
-  token: string;
+  token?: string;
+  otp?: string;
+  email?: string;
+}
+
+export interface ResendVerificationDto {
+  email: string;
 }
 
 export interface CreateWorkspaceDto {

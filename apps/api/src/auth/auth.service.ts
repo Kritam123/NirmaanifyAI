@@ -11,6 +11,7 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { AuthResponseDto, UserDto, WorkspaceDto } from '@nirmaanify/types';
 import { PrismaService } from '../database/prisma.service';
+import { MailService } from '../mail/mail.service';
 import {
   RegisterDto,
   LoginDto,
@@ -18,6 +19,7 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   VerifyEmailDto,
+  ResendVerificationDto,
 } from './dto/auth.dto';
 
 @Injectable()
@@ -26,11 +28,12 @@ export class AuthService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly mailService: MailService
   ) {}
 
   /**
-   * Register new user, create personal workspace, and persist in PostgreSQL
+   * Register new user, generate verification token & OTP, send verification email
    */
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     const email = dto.email.toLowerCase().trim();
@@ -46,7 +49,7 @@ export class AuthService {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(dto.password, salt);
 
-    // Create user in PostgreSQL without automatic workspace creation
+    // 1. Create user in PostgreSQL with isEmailVerified: false
     const createdUser = await this.prisma.user.create({
       data: {
         email,
@@ -66,6 +69,30 @@ export class AuthService {
 
     this.logger.log(`✓ User registered in PostgreSQL: ${email} (${createdUser.id})`);
 
+    // 2. Generate secure verification token and 6-digit OTP code
+    const token = crypto.randomUUID();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 24 * 3600 * 1000); // 24 hours
+
+    await this.prisma.emailVerificationToken.create({
+      data: {
+        userId: createdUser.id,
+        email,
+        token,
+        otp,
+        expiresAt,
+      },
+    });
+
+    // 3. Dispatch real verification email using Nodemailer / Gmail SMTP
+    await this.mailService.sendEmailVerification({
+      to: email,
+      name: dto.name,
+      token,
+      otp,
+      expiresAt,
+    });
+
     const accessToken = this.jwtService.sign({
       sub: createdUser.id,
       email: createdUser.email,
@@ -79,7 +106,7 @@ export class AuthService {
       avatarUrl: createdUser.avatarUrl || undefined,
       role: createdUser.role as any,
       primaryProvider: createdUser.primaryProvider as any,
-      isEmailVerified: createdUser.isEmailVerified,
+      isEmailVerified: false,
       isActive: createdUser.isActive,
       createdAt: createdUser.createdAt,
       updatedAt: createdUser.updatedAt,
@@ -427,9 +454,159 @@ export class AuthService {
   }
 
   /**
-   * Verify user email address in database
+   * Verify user email address in database using token or OTP
    */
   async verifyEmail(dto: VerifyEmailDto) {
-    return { message: 'Email address verified successfully.' };
+    const rawToken = dto.token?.trim();
+    const rawOtp = dto.otp?.trim();
+    const rawEmail = dto.email?.toLowerCase().trim();
+
+    if (!rawToken && !rawOtp) {
+      throw new BadRequestException('Please provide a verification token or 6-digit OTP code');
+    }
+
+    let verificationRecord: any = null;
+
+    if (rawToken) {
+      verificationRecord = await this.prisma.emailVerificationToken.findUnique({
+        where: { token: rawToken },
+        include: { user: true },
+      });
+    } else if (rawOtp && rawEmail) {
+      verificationRecord = await this.prisma.emailVerificationToken.findFirst({
+        where: {
+          email: { equals: rawEmail, mode: 'insensitive' },
+          otp: rawOtp,
+          isUsed: false,
+        },
+        include: { user: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    } else if (rawOtp) {
+      verificationRecord = await this.prisma.emailVerificationToken.findFirst({
+        where: {
+          otp: rawOtp,
+          isUsed: false,
+        },
+        include: { user: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (!verificationRecord) {
+      throw new BadRequestException('Invalid verification code or link.');
+    }
+
+    if (verificationRecord.isUsed) {
+      throw new BadRequestException('This verification code has already been used. Please log in.');
+    }
+
+    if (new Date() > verificationRecord.expiresAt) {
+      throw new BadRequestException('Verification code has expired. Please request a new one.');
+    }
+
+    // Atomically mark user as verified and token as used
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: verificationRecord.userId },
+        data: { isEmailVerified: true },
+      }),
+      this.prisma.emailVerificationToken.update({
+        where: { id: verificationRecord.id },
+        data: { isUsed: true },
+      }),
+    ]);
+
+    this.logger.log(`✓ Email verified for user: ${verificationRecord.email} (${verificationRecord.userId})`);
+
+    const user = verificationRecord.user;
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    const userDto: UserDto = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl || undefined,
+      role: user.role as any,
+      primaryProvider: user.primaryProvider as any,
+      isEmailVerified: true,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    return {
+      success: true,
+      message: 'Email address verified successfully!',
+      user: userDto,
+      accessToken,
+    };
+  }
+
+  /**
+   * Resend a fresh verification email with OTP and token
+   */
+  async resendVerification(dto: ResendVerificationDto) {
+    const email = dto.email.toLowerCase().trim();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('No account found with this email address.');
+    }
+
+    if (user.isEmailVerified) {
+      return {
+        success: true,
+        message: 'Your email address is already verified. You can sign in directly.',
+      };
+    }
+
+    // Invalidate previous unused tokens for this email
+    await this.prisma.emailVerificationToken.updateMany({
+      where: {
+        email,
+        isUsed: false,
+      },
+      data: {
+        isUsed: true,
+      },
+    });
+
+    // Generate new token & OTP
+    const token = crypto.randomUUID();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 24 * 3600 * 1000); // 24 hours
+
+    await this.prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        email,
+        token,
+        otp,
+        expiresAt,
+      },
+    });
+
+    await this.mailService.sendEmailVerification({
+      to: email,
+      name: user.name,
+      token,
+      otp,
+      expiresAt,
+    });
+
+    this.logger.log(`✉️ Resent verification email to: ${email}`);
+
+    return {
+      success: true,
+      message: `A fresh verification code has been sent to ${email}.`,
+    };
   }
 }

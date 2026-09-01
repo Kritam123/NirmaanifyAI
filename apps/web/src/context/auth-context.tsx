@@ -30,10 +30,12 @@ interface AuthContextType {
   leaveWorkspace: (workspaceId: string) => Promise<void>;
   createProject: (project: Partial<ProjectDto>) => Promise<ProjectDto>;
   inviteMember: (email: string, role: UserRole) => Promise<void>;
+  updateMemberRole: (userId: string, role: UserRole) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<{ message: string }>;
   resetPassword: (token: string, newPassword: string) => Promise<{ message: string }>;
-  verifyEmail: (token: string) => Promise<{ message: string }>;
+  verifyEmail: (dtoOrToken: string | { token?: string; otp?: string; email?: string }) => Promise<{ success: boolean; message: string; user?: UserDto; accessToken?: string }>;
+  resendVerification: (email: string) => Promise<{ success: boolean; message: string }>;
   refreshData: () => Promise<void>;
 }
 
@@ -352,6 +354,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshData();
   };
 
+  const updateMemberRole = async (userId: string, role: UserRole): Promise<void> => {
+    if (!activeWorkspace) throw new Error('No active workspace selected');
+    await apiClient.workspaces.updateMemberRole(activeWorkspace.id, userId, role);
+    await refreshData();
+  };
+
   const removeMember = async (userId: string): Promise<void> => {
     if (!activeWorkspace) throw new Error('No active workspace selected');
     await apiClient.workspaces.removeMember(activeWorkspace.id, userId);
@@ -435,8 +443,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return await apiClient.auth.resetPassword({ token, newPassword });
   };
 
-  const verifyEmail = async (token: string) => {
-    return await apiClient.auth.verifyEmail({ token });
+  const verifyEmail = async (
+    dtoOrToken: string | { token?: string; otp?: string; email?: string }
+  ) => {
+    const payload = typeof dtoOrToken === 'string' ? { token: dtoOrToken } : dtoOrToken;
+    const res = await apiClient.auth.verifyEmail(payload);
+    if (res.user) {
+      setUser(res.user);
+    }
+    if (res.accessToken) {
+      setTokenState(res.accessToken);
+      setStoredToken(res.accessToken);
+      apiClient.setToken(res.accessToken);
+    }
+    await refreshData();
+    return res;
+  };
+
+  const resendVerification = async (email: string) => {
+    return await apiClient.auth.resendVerification(email);
   };
 
   return (
@@ -458,10 +483,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         leaveWorkspace,
         createProject,
         inviteMember,
+        updateMemberRole,
         removeMember,
         forgotPassword,
         resetPassword,
         verifyEmail,
+        resendVerification,
         refreshData,
       }}
     >

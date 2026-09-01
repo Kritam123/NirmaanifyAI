@@ -16,6 +16,7 @@ export default function WorkspacesPage() {
     members,
     switchWorkspace,
     inviteMember,
+    updateMemberRole,
     removeMember,
     leaveWorkspace,
   } = useWorkspaces();
@@ -86,6 +87,7 @@ export default function WorkspacesPage() {
         workspace={activeWorkspace || undefined}
         workspaceName={activeWorkspace?.name}
         onRemoveMember={removeMember}
+        onUpdateMemberRole={updateMemberRole}
         onLeaveWorkspace={leaveWorkspace}
       />
 

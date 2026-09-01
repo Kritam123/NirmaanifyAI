@@ -46,6 +46,20 @@ export class WorkspacesService {
   }
 
   /**
+   * Update a member's role and permissions in a workspace
+   */
+  async updateMemberRole(
+    workspaceId: string,
+    userId: string,
+    role: any
+  ): Promise<{ success: boolean; message: string; member?: any }> {
+    return this.http.patch<{ success: boolean; message: string; member?: any }>(
+      API_ENDPOINTS.WORKSPACES.UPDATE_MEMBER_ROLE(workspaceId, userId),
+      { role }
+    );
+  }
+
+  /**
    * Remove a member from a workspace
    */
   async removeMember(workspaceId: string, userId: string): Promise<{ success: boolean; message?: string }> {

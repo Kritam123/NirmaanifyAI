@@ -101,6 +101,32 @@ export function useWorkspaces(explicitWorkspaceId?: string) {
     }
   };
 
+  const updateMemberRole = async (userId: string, role: UserRole, targetWsId?: string) => {
+    const wsId = targetWsId || currentWsId;
+    if (!wsId) return;
+
+    try {
+      const res: any = await apiClient.workspaces.updateMemberRole(wsId, userId, role);
+      setMembers((prev) =>
+        prev.map((m) => (m.userId === userId ? { ...m, role } : m))
+      );
+      await refreshData();
+      toast({
+        title: 'Role Updated',
+        description: res?.message || `Member role updated to ${role}`,
+        type: 'success',
+      });
+      return res;
+    } catch (err: any) {
+      toast({
+        title: 'Update Failed',
+        description: err?.message || 'Could not update member role',
+        type: 'error',
+      });
+      throw err;
+    }
+  };
+
   const removeMember = async (userId: string, targetWsId?: string) => {
     const wsId = targetWsId || currentWsId;
     if (!wsId) return;
@@ -172,6 +198,7 @@ export function useWorkspaces(explicitWorkspaceId?: string) {
     deleteWorkspace,
     leaveWorkspace,
     inviteMember,
+    updateMemberRole,
     removeMember,
     fetchMembers,
   };

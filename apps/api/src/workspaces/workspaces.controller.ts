@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -9,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { WorkspacesService } from './workspaces.service';
-import { CreateWorkspaceDto, InviteMemberDto } from './dto/workspace.dto';
+import { CreateWorkspaceDto, InviteMemberDto, UpdateMemberRoleDto } from './dto/workspace.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspaceAccessGuard } from '../common/guards/workspace-access.guard';
 import { RequireWorkspaceRoles } from '../common/decorators/workspace-roles.decorator';
@@ -68,6 +69,19 @@ export class WorkspacesController {
     @CurrentUser('id') userId: string
   ) {
     return this.workspacesService.inviteMember(id, dto, userId);
+  }
+
+  @Patch(':id/members/:userId')
+  @UseGuards(JwtAuthGuard, WorkspaceAccessGuard)
+  @RequireWorkspaceRoles('OWNER', 'ADMIN')
+  @ApiOperation({ summary: 'Update member role and permissions (Owner/Admin only)' })
+  async updateMemberRole(
+    @Param('id') id: string,
+    @Param('userId') targetUserId: string,
+    @Body() dto: UpdateMemberRoleDto,
+    @CurrentUser('id') requestingUserId: string
+  ) {
+    return this.workspacesService.updateMemberRole(id, targetUserId, dto.role, requestingUserId);
   }
 
   @Delete(':id/members/:userId')

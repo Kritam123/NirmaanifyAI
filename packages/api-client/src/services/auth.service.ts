@@ -61,9 +61,22 @@ export class AuthService {
   }
 
   /**
-   * Verify email address with confirmation token
+   * Verify email address with confirmation token or 6-digit OTP code
    */
-  async verifyEmail(dto: VerifyEmailDto): Promise<{ message: string }> {
-    return this.http.post<{ message: string }>(API_ENDPOINTS.AUTH.VERIFY_EMAIL, dto);
+  async verifyEmail(dto: VerifyEmailDto): Promise<{ success: boolean; message: string; user?: UserDto; accessToken?: string }> {
+    return this.http.post<{ success: boolean; message: string; user?: UserDto; accessToken?: string }>(
+      API_ENDPOINTS.AUTH.VERIFY_EMAIL,
+      dto
+    );
+  }
+
+  /**
+   * Resend a fresh email verification code and link
+   */
+  async resendVerification(email: string): Promise<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      API_ENDPOINTS.AUTH.RESEND_VERIFICATION,
+      { email }
+    );
   }
 }

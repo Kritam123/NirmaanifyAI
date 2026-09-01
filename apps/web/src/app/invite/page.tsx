@@ -21,10 +21,12 @@ import {
   Clock,
   Sun,
   Moon,
-  Zap,
   Activity,
   LogOut,
   UserX,
+  Crown,
+  ArrowRight,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { apiClient } from '../../lib/api';
@@ -41,6 +43,7 @@ interface InvitationData {
     name: string;
     slug: string;
     isPersonal: boolean;
+    ownerId?: string;
     ownerName: string;
     ownerEmail: string;
   };
@@ -92,7 +95,7 @@ function InviteContent() {
         await switchWorkspace(res.workspaceId);
       }
       toast({
-        title: '🎉 Welcome to the Workspace!',
+        title: 'Welcome to the Workspace',
         description: res.message || 'Invitation accepted successfully.',
         type: 'success',
       });
@@ -173,7 +176,138 @@ function InviteContent() {
     Boolean(user?.email) &&
     user?.email.toLowerCase().trim() === invitation.email.toLowerCase().trim();
 
-  // Invalid User State (Logged in as another account)
+  // Detect if the signed-in user is the creator/owner of this workspace
+  const isWorkspaceOwner =
+    Boolean(user) &&
+    (Boolean(invitation.workspace.ownerId && user?.id === invitation.workspace.ownerId) ||
+      Boolean(
+        user?.email &&
+          invitation.workspace.ownerEmail &&
+          user.email.toLowerCase().trim() === invitation.workspace.ownerEmail.toLowerCase().trim()
+      ));
+
+  // Workspace Owner Experience: Professional info notice with direct Studio navigation
+  if (isWorkspaceOwner) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 p-4 relative overflow-hidden transition-colors duration-200">
+        <div className="absolute top-6 right-6 z-20">
+          <IconButton
+            icon={isDarkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
+            variant="ghost"
+            aria-label="Toggle theme"
+            onClick={() => setTheme(isDarkMode ? 'light' : 'dark')}
+            className="border border-slate-200 dark:border-[#24293D] bg-white/80 dark:bg-[#161926]/80 backdrop-blur-md shadow-sm"
+          />
+        </div>
+
+        <div className="w-full max-w-lg space-y-8 relative z-10">
+          {/* Brand Header */}
+          <div className="text-center space-y-3">
+            <Link href="/" className="inline-block transition-transform hover:scale-[1.02]">
+              <NirmaanLogo size="md" showTagline />
+            </Link>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Multi-Tenant Cloud Workspace Invitation
+            </p>
+          </div>
+
+          {/* Owner Notice Card */}
+          <div className="p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-[#24293D] bg-white/90 dark:bg-[#0F111A]/90 backdrop-blur-xl shadow-2xl shadow-slate-900/5 dark:shadow-black/50 space-y-6">
+            <div className="space-y-2 text-center pb-4 border-b border-slate-100 dark:border-[#1E2337]">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD] text-xs font-semibold border border-[#635BFF]/20 mb-1">
+                <Crown className="h-3.5 w-3.5 text-amber-500" /> Workspace Administrator
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                You own <span className="text-[#635BFF]">{invitation.workspace.name}</span>
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                You created this workspace and already have full Owner permissions.
+              </p>
+            </div>
+
+            {/* Workspace & Invitation Details */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                  <Building2 className="h-4 w-4 text-[#635BFF]" /> Workspace
+                </span>
+                <span className="font-bold text-slate-900 dark:text-white">{invitation.workspace.name}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" /> Your Role
+                </span>
+                <Badge variant="indigo" size="sm">
+                  OWNER
+                </Badge>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                  <UserCheck className="h-4 w-4 text-slate-400" /> Invitee
+                </span>
+                <span className="font-mono text-slate-700 dark:text-slate-300 font-medium">{invitation.email}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                  <Activity className="h-4 w-4 text-[#8B5CF6]" /> Invitation Status
+                </span>
+                {isAccepted ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Accepted & Active
+                  </span>
+                ) : isExpired ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    Expired
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[11px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Pending Acceptance
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3">
+              <Button
+                variant="default"
+                size="lg"
+                className="w-full font-semibold"
+                rightIcon={<ArrowRight className="h-4 w-4" />}
+                onClick={async () => {
+                  if (invitation.workspace.id) {
+                    await switchWorkspace(invitation.workspace.id);
+                  }
+                  router.push(ROUTES.DASHBOARD.OVERVIEW);
+                }}
+              >
+                Go to Studio
+              </Button>
+
+              <Link href={ROUTES.DASHBOARD.WORKSPACES} className="block">
+                <Button variant="outline" size="lg" className="w-full font-semibold">
+                  Manage Workspace Members
+                </Button>
+              </Link>
+            </div>
+
+            {/* Footer Protected Tag */}
+            <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-[#1E2337]">
+              Signed in as <span className="font-semibold text-slate-700 dark:text-slate-300">{user?.email}</span> (Workspace Creator)
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Invalid User State (Logged in as an unauthorized non-owner third-party account)
   if (isAuthenticated && !isEmailMatch) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 p-4 relative overflow-hidden transition-colors duration-200">
@@ -254,10 +388,10 @@ function InviteContent() {
           {/* Header Badge & Title */}
           <div className="space-y-2 text-center pb-4 border-b border-slate-100 dark:border-[#1E2337]">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD] text-xs font-bold border border-[#635BFF]/20 mb-1">
-              Workspace Collaboration
+              <Sparkles className="h-3.5 w-3.5 text-amber-500 dark:text-amber-300" /> Workspace Collaboration
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              Join <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#635BFF] to-[#22D3EE]">{invitation.workspace.name}</span>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+              Join <span className="text-[#635BFF]">{invitation.workspace.name}</span>
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Invited by <strong className="text-slate-800 dark:text-slate-200">{invitation.workspace.ownerName}</strong> ({invitation.workspace.ownerEmail})
@@ -325,7 +459,7 @@ function InviteContent() {
                 <CheckCircle2 className="h-4 w-4" /> You are an active member of this workspace
               </div>
               <Link href={ROUTES.DASHBOARD.OVERVIEW} className="block">
-                <Button variant="default" size="lg" className="w-full font-bold">
+                <Button variant="default" size="lg" className="w-full font-semibold">
                   Go to Dashboard Studio
                 </Button>
               </Link>
@@ -340,12 +474,11 @@ function InviteContent() {
               <Button
                 variant="default"
                 size="lg"
-                className="w-full font-bold  text-white hover:opacity-95 shadow-lg shadow-[#635BFF]/25 group"
+                className="w-full font-semibold"
                 isLoading={isAccepting}
                 onClick={handleAccept}
-                rightIcon={<Zap className="h-4 w-4 group-hover:scale-125 transition-transform" />}
               >
-                Accept Invitation & Join Studio 
+                Accept Invitation
               </Button>
               <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
                 Signed in as <span className="font-semibold text-slate-800 dark:text-slate-200">{user?.email}</span>
@@ -358,13 +491,13 @@ function InviteContent() {
                 <Button
                   variant="default"
                   size="lg"
-                  className="w-full font-bold bg-gradient-to-r from-[#635BFF] to-[#22D3EE] text-white shadow-md shadow-[#635BFF]/20"
+                  className="w-full font-semibold"
                 >
                   Sign In to Accept
                 </Button>
               </Link>
               <Link href={`/register?email=${encodeURIComponent(invitation.email)}&redirect=/invite?token=${token}`} className="block">
-                <Button variant="outline" size="lg" className="w-full text-xs font-semibold">
+                <Button variant="outline" size="lg" className="w-full font-semibold">
                   Create Account
                 </Button>
               </Link>

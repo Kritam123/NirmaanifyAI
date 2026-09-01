@@ -26,7 +26,7 @@ interface WorkspaceDetailsViewProps {
 
 export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ workspace }) => {
   const router = useRouter();
-  const { members, inviteMember, removeMember, leaveWorkspace } = useWorkspaces(workspace.id);
+  const { members, inviteMember, updateMemberRole, removeMember, leaveWorkspace } = useWorkspaces(workspace.id);
   const { canInviteMembers, role } = useRBAC();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -91,6 +91,7 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
             workspace={workspace}
             workspaceName={workspace.name}
             onRemoveMember={removeMember}
+            onUpdateMemberRole={updateMemberRole}
             onLeaveWorkspace={handleLeaveWorkspace}
           />
         </div>

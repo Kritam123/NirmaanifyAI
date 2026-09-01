@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { WorkspaceDto, WorkspaceMemberDto } from '@nirmaanify/types';
+import { WorkspaceDto, WorkspaceMemberDto, UserRole } from '@nirmaanify/types';
 import { PrismaService } from '../database/prisma.service';
 import { CreateWorkspaceDto, InviteMemberDto } from './dto/workspace.dto';
 import { MailService } from '../mail/mail.service';
@@ -396,6 +396,7 @@ export class WorkspacesService {
       name: string;
       slug: string;
       isPersonal: boolean;
+      ownerId?: string;
       ownerName: string;
       ownerEmail: string;
     };
@@ -432,6 +433,7 @@ export class WorkspacesService {
         name: invite.workspace.name,
         slug: invite.workspace.slug,
         isPersonal: invite.workspace.isPersonal,
+        ownerId: invite.workspace.ownerId,
         ownerName: invite.workspace.owner.name,
         ownerEmail: invite.workspace.owner.email,
       },
@@ -635,6 +637,76 @@ export class WorkspacesService {
     return {
       success: true,
       message: `Successfully removed ${targetMember.user?.name || targetMember.user?.email} from the workspace.`,
+    };
+  }
+
+  /**
+   * Update member role and permissions in workspace (Owner/Admin only)
+   */
+  async updateMemberRole(
+    workspaceId: string,
+    targetUserId: string,
+    newRole: UserRole,
+    requestingUserId: string
+  ): Promise<{ success: boolean; message: string; member: any }> {
+    const callerRole = await this.validateWorkspaceAccess(workspaceId, requestingUserId);
+
+    if (callerRole !== 'OWNER' && callerRole !== 'ADMIN') {
+      throw new ForbiddenException('Only workspace Owners and Admins can modify member roles');
+    }
+
+    const ws = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: {
+        members: {
+          include: { user: true },
+        },
+      },
+    });
+
+    if (!ws) {
+      throw new NotFoundException(`Workspace ${workspaceId} not found`);
+    }
+
+    if (ws.ownerId === targetUserId) {
+      throw new BadRequestException('Cannot modify the role of the Workspace Owner');
+    }
+
+    const targetMember = ws.members.find((m) => m.userId === targetUserId);
+    if (!targetMember) {
+      throw new NotFoundException('Member not found in this workspace');
+    }
+
+    // Admins cannot change roles of other Admins or promote members to Owner
+    if (callerRole === 'ADMIN' && targetMember.role === 'ADMIN' && targetUserId !== requestingUserId) {
+      throw new ForbiddenException('Admins cannot modify roles of other Admins. Only the Workspace Owner can do so.');
+    }
+
+    if (newRole === 'OWNER') {
+      throw new BadRequestException('Cannot assign OWNER role via member update. Workspace ownership transfer is required.');
+    }
+
+    const updated = await this.prisma.workspaceMember.update({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId: targetUserId,
+        },
+      },
+      data: {
+        role: newRole,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    this.logger.log(`✓ Updated role for user ${targetUserId} to ${newRole} in workspace ${workspaceId}`);
+
+    return {
+      success: true,
+      message: `Updated role for ${targetMember.user.name || targetMember.user.email} to ${newRole}`,
+      member: updated,
     };
   }
 

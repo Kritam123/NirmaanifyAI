@@ -55,10 +55,27 @@ export class ResetPasswordDto {
 }
 
 export class VerifyEmailDto {
-  @ApiProperty({ example: 'verification-token-uuid' })
+  @ApiPropertyOptional({ example: 'verification-token-uuid' })
+  @IsOptional()
   @IsString()
+  token?: string;
+
+  @ApiPropertyOptional({ example: '123456' })
+  @IsOptional()
+  @IsString()
+  otp?: string;
+
+  @ApiPropertyOptional({ example: 'alex@company.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
+export class ResendVerificationDto {
+  @ApiProperty({ example: 'alex@company.com' })
+  @IsEmail()
   @IsNotEmpty()
-  token!: string;
+  email!: string;
 }
 
 export class OAuthLoginDto {

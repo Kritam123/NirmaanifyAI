@@ -24,8 +24,15 @@ export class InviteMemberDto {
   @IsNotEmpty()
   email!: string;
 
-  @ApiProperty({ enum: ['ADMIN', 'DEVELOPER', 'EDITOR', 'VIEWER'], default: 'DEVELOPER' })
+  @ApiProperty({ enum: ['ADMIN', 'DEVELOPER', 'EDITOR', 'VIEWER', 'MEMBER'], default: 'DEVELOPER' })
   @IsString()
-  @IsIn(['ADMIN', 'DEVELOPER', 'EDITOR', 'VIEWER'])
+  @IsIn(['ADMIN', 'DEVELOPER', 'EDITOR', 'VIEWER', 'MEMBER'])
+  role!: UserRole;
+}
+
+export class UpdateMemberRoleDto {
+  @ApiProperty({ enum: ['ADMIN', 'DEVELOPER', 'EDITOR', 'VIEWER', 'MEMBER'], example: 'ADMIN' })
+  @IsString()
+  @IsIn(['ADMIN', 'DEVELOPER', 'EDITOR', 'VIEWER', 'MEMBER'])
   role!: UserRole;
 }

@@ -13,12 +13,22 @@ export interface WorkspaceInvitationEmailOptions {
   expiresAt: Date;
 }
 
+export interface EmailVerificationOptions {
+  to: string;
+  name: string;
+  token: string;
+  otp: string;
+  expiresAt: Date;
+}
+
 export interface EmailSendResult {
   success: boolean;
   delivered: boolean;
   message: string;
   messageId?: string;
-  inviteLink: string;
+  inviteLink?: string;
+  verifyLink?: string;
+  otp?: string;
 }
 
 @Injectable()
@@ -59,13 +69,22 @@ export class MailService {
       return null;
     }
 
+    // Google Gmail SMTP SSL Transport
     if (host === 'smtp.gmail.com' || user.toLowerCase().endsWith('@gmail.com')) {
       return nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
           user,
           pass,
         },
+        tls: {
+          rejectUnauthorized: false,
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000,
       });
     }
 
@@ -80,6 +99,7 @@ export class MailService {
       tls: {
         rejectUnauthorized: false,
       },
+      connectionTimeout: 15000,
     });
   }
 
@@ -167,6 +187,282 @@ If you did not expect this invitation, you can safely ignore this email.
         inviteLink,
       };
     }
+  }
+
+  /**
+   * Send a professional, responsive account email verification message
+   */
+  async sendEmailVerification(options: EmailVerificationOptions): Promise<EmailSendResult> {
+    const verifyLink = `${this.appUrl}/verify-email?token=${encodeURIComponent(options.token)}&email=${encodeURIComponent(options.to)}`;
+    const formattedExpiry = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      timeZoneName: 'short',
+    }).format(options.expiresAt);
+
+    const subject = `Verify your Nirmaanify AI account - ${options.otp}`;
+    const htmlContent = this.generateVerificationHtml({
+      ...options,
+      verifyLink,
+      formattedExpiry,
+    });
+    const textContent = `
+Hello ${options.name},
+
+Welcome to Nirmaanify AI! Please confirm your email address to activate your account.
+
+Your 6-Digit Verification Code:
+${options.otp}
+
+Or click the link below to verify automatically:
+${verifyLink}
+
+This verification code and link will expire on ${formattedExpiry}.
+
+If you did not create an account on Nirmaanify AI, please ignore this email.
+
+— The Nirmaanify AI Team
+    `.trim();
+
+    const transporter = this.createTransporter();
+
+    if (transporter) {
+      try {
+        const fromHeader = this.fromAddress.includes('@')
+          ? this.fromAddress
+          : `"Nirmaanify AI" <${(this.configService.get<string>('SMTP_USER') || '').trim()}>`;
+
+        const info = await transporter.sendMail({
+          from: fromHeader,
+          to: options.to,
+          subject,
+          text: textContent,
+          html: htmlContent,
+        });
+
+        this.logger.log(
+          `✉️ Real Gmail verification email sent to ${options.to} (Message ID: ${info.messageId})`
+        );
+        return {
+          success: true,
+          delivered: true,
+          message: `Verification email delivered to ${options.to}`,
+          messageId: info.messageId,
+          verifyLink,
+          otp: options.otp,
+        };
+      } catch (error: any) {
+        this.logger.error(
+          `❌ Gmail SMTP error sending verification to ${options.to}: ${error?.message}`,
+          error?.stack
+        );
+        return {
+          success: false,
+          delivered: false,
+          message: `Gmail SMTP Error: ${error?.message || 'Failed to authenticate or send email'}`,
+          verifyLink,
+          otp: options.otp,
+        };
+      }
+    } else {
+      this.logger.warn(
+        `\n=======================================================\n✉️ [DEV EMAIL SIMULATOR] Email Verification\nTo: ${options.to} (${options.name})\nSubject: ${subject}\nVerification Code (OTP): ${options.otp}\nVerify Link: ${verifyLink}\nExpires: ${formattedExpiry}\n⚠️ Note: To send via real Gmail inbox, configure SMTP_USER & SMTP_PASS in .env\n=======================================================\n`
+      );
+      return {
+        success: true,
+        delivered: false,
+        message: `Verification code generated. Set SMTP_USER and SMTP_PASS in .env to deliver real Gmail messages.`,
+        verifyLink,
+        otp: options.otp,
+      };
+    }
+  }
+
+  /**
+   * Generates a modern, responsive HTML email template for account email verification
+   */
+  private generateVerificationHtml(data: {
+    to: string;
+    name: string;
+    token: string;
+    otp: string;
+    verifyLink: string;
+    formattedExpiry: string;
+  }): string {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify your Email Address</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #090A0F;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #F8FAFC;
+    }
+    .container {
+      max-width: 580px;
+      margin: 40px auto;
+      background: #0F111A;
+      border: 1px solid #24293D;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .header-bar {
+      height: 6px;
+      background: linear-gradient(90deg, #635BFF 0%, #8B5CF6 50%, #22D3EE 100%);
+    }
+    .content {
+      padding: 40px 36px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #635BFF, #22D3EE);
+      border-radius: 10px;
+      display: inline-block;
+      text-align: center;
+      line-height: 36px;
+      font-weight: 900;
+      color: #FFFFFF;
+      font-size: 18px;
+    }
+    .brand-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #FFFFFF;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #FFFFFF;
+      margin: 0 0 12px 0;
+      line-height: 1.3;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #94A3B8;
+      margin: 0 0 24px 0;
+    }
+    .otp-box {
+      background: #161926;
+      border: 1.5px dashed #635BFF;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      margin: 28px 0;
+    }
+    .otp-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #A5AEFD;
+      margin-bottom: 8px;
+    }
+    .otp-code {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #FFFFFF;
+      margin: 0;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 28px 0;
+    }
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%);
+      color: #FFFFFF !important;
+      font-weight: 700;
+      font-size: 15px;
+      text-decoration: none;
+      padding: 16px 36px;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px -5px rgba(99, 91, 255, 0.4);
+    }
+    .link-fallback {
+      background: #141724;
+      border-radius: 10px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #818CF8;
+      word-break: break-all;
+      margin-top: 12px;
+    }
+    .footer {
+      padding: 24px 36px;
+      background: #090A0F;
+      border-top: 1px solid #1E2337;
+      text-align: center;
+      font-size: 12px;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-bar"></div>
+    <div class="content">
+      <div class="brand">
+        <span class="brand-logo">N</span>
+        <span class="brand-name">Nirmaanify AI</span>
+      </div>
+
+      <h1>Welcome to Nirmaanify AI, ${data.name}!</h1>
+      <p>
+        Please verify your email address to unlock your full development studio and start collaborating.
+      </p>
+
+      <div class="otp-box">
+        <div class="otp-title">Your 6-Digit Verification Code</div>
+        <div class="otp-code">${data.otp}</div>
+      </div>
+
+      <div class="btn-container">
+        <a href="${data.verifyLink}" class="btn-primary" target="_blank">
+          Verify Email Address 🚀
+        </a>
+      </div>
+
+      <p style="font-size: 12px; color: #64748B; margin-top: 24px; margin-bottom: 6px;">
+        Or click the direct verification link:
+      </p>
+      <div class="link-fallback">
+        ${data.verifyLink}
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>© ${new Date().getFullYear()} Nirmaanify AI Inc. Multi-Tenant Cloud Architecture.</p>
+      <p>If you did not sign up for Nirmaanify AI, you can safely ignore this email.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
   }
 
   /**

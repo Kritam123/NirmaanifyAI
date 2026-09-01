@@ -58,11 +58,11 @@ export const RegisterForm: React.FC = () => {
     try {
       await register(name, email, password);
       toast({
-        title: 'Account Created Successfully!',
-        description: 'Personal studio initialized. Redirecting to dashboard...',
+        title: 'Account Created! Verify Your Email',
+        description: `We've sent a 6-digit verification code and confirmation link to ${email}.`,
         type: 'success',
       });
-      router.push(ROUTES.DASHBOARD.OVERVIEW);
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setErrorMessage(err?.message || 'Registration failed. Try again.');
       toast({
