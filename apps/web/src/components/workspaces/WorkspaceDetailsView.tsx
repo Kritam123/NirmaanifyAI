@@ -9,13 +9,14 @@ import {
   Badge,
   Button,
 } from '@nirmaanify/ui';
-import { ArrowLeft, Plus, ExternalLink, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, ExternalLink, Trash2, AlertTriangle, LogOut } from 'lucide-react';
 import { WorkspaceDto } from '@nirmaanify/types';
 import { useWorkspaces } from '../../hooks/use-workspaces';
 import { useRBAC } from '../../hooks/use-rbac';
 import { MembersList } from './MembersList';
 import { InviteMemberDialog } from './InviteMemberDialog';
 import { DeleteWorkspaceDialog } from './DeleteWorkspaceDialog';
+import { LeaveWorkspaceDialog } from './LeaveWorkspaceDialog';
 import { RoleBadge } from '../auth/RoleGate';
 import { ROUTES } from '../../lib/routes';
 
@@ -25,13 +26,20 @@ interface WorkspaceDetailsViewProps {
 
 export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ workspace }) => {
   const router = useRouter();
-  const { members, inviteMember, removeMember } = useWorkspaces();
+  const { members, inviteMember, removeMember, leaveWorkspace } = useWorkspaces(workspace.id);
   const { canInviteMembers, role } = useRBAC();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
 
   const workspaceUrl = `/workspaces/${workspace.id}`;
+  const isOwner = role === 'OWNER';
   const isOwnerOrAdmin = role === 'OWNER' || role === 'ADMIN';
+
+  const handleLeaveWorkspace = async () => {
+    await leaveWorkspace(workspace.id);
+    router.push(ROUTES.DASHBOARD.WORKSPACES);
+  };
 
   return (
     <div className="space-y-6">
@@ -52,7 +60,7 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Single Dedicated Redirect Button to Open Workspace in New Tab */}
+          {/* Dedicated Redirect Button to Open Workspace in New Tab */}
           <a
             href={workspaceUrl}
             target="_blank"
@@ -80,8 +88,10 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
         <div className="lg:col-span-2 space-y-6">
           <MembersList
             members={members}
+            workspace={workspace}
             workspaceName={workspace.name}
             onRemoveMember={removeMember}
+            onLeaveWorkspace={handleLeaveWorkspace}
           />
         </div>
 
@@ -114,7 +124,31 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
             </div>
           </Card>
 
-          {/* Danger Zone: Delete Workspace */}
+          {/* Danger Zone: Leave Workspace (For non-owners) */}
+          {!isOwner && (
+            <Card className="p-6 border-amber-500/20 bg-amber-500/5 space-y-4">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <LogOut className="h-4 w-4" />
+                <CardTitle className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                  Leave Workspace
+                </CardTitle>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Relinquish access to this workspace. You will need a new invitation to rejoin.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full font-bold text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                onClick={() => setLeaveModalOpen(true)}
+                leftIcon={<LogOut className="h-3.5 w-3.5" />}
+              >
+                Leave Workspace
+              </Button>
+            </Card>
+          )}
+
+          {/* Danger Zone: Delete Workspace (For Owner/Admin) */}
           {isOwnerOrAdmin && (
             <Card className="p-6 border-rose-500/20 bg-rose-500/5 space-y-4">
               <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
@@ -155,6 +189,14 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
         onClose={() => setDeleteModalOpen(false)}
         workspace={workspace}
         onSuccess={() => router.push(ROUTES.DASHBOARD.WORKSPACES)}
+      />
+
+      {/* Leave Workspace Confirmation Dialog */}
+      <LeaveWorkspaceDialog
+        isOpen={leaveModalOpen}
+        onClose={() => setLeaveModalOpen(false)}
+        workspace={workspace}
+        onConfirm={handleLeaveWorkspace}
       />
     </div>
   );

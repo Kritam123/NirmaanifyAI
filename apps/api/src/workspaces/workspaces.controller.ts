@@ -73,13 +73,39 @@ export class WorkspacesController {
   @Delete(':id/members/:userId')
   @UseGuards(JwtAuthGuard, WorkspaceAccessGuard)
   @RequireWorkspaceRoles('OWNER', 'ADMIN')
-  @ApiOperation({ summary: 'Remove a member from a workspace (Owner/Admin only)' })
+  @ApiOperation({ summary: 'Kick or remove a member from a workspace (Owner/Admin only)' })
   async removeMember(
     @Param('id') id: string,
     @Param('userId') targetUserId: string,
     @CurrentUser('id') requestingUserId: string
   ) {
     return this.workspacesService.removeMember(id, targetUserId, requestingUserId);
+  }
+
+  @Post(':id/leave')
+  @UseGuards(JwtAuthGuard, WorkspaceAccessGuard)
+  @ApiOperation({ summary: 'Leave a workspace (Voluntary member self-removal)' })
+  async leaveWorkspace(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.workspacesService.leaveWorkspace(id, userId);
+  }
+
+  @Get('invitations/:token')
+  @ApiOperation({ summary: 'Get workspace invitation details by token' })
+  async getInvitation(@Param('token') token: string) {
+    return this.workspacesService.getInvitation(token);
+  }
+
+  @Post('invitations/:token/accept')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Accept workspace invitation (Authenticated)' })
+  async acceptInvitation(
+    @Param('token') token: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.workspacesService.acceptInvitation(token, userId);
   }
 
   @Delete(':id')

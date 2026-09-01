@@ -27,6 +27,7 @@ interface AuthContextType {
   switchWorkspace: (workspaceId: string) => Promise<void>;
   createWorkspace: (name: string, slug?: string, isPersonal?: boolean) => Promise<WorkspaceDto>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
+  leaveWorkspace: (workspaceId: string) => Promise<void>;
   createProject: (project: Partial<ProjectDto>) => Promise<ProjectDto>;
   inviteMember: (email: string, role: UserRole) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
@@ -392,6 +393,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const leaveWorkspace = async (workspaceId: string): Promise<void> => {
+    await apiClient.workspaces.leaveWorkspace(workspaceId);
+
+    const updatedWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
+    setWorkspaces(updatedWorkspaces);
+
+    // If the left workspace was the active one, smoothly switch to next workspace or null
+    if (activeWorkspace?.id === workspaceId) {
+      if (updatedWorkspaces.length > 0) {
+        const nextWs = updatedWorkspaces[0];
+        setActiveWorkspace(nextWs);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(ACTIVE_WS_KEY, nextWs.id);
+        }
+        try {
+          const projList = await apiClient.projects.listProjects(nextWs.id);
+          if (Array.isArray(projList)) {
+            setProjects(projList);
+          } else {
+            setProjects([]);
+          }
+        } catch {
+          setProjects([]);
+        }
+      } else {
+        setActiveWorkspace(null);
+        setProjects([]);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(ACTIVE_WS_KEY);
+        }
+      }
+    }
+  };
+
   const forgotPassword = async (email: string) => {
     return await apiClient.auth.forgotPassword({ email });
   };
@@ -420,6 +455,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         switchWorkspace,
         createWorkspace,
         deleteWorkspace,
+        leaveWorkspace,
         createProject,
         inviteMember,
         removeMember,

@@ -55,6 +55,31 @@ export class WorkspacesService {
   }
 
   /**
+   * Get public invitation details by token
+   */
+  async getInvitation(token: string): Promise<any> {
+    return this.http.get<any>(API_ENDPOINTS.WORKSPACES.INVITATION_DETAILS(token));
+  }
+
+  /**
+   * Accept workspace invitation
+   */
+  async acceptInvitation(token: string): Promise<{ success: boolean; message: string; workspaceId: string }> {
+    return this.http.post<{ success: boolean; message: string; workspaceId: string }>(
+      API_ENDPOINTS.WORKSPACES.ACCEPT_INVITATION(token)
+    );
+  }
+
+  /**
+   * Leave a workspace (Voluntary self-removal)
+   */
+  async leaveWorkspace(workspaceId: string): Promise<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      API_ENDPOINTS.WORKSPACES.LEAVE(workspaceId)
+    );
+  }
+
+  /**
    * Delete workspace and cascade delete all associated projects
    */
   async deleteWorkspace(workspaceId: string): Promise<{ success: boolean; message: string }> {

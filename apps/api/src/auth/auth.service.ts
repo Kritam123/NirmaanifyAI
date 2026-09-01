@@ -45,9 +45,8 @@ export class AuthService {
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(dto.password, salt);
-    const slug = `${dto.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal-${Date.now().toString(36)}`;
 
-    // Create user and personal workspace in database
+    // Create user in PostgreSQL without automatic workspace creation
     const createdUser = await this.prisma.user.create({
       data: {
         email,
@@ -58,30 +57,12 @@ export class AuthService {
         primaryProvider: 'CREDENTIALS',
         isEmailVerified: false,
         isActive: true,
-        workspaces: {
-          create: {
-            name: `${dto.name}'s Workspace`,
-            slug,
-            isPersonal: true,
-          },
-        },
       },
       include: {
         workspaces: true,
         socialAccounts: true,
       },
     });
-
-    const personalWs = createdUser.workspaces[0];
-    if (personalWs) {
-      await this.prisma.workspaceMember.create({
-        data: {
-          workspaceId: personalWs.id,
-          userId: createdUser.id,
-          role: 'OWNER',
-        },
-      });
-    }
 
     this.logger.log(`✓ User registered in PostgreSQL: ${email} (${createdUser.id})`);
 
@@ -104,37 +85,11 @@ export class AuthService {
       updatedAt: createdUser.updatedAt,
     };
 
-    const wsDto: WorkspaceDto = personalWs
-      ? {
-          id: personalWs.id,
-          name: personalWs.name,
-          slug: personalWs.slug,
-          isPersonal: personalWs.isPersonal,
-          ownerId: personalWs.ownerId,
-          role: 'OWNER',
-          projectCount: 0,
-          memberCount: 1,
-          createdAt: personalWs.createdAt,
-          updatedAt: personalWs.updatedAt,
-        }
-      : {
-          id: `ws-${createdUser.id}`,
-          name: `${createdUser.name}'s Workspace`,
-          slug,
-          isPersonal: true,
-          ownerId: createdUser.id,
-          role: 'OWNER',
-          projectCount: 0,
-          memberCount: 1,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
     return {
       user: userDto,
       accessToken,
-      activeWorkspace: wsDto,
-      workspaces: [wsDto],
+      activeWorkspace: null,
+      workspaces: [],
     };
   }
 
@@ -206,18 +161,7 @@ export class AuthService {
       updatedAt: w.updatedAt,
     }));
 
-    const activeWorkspace = wsDtos[0] || {
-      id: `ws-${user.id}`,
-      name: `${user.name}'s Workspace`,
-      slug: `${user.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-workspace`,
-      isPersonal: true,
-      ownerId: user.id,
-      role: 'OWNER',
-      projectCount: 0,
-      memberCount: 1,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const activeWorkspace = wsDtos[0] || null;
 
     const accessToken = this.jwtService.sign({
       sub: user.id,
@@ -231,7 +175,7 @@ export class AuthService {
       user: userDto,
       accessToken,
       activeWorkspace,
-      workspaces: wsDtos.length ? wsDtos : [activeWorkspace],
+      workspaces: wsDtos,
     };
   }
 
@@ -284,8 +228,7 @@ export class AuthService {
 
       this.logger.log(`✓ Linked ${dto.provider} OAuth account to user in DB: ${email}`);
     } else {
-      // Create new user via OAuth
-      const slug = `${(dto.name || email.split('@')[0]).toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal-${Date.now().toString(36)}`;
+      // Create new user via OAuth without automatic workspace creation
       user = await this.prisma.user.create({
         data: {
           email,
@@ -295,13 +238,6 @@ export class AuthService {
           primaryProvider: providerEnum,
           isEmailVerified: true,
           isActive: true,
-          workspaces: {
-            create: {
-              name: `${dto.name || email.split('@')[0]}'s Workspace`,
-              slug,
-              isPersonal: true,
-            },
-          },
           socialAccounts: {
             create: {
               provider: providerEnum,
@@ -322,17 +258,6 @@ export class AuthService {
           socialAccounts: true,
         },
       });
-
-      const personalWs = user.workspaces[0];
-      if (personalWs) {
-        await this.prisma.workspaceMember.create({
-          data: {
-            workspaceId: personalWs.id,
-            userId: user.id,
-            role: 'OWNER',
-          },
-        });
-      }
 
       this.logger.log(`✓ Registered new user via ${dto.provider} OAuth in DB: ${email}`);
     }

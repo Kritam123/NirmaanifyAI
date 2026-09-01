@@ -23,6 +23,9 @@ export const API_ENDPOINTS = {
     MEMBERS: (id: string) => `${API_PREFIX}/workspaces/${id}/members`,
     INVITE: (id: string) => `${API_PREFIX}/workspaces/${id}/invites`,
     REMOVE_MEMBER: (id: string, userId: string) => `${API_PREFIX}/workspaces/${id}/members/${userId}`,
+    INVITATION_DETAILS: (token: string) => `${API_PREFIX}/workspaces/invitations/${token}`,
+    ACCEPT_INVITATION: (token: string) => `${API_PREFIX}/workspaces/invitations/${token}/accept`,
+    LEAVE: (id: string) => `${API_PREFIX}/workspaces/${id}/leave`,
     DELETE: (id: string) => `${API_PREFIX}/workspaces/${id}`,
   },
   PROJECTS: {

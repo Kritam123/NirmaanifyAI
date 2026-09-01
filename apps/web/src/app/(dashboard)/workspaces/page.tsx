@@ -17,6 +17,7 @@ export default function WorkspacesPage() {
     switchWorkspace,
     inviteMember,
     removeMember,
+    leaveWorkspace,
   } = useWorkspaces();
   const { openCreateWorkspaceModal } = useWorkspaceModal();
 
@@ -82,8 +83,10 @@ export default function WorkspacesPage() {
       {/* Active Workspace Member Roster */}
       <MembersList
         members={members}
+        workspace={activeWorkspace || undefined}
         workspaceName={activeWorkspace?.name}
         onRemoveMember={removeMember}
+        onLeaveWorkspace={leaveWorkspace}
       />
 
       {/* Invite Modal */}

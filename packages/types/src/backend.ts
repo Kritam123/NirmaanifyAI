@@ -36,11 +36,14 @@ export interface UserDto {
   updatedAt: string | Date;
 }
 
+export type MembershipStatus = 'ACTIVE' | 'PENDING' | 'INVITED';
+
 export interface WorkspaceMemberDto {
   id: string;
   workspaceId: string;
   userId: string;
   role: UserRole;
+  status?: MembershipStatus;
   user: {
     id: string;
     email: string;
@@ -141,7 +144,7 @@ export interface AuthResponseDto {
   user: UserDto;
   accessToken: string;
   refreshToken?: string;
-  activeWorkspace: WorkspaceDto;
+  activeWorkspace?: WorkspaceDto | null;
   workspaces: WorkspaceDto[];
 }
 

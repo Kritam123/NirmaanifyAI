@@ -6,23 +6,26 @@ import { apiClient } from '../lib/api';
 import { useAuth } from '../context/auth-context';
 import { useToast } from '@nirmaanify/ui';
 
-export function useWorkspaces() {
+export function useWorkspaces(explicitWorkspaceId?: string) {
   const {
     workspaces,
     activeWorkspace,
     switchWorkspace,
     createWorkspace: contextCreateWorkspace,
     deleteWorkspace: contextDeleteWorkspace,
-    inviteMember: contextInviteMember,
+    leaveWorkspace: contextLeaveWorkspace,
     removeMember: contextRemoveMember,
+    refreshData,
   } = useAuth();
   const { toast } = useToast();
+
+  const currentWsId = explicitWorkspaceId || activeWorkspace?.id;
 
   const [members, setMembers] = useState<WorkspaceMemberDto[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState<boolean>(false);
 
   const fetchMembers = useCallback(async (wsId?: string) => {
-    const targetId = wsId || activeWorkspace?.id;
+    const targetId = wsId || currentWsId;
     if (!targetId) {
       setMembers([]);
       return;
@@ -37,19 +40,19 @@ export function useWorkspaces() {
     } finally {
       setIsLoadingMembers(false);
     }
-  }, [activeWorkspace?.id]);
+  }, [currentWsId]);
 
   useEffect(() => {
-    if (activeWorkspace?.id) {
-      fetchMembers(activeWorkspace.id);
+    if (currentWsId) {
+      fetchMembers(currentWsId);
     } else {
       setMembers([]);
     }
-  }, [activeWorkspace?.id, fetchMembers]);
+  }, [currentWsId, fetchMembers]);
 
-  const createWorkspace = async (name: string, slug?: string) => {
+  const createWorkspace = async (name: string, slug?: string, isPersonal?: boolean) => {
     try {
-      const newWs = await contextCreateWorkspace(name, slug);
+      const newWs = await contextCreateWorkspace(name, slug, isPersonal);
       toast({
         title: 'Workspace Created',
         description: `Switched to workspace "${newWs.name}"`,
@@ -66,39 +69,78 @@ export function useWorkspaces() {
     }
   };
 
-  const inviteMember = async (email: string, role: UserRole) => {
-    try {
-      await contextInviteMember(email, role);
-      await fetchMembers();
+  const inviteMember = async (email: string, role: UserRole, targetWsId?: string) => {
+    const wsId = targetWsId || currentWsId;
+    if (!wsId) {
       toast({
-        title: 'Invitation Sent',
-        description: `Invite successfully sent to ${email} as ${role}`,
+        title: 'No Workspace Selected',
+        description: 'Please select a workspace before inviting members.',
+        type: 'error',
+      });
+      return;
+    }
+
+    try {
+      const res: any = await apiClient.workspaces.inviteMember(wsId, { email, role });
+      await fetchMembers(wsId);
+      await refreshData();
+
+      toast({
+        title: res?.delivered ? '✉️ Gmail Invitation Sent!' : '🎉 Invitation Generated',
+        description: res?.message || `Invitation successfully sent to ${email}`,
         type: 'success',
       });
+      return res;
     } catch (err: any) {
       toast({
         title: 'Invite Failed',
-        description: err?.message || 'Could not send invitation',
+        description: err?.message || 'Could not send invitation. Please verify email.',
+        type: 'error',
+      });
+      throw err;
+    }
+  };
+
+  const removeMember = async (userId: string, targetWsId?: string) => {
+    const wsId = targetWsId || currentWsId;
+    if (!wsId) return;
+
+    try {
+      const res: any = await apiClient.workspaces.removeMember(wsId, userId);
+      setMembers((prev) => prev.filter((m) => m.userId !== userId));
+      await refreshData();
+      toast({
+        title: 'Member Removed',
+        description: res?.message || 'Collaborator has been removed from this workspace.',
+        type: 'info',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Action Failed',
+        description: err?.message || 'Could not remove member',
         type: 'error',
       });
     }
   };
 
-  const removeMember = async (userId: string) => {
+  const leaveWorkspace = async (targetWsId?: string) => {
+    const wsId = targetWsId || currentWsId;
+    if (!wsId) return;
+
     try {
-      await contextRemoveMember(userId);
-      setMembers((prev) => prev.filter((m) => m.userId !== userId));
+      await contextLeaveWorkspace(wsId);
       toast({
-        title: 'Member Removed',
-        description: 'Collaborator has been removed from this workspace.',
+        title: 'Left Workspace',
+        description: 'You have successfully left the workspace.',
         type: 'info',
       });
     } catch (err: any) {
       toast({
-        title: 'Error',
-        description: err?.message || 'Could not remove member',
+        title: 'Error Leaving Workspace',
+        description: err?.message || 'Could not leave workspace',
         type: 'error',
       });
+      throw err;
     }
   };
 
@@ -128,6 +170,7 @@ export function useWorkspaces() {
     switchWorkspace,
     createWorkspace,
     deleteWorkspace,
+    leaveWorkspace,
     inviteMember,
     removeMember,
     fetchMembers,
