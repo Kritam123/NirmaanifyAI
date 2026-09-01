@@ -3,15 +3,19 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import { Avatar, Badge, IconButton, useTheme } from '@nirmaanify/ui';
-import { Search, Moon, Sun, Menu } from 'lucide-react';
+import { Search, Moon, Sun, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { RoleBadge } from '../auth/RoleGate';
 
 export interface TopNavbarProps {
-  onMenuToggle?: () => void;
+  onToggleSidebar?: () => void;
+  isSidebarCollapsed?: boolean;
 }
 
-export const TopNavbar: React.FC<TopNavbarProps> = ({ onMenuToggle }) => {
+export const TopNavbar: React.FC<TopNavbarProps> = ({
+  onToggleSidebar,
+  isSidebarCollapsed = false,
+}) => {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { user, activeWorkspace } = useAuth();
@@ -30,19 +34,29 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onMenuToggle }) => {
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <header className="h-16 border-b border-slate-200 dark:border-[#24293D] bg-white/80 dark:bg-[#0F111A]/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between select-none shrink-0 transition-colors duration-200">
-      {/* Breadcrumbs & Mobile Trigger */}
-      <div className="flex items-center gap-3">
-        {onMenuToggle && (
+    <header className="h-16 border-b border-slate-200 dark:border-[#24293D] bg-white/80 dark:bg-[#0F111A]/80 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between select-none shrink-0 transition-colors duration-200">
+      {/* Breadcrumbs & Collapse Sidebar Trigger */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Single Navbar Collapse/Toggle Button */}
+        {onToggleSidebar && (
           <IconButton
-            icon={<Menu className="h-4 w-4" />}
+            icon={
+              isSidebarCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )
+            }
             variant="ghost"
-            aria-label="Toggle navigation menu"
-            onClick={onMenuToggle}
-            className="md:hidden"
+            size="xs"
+            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={`${isSidebarCollapsed ? 'Expand' : 'Collapse'} sidebar (Ctrl+B)`}
+            onClick={onToggleSidebar}
+            className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white"
           />
         )}
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-slate-500 dark:text-slate-400 overflow-hidden">
           {breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={crumb + idx}>
               <span
