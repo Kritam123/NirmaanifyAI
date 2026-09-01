@@ -34,8 +34,12 @@ export const ForgotPasswordForm: React.FC = () => {
         description: 'Check your email inbox for recovery instructions.',
         type: 'success',
       });
-    } catch {
-      setIsSubmitted(true);
+    } catch (err: any) {
+      toast({
+        title: 'Request Failed',
+        description: err?.message || 'Unable to process password reset request.',
+        type: 'error',
+      });
     } finally {
       setIsLoading(false);
     }

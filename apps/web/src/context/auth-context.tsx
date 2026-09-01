@@ -33,100 +33,15 @@ interface AuthContextType {
   refreshData: () => Promise<void>;
 }
 
-const DEFAULT_USER: UserDto = {
-  id: 'usr-alex-001',
-  name: 'Alex Developer',
-  email: 'alex@nirmaanify.ai',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-  role: 'OWNER',
-  primaryProvider: 'CREDENTIALS',
-  isEmailVerified: true,
-  isActive: true,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
-
-const DEFAULT_WORKSPACES: WorkspaceDto[] = [
-  {
-    id: 'ws-personal-001',
-    name: "Alex's Personal Studio",
-    slug: 'alex-personal',
-    isPersonal: true,
-    ownerId: 'usr-alex-001',
-    role: 'OWNER',
-    projectCount: 3,
-    memberCount: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'ws-team-002',
-    name: 'Acme SaaS Corp',
-    slug: 'acme-saas',
-    isPersonal: false,
-    ownerId: 'usr-alex-001',
-    role: 'OWNER',
-    projectCount: 6,
-    memberCount: 5,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const INITIAL_PROJECTS: ProjectDto[] = [
-  {
-    id: 'proj-ecom-001',
-    name: 'Fashion Hub Store',
-    slug: 'fashion-hub',
-    description: 'Modern luxury clothing boutique with Next.js App Router, NestJS API, and PostgreSQL.',
-    type: 'ECOMMERCE',
-    workspaceId: 'ws-personal-001',
-    framework: 'Next.js 15 App Router',
-    uiLibrary: 'shadcn/ui + Tailwind CSS',
-    isBackendEnabled: true,
-    projectSchema: { pages: ['/', '/products', '/cart', '/checkout'] },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'proj-saas-002',
-    name: 'Nirmaan AI Video Studio',
-    slug: 'ai-video-studio',
-    description: 'Generative video SaaS platform with real-time preview and BullMQ background workers.',
-    type: 'SAAS',
-    workspaceId: 'ws-personal-001',
-    framework: 'Next.js 15 App Router',
-    uiLibrary: 'shadcn/ui + Framer Motion',
-    isBackendEnabled: true,
-    projectSchema: { pages: ['/dashboard', '/studio', '/editor'] },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'proj-blog-003',
-    name: 'Engineering Tech Blog',
-    slug: 'engineering-blog',
-    description: 'High-performance developer documentation and engineering journal with dynamic CMS.',
-    type: 'BLOG',
-    workspaceId: 'ws-personal-001',
-    framework: 'Next.js 15 Static',
-    uiLibrary: 'Tailwind CSS Typography',
-    isBackendEnabled: false,
-    projectSchema: { pages: ['/', '/blog', '/about'] },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: nextAuthSession, status: nextAuthStatus } = useSession();
-  const [user, setUser] = useState<UserDto | null>(DEFAULT_USER);
+  const [user, setUser] = useState<UserDto | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
-  const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>(DEFAULT_WORKSPACES);
-  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceDto | null>(DEFAULT_WORKSPACES[0]);
-  const [projects, setProjects] = useState<ProjectDto[]>(INITIAL_PROJECTS);
+  const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceDto | null>(null);
+  const [projects, setProjects] = useState<ProjectDto[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Sync NextAuth social auth session with AuthContext
@@ -138,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const syncedUser: UserDto = {
         id: socialUser.id || user?.id || `usr-${Date.now()}`,
         name: socialUser.name || user?.name || 'Developer',
-        email: socialUser.email || user?.email || 'user@nirmaanify.ai',
+        email: socialUser.email || user?.email || '',
         avatarUrl: socialUser.image || user?.avatarUrl,
         role: (socialUser.role as UserRole) || 'OWNER',
         primaryProvider: providerName,
@@ -177,7 +92,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (profile) setUser(profile);
         })
         .catch(() => {
-          // If token verification fails, keep fallback user or session
+          // If token verification fails, clear invalid token
+          setTokenState(null);
+          setStoredToken(null);
+          apiClient.setToken(null);
+          setUser(null);
         })
         .finally(() => setIsLoading(false));
     } else {
@@ -205,120 +124,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProjects(fetchedProjects.value);
       }
     } catch {
-      // Graceful fallback to existing state
+      // Ignored for refresh polling
     }
   }, [activeWorkspace]);
 
   const login = async (email: string, pass: string): Promise<AuthResponseDto> => {
-    try {
-      const res = await apiClient.auth.login({ email, password: pass });
-      setUser(res.user);
-      setTokenState(res.accessToken);
-      setStoredToken(res.accessToken);
-      apiClient.setToken(res.accessToken);
+    const res = await apiClient.auth.login({ email, password: pass });
+    setUser(res.user);
+    setTokenState(res.accessToken);
+    setStoredToken(res.accessToken);
+    apiClient.setToken(res.accessToken);
 
-      if (res.workspaces?.length) {
-        setWorkspaces(res.workspaces);
-      }
-      if (res.activeWorkspace) {
-        setActiveWorkspace(res.activeWorkspace);
-      }
-      return res;
-    } catch {
-      // If backend is offline, provide mock login for seamless pairing & demo
-      const fallbackUser: UserDto = {
-        id: `usr-${Date.now()}`,
-        name: email.split('@')[0].replace('.', ' '),
-        email,
-        role: 'OWNER',
-        primaryProvider: 'CREDENTIALS',
-        isEmailVerified: true,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      const fallbackWs: WorkspaceDto = {
-        id: `ws-${Date.now()}`,
-        name: `${email.split('@')[0]}'s Studio`,
-        slug: `${email.split('@')[0]}-studio`,
-        isPersonal: true,
-        ownerId: fallbackUser.id,
-        role: 'OWNER',
-        projectCount: 2,
-        memberCount: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const mockRes: AuthResponseDto = {
-        user: fallbackUser,
-        accessToken: `mock-jwt-${Date.now()}`,
-        activeWorkspace: fallbackWs,
-        workspaces: [fallbackWs],
-      };
-
-      setUser(fallbackUser);
-      setWorkspaces([fallbackWs]);
-      setActiveWorkspace(fallbackWs);
-      setTokenState(mockRes.accessToken);
-      setStoredToken(mockRes.accessToken);
-      return mockRes;
+    if (res.workspaces?.length) {
+      setWorkspaces(res.workspaces);
     }
+    if (res.activeWorkspace) {
+      setActiveWorkspace(res.activeWorkspace);
+    }
+    return res;
   };
 
   const register = async (name: string, email: string, pass: string): Promise<AuthResponseDto> => {
-    try {
-      const res = await apiClient.auth.register({ name, email, password: pass });
-      setUser(res.user);
-      setTokenState(res.accessToken);
-      setStoredToken(res.accessToken);
-      apiClient.setToken(res.accessToken);
+    const res = await apiClient.auth.register({ name, email, password: pass });
+    setUser(res.user);
+    setTokenState(res.accessToken);
+    setStoredToken(res.accessToken);
+    apiClient.setToken(res.accessToken);
 
-      if (res.workspaces?.length) {
-        setWorkspaces(res.workspaces);
-      }
-      if (res.activeWorkspace) {
-        setActiveWorkspace(res.activeWorkspace);
-      }
-      return res;
-    } catch {
-      // Fallback mock register
-      const newUser: UserDto = {
-        id: `usr-${Date.now()}`,
-        name,
-        email,
-        role: 'OWNER',
-        primaryProvider: 'CREDENTIALS',
-        isEmailVerified: true,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      const newWs: WorkspaceDto = {
-        id: `ws-${Date.now()}`,
-        name: `${name}'s Workspace`,
-        slug: `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-workspace`,
-        isPersonal: true,
-        ownerId: newUser.id,
-        role: 'OWNER',
-        projectCount: 0,
-        memberCount: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      const mockRes: AuthResponseDto = {
-        user: newUser,
-        accessToken: `mock-jwt-${Date.now()}`,
-        activeWorkspace: newWs,
-        workspaces: [newWs],
-      };
-      setUser(newUser);
-      setWorkspaces([newWs]);
-      setActiveWorkspace(newWs);
-      setTokenState(mockRes.accessToken);
-      setStoredToken(mockRes.accessToken);
-      return mockRes;
+    if (res.workspaces?.length) {
+      setWorkspaces(res.workspaces);
     }
+    if (res.activeWorkspace) {
+      setActiveWorkspace(res.activeWorkspace);
+    }
+    return res;
   };
 
   const logout = () => {
@@ -327,6 +166,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStoredToken(null);
     apiClient.setToken(null);
     setActiveWorkspace(null);
+    setWorkspaces([]);
+    setProjects([]);
     try {
       nextAuthSignOut({ redirect: false });
     } catch {
@@ -342,105 +183,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createWorkspace = async (name: string, slug?: string): Promise<WorkspaceDto> => {
-    try {
-      const created = await apiClient.workspaces.createWorkspace({
-        name,
-        slug: slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        isPersonal: false,
-      });
-      setWorkspaces((prev) => [...prev, created]);
-      setActiveWorkspace(created);
-      return created;
-    } catch {
-      const localWs: WorkspaceDto = {
-        id: `ws-${Date.now()}`,
-        name,
-        slug: slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        isPersonal: false,
-        ownerId: user?.id || 'usr-alex-001',
-        role: 'OWNER',
-        projectCount: 0,
-        memberCount: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setWorkspaces((prev) => [...prev, localWs]);
-      setActiveWorkspace(localWs);
-      return localWs;
-    }
+    const created = await apiClient.workspaces.createWorkspace({
+      name,
+      slug: slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      isPersonal: false,
+    });
+    setWorkspaces((prev) => [...prev, created]);
+    setActiveWorkspace(created);
+    return created;
   };
 
   const createProject = async (data: Partial<ProjectDto>): Promise<ProjectDto> => {
-    try {
-      const created = await apiClient.projects.createProject({
-        ...data,
-        workspaceId: activeWorkspace?.id || 'ws-personal-001',
-      });
-      setProjects((prev) => [created, ...prev]);
-      return created;
-    } catch {
-      const newProj: ProjectDto = {
-        id: `proj-${Date.now()}`,
-        name: data.name || 'Untitled App',
-        slug: (data.name || 'untitled').toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        description: data.description || 'Generated with Nirmaanify AI',
-        type: data.type || 'WEBSITE',
-        workspaceId: activeWorkspace?.id || 'ws-personal-001',
-        framework: data.framework || 'Next.js 15 App Router',
-        uiLibrary: data.uiLibrary || 'shadcn/ui + Tailwind CSS',
-        isBackendEnabled: Boolean(data.isBackendEnabled),
-        projectSchema: data.projectSchema || { pages: ['/'] },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setProjects((prev) => [newProj, ...prev]);
-      return newProj;
-    }
+    const created = await apiClient.projects.createProject({
+      ...data,
+      workspaceId: activeWorkspace?.id || '',
+    });
+    setProjects((prev) => [created, ...prev]);
+    return created;
   };
 
   const inviteMember = async (email: string, role: UserRole): Promise<void> => {
-    if (!activeWorkspace) return;
-    try {
-      await apiClient.workspaces.inviteMember(activeWorkspace.id, { email, role });
-    } catch {
-      // Graceful local feedback
-    }
+    if (!activeWorkspace) throw new Error('No active workspace selected');
+    await apiClient.workspaces.inviteMember(activeWorkspace.id, { email, role });
   };
 
   const removeMember = async (userId: string): Promise<void> => {
-    if (!activeWorkspace) return;
-    try {
-      await apiClient.workspaces.removeMember(activeWorkspace.id, userId);
-    } catch {
-      // Graceful local feedback
-    }
+    if (!activeWorkspace) throw new Error('No active workspace selected');
+    await apiClient.workspaces.removeMember(activeWorkspace.id, userId);
   };
 
   const forgotPassword = async (email: string) => {
-    try {
-      return await apiClient.auth.forgotPassword({ email });
-    } catch {
-      return {
-        message: 'Password reset link sent to your email address.',
-        mockResetToken: `reset-token-${Date.now()}`,
-      };
-    }
+    return await apiClient.auth.forgotPassword({ email });
   };
 
   const resetPassword = async (token: string, newPassword: string) => {
-    try {
-      return await apiClient.auth.resetPassword({ token, newPassword });
-    } catch {
-      return { message: 'Password updated successfully. You can now login.' };
-    }
+    return await apiClient.auth.resetPassword({ token, newPassword });
   };
 
   const verifyEmail = async (token: string) => {
-    try {
-      return await apiClient.auth.verifyEmail({ token });
-    } catch {
-      return { message: 'Email address verified successfully!' };
-    }
+    return await apiClient.auth.verifyEmail({ token });
   };
 
   return (

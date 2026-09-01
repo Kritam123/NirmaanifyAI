@@ -7,3 +7,4 @@ export * from './VerifyEmailForm';
 export * from './SocialAuthButtons';
 export * from './AuthGuard';
 export * from './NextAuthSessionProvider';
+export * from './RoleGate';

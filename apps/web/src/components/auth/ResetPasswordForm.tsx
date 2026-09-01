@@ -57,6 +57,11 @@ export const ResetPasswordForm: React.FC = () => {
       });
     } catch (err: any) {
       setErrorMessage(err?.message || 'Failed to reset password. The link may have expired.');
+      toast({
+        title: 'Reset Failed',
+        description: err?.message || 'Failed to reset password. The link may have expired.',
+        type: 'error',
+      });
     } finally {
       setIsLoading(false);
     }

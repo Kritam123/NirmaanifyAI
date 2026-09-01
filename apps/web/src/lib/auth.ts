@@ -30,38 +30,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        try {
-          const authRes = await apiClient.auth.login({
-            email: credentials.email as string,
-            password: credentials.password as string,
-          });
+        const authRes = await apiClient.auth.login({
+          email: credentials.email as string,
+          password: credentials.password as string,
+        });
 
-          if (authRes && authRes.user) {
-            return {
-              id: authRes.user.id,
-              name: authRes.user.name,
-              email: authRes.user.email,
-              image: authRes.user.avatarUrl,
-              role: authRes.user.role,
-              accessToken: authRes.accessToken,
-              activeWorkspace: authRes.activeWorkspace,
-              provider: 'CREDENTIALS',
-            };
-          }
-          return null;
-        } catch {
-          // Fallback mock authentication if offline
-          const email = String(credentials.email);
+        if (authRes && authRes.user) {
           return {
-            id: `usr-${Date.now()}`,
-            name: email.split('@')[0],
-            email,
-            image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-            role: 'OWNER',
-            accessToken: `mock-token-${Date.now()}`,
+            id: authRes.user.id,
+            name: authRes.user.name,
+            email: authRes.user.email,
+            image: authRes.user.avatarUrl,
+            role: authRes.user.role,
+            accessToken: authRes.accessToken,
+            activeWorkspace: authRes.activeWorkspace,
             provider: 'CREDENTIALS',
           };
         }
+        return null;
       },
     }),
   ],
@@ -73,11 +59,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account, profile }) {
       if (!user.email) return false;
 
-      // Handle OAuth account linking & attribute storage for future analysis & multi-provider resolution
+      // Handle OAuth account linking & attribute storage
       if (account && account.provider !== 'credentials') {
         const providerName = account.provider.toUpperCase() as 'GOOGLE' | 'GITHUB';
         
-        // Construct social account model payload
         const socialAccountData = {
           provider: providerName,
           providerAccountId: account.providerAccountId || (account as any).id || user.id || 'oauth-id',
@@ -97,19 +82,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         };
 
-        try {
-          const syncedAuth = await apiClient.auth.oauthLogin(socialAccountData);
-          (user as any).id = syncedAuth.user.id;
-          (user as any).role = syncedAuth.user.role;
-          (user as any).accessToken = syncedAuth.accessToken;
-          (user as any).activeWorkspace = syncedAuth.activeWorkspace;
-          (user as any).socialAccount = socialAccountData;
-          (user as any).provider = providerName;
-        } catch {
-          // Keep resilient local state if backend API is not yet running
-          (user as any).socialAccount = socialAccountData;
-          (user as any).provider = providerName;
-        }
+        const syncedAuth = await apiClient.auth.oauthLogin(socialAccountData);
+        (user as any).id = syncedAuth.user.id;
+        (user as any).role = syncedAuth.user.role;
+        (user as any).accessToken = syncedAuth.accessToken;
+        (user as any).activeWorkspace = syncedAuth.activeWorkspace;
+        (user as any).socialAccount = socialAccountData;
+        (user as any).provider = providerName;
       }
 
       return true;

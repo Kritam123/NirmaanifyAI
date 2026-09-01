@@ -2,8 +2,10 @@
 
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Avatar, Badge, Button } from '@nirmaanify/ui';
-import { Trash2, Shield, UserCheck } from 'lucide-react';
-import { WorkspaceMemberDto, UserRole } from '@nirmaanify/types';
+import { Trash2, Shield } from 'lucide-react';
+import { WorkspaceMemberDto } from '@nirmaanify/types';
+import { useRBAC } from '../../hooks/use-rbac';
+import { RoleBadge } from '../auth/RoleGate';
 
 interface MembersListProps {
   members: WorkspaceMemberDto[];
@@ -16,20 +18,7 @@ export const MembersList: React.FC<MembersListProps> = ({
   workspaceName,
   onRemoveMember,
 }) => {
-  const getRoleBadge = (role: UserRole) => {
-    switch (role) {
-      case 'OWNER':
-        return <Badge variant="indigo">Owner</Badge>;
-      case 'ADMIN':
-        return <Badge variant="violet">Admin</Badge>;
-      case 'DEVELOPER':
-        return <Badge variant="cyan">Developer</Badge>;
-      case 'EDITOR':
-        return <Badge variant="secondary">Editor</Badge>;
-      default:
-        return <Badge variant="secondary">{role}</Badge>;
-    }
-  };
+  const { canRemoveMembers } = useRBAC();
 
   return (
     <Card>
@@ -65,14 +54,15 @@ export const MembersList: React.FC<MembersListProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
-              {getRoleBadge(member.role)}
+              <RoleBadge role={member.role} showIcon />
 
-              {member.role !== 'OWNER' && onRemoveMember && (
+              {canRemoveMembers && member.role !== 'OWNER' && onRemoveMember && (
                 <Button
                   variant="ghost"
                   size="xs"
                   onClick={() => onRemoveMember(member.userId)}
                   className="text-slate-400 hover:text-rose-500"
+                  aria-label={`Remove ${member.user?.name || 'member'}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>

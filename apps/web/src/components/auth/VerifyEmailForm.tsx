@@ -34,6 +34,11 @@ export const VerifyEmailForm: React.FC = () => {
       });
     } catch (err: any) {
       setErrorMessage(err?.message || 'Verification token is expired or invalid.');
+      toast({
+        title: 'Verification Failed',
+        description: err?.message || 'Verification token is expired or invalid.',
+        type: 'error',
+      });
     } finally {
       setIsVerifying(false);
     }

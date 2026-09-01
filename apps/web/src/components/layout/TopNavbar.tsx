@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Avatar, Badge, IconButton, useTheme } from '@nirmaanify/ui';
 import { Search, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
+import { RoleBadge } from '../auth/RoleGate';
 
 export const TopNavbar: React.FC = () => {
   const pathname = usePathname();
@@ -68,14 +69,16 @@ export const TopNavbar: React.FC = () => {
 
         <div className="h-4 w-[1px] bg-slate-200 dark:bg-[#24293D]" />
 
-        {/* User Avatar */}
+        {/* User Avatar & Role */}
         <div className="flex items-center gap-2.5">
           <Avatar fallback={user?.name?.slice(0, 2).toUpperCase() || 'AD'} size="sm" status="online" />
           <div className="hidden lg:block text-left">
             <p className="text-xs font-bold leading-tight text-slate-900 dark:text-white truncate max-w-[120px]">
               {user?.name || 'Developer'}
             </p>
-            <p className="text-[10px] text-slate-400 truncate max-w-[120px]">{user?.role || 'OWNER'}</p>
+            <div className="mt-0.5">
+              <RoleBadge role={user?.role} size="sm" />
+            </div>
           </div>
         </div>
       </div>

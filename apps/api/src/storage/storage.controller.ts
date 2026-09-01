@@ -9,13 +9,17 @@ import {
   UploadedFile,
   BadRequestException,
   Res,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiProperty } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiProperty, ApiBearerAuth } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsIn, IsNotEmpty, IsString } from 'class-validator';
 import { Response } from 'express';
 import { StorageDriverType } from '@nirmaanify/types';
 import { StorageService } from './storage.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 export class SwitchDriverDto {
   @ApiProperty({
@@ -30,11 +34,13 @@ export class SwitchDriverDto {
 }
 
 @ApiTags('Storage Engine')
+@ApiBearerAuth()
 @Controller('storage')
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
 
   @Get('status')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get all storage drivers status and currently active driver' })
   getStatus() {
     return {
@@ -44,7 +50,9 @@ export class StorageController {
   }
 
   @Post('switch')
-  @ApiOperation({ summary: 'Switch active storage driver in one click (s3, vercel-blob, local)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @ApiOperation({ summary: 'Switch active storage driver in one click (Owner/Admin only)' })
   switchDriver(@Body() body: SwitchDriverDto) {
     if (!body.driver) {
       throw new BadRequestException('Driver property is required (local, s3, or vercel-blob)');
@@ -57,6 +65,7 @@ export class StorageController {
   }
 
   @Get('files')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'List files stored in active storage' })
   async listFiles() {
     const files = await this.storageService.listFiles();
@@ -68,7 +77,9 @@ export class StorageController {
   }
 
   @Post('upload')
-  @ApiOperation({ summary: 'Upload file to active storage driver' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN', 'DEVELOPER')
+  @ApiOperation({ summary: 'Upload file to active storage driver (Owner/Admin/Dev only)' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -111,7 +122,9 @@ export class StorageController {
   }
 
   @Delete('files/:key')
-  @ApiOperation({ summary: 'Delete file from active storage driver' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN', 'DEVELOPER')
+  @ApiOperation({ summary: 'Delete file from active storage driver (Owner/Admin/Dev only)' })
   async deleteFile(@Param('key') key: string) {
     const success = await this.storageService.deleteFile(decodeURIComponent(key));
     return {

@@ -4,19 +4,17 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Card,
-  CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
   Badge,
   Button,
-  useToast,
 } from '@nirmaanify/ui';
-import { ArrowLeft, Building2, Users, Plus, Shield, Key } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 import { WorkspaceDto } from '@nirmaanify/types';
 import { useWorkspaces } from '../../hooks/use-workspaces';
+import { useRBAC } from '../../hooks/use-rbac';
 import { MembersList } from './MembersList';
 import { InviteMemberDialog } from './InviteMemberDialog';
+import { RoleBadge } from '../auth/RoleGate';
 import { ROUTES } from '../../lib/routes';
 
 interface WorkspaceDetailsViewProps {
@@ -25,6 +23,7 @@ interface WorkspaceDetailsViewProps {
 
 export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ workspace }) => {
   const { members, inviteMember, removeMember } = useWorkspaces();
+  const { canInviteMembers, role } = useRBAC();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
   return (
@@ -45,14 +44,16 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
           </div>
         </div>
 
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => setInviteModalOpen(true)}
-          leftIcon={<Plus className="h-4 w-4" />}
-        >
-          Invite Member
-        </Button>
+        {canInviteMembers && (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setInviteModalOpen(true)}
+            leftIcon={<Plus className="h-4 w-4" />}
+          >
+            Invite Member
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -68,6 +69,10 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
           <Card className="p-6 space-y-4">
             <CardTitle className="text-base">Workspace Settings</CardTitle>
             <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#1E2337]">
+                <span className="text-slate-400">Your Current Role</span>
+                <RoleBadge role={role} showIcon />
+              </div>
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#1E2337]">
                 <span className="text-slate-400">Owner ID</span>
                 <span className="font-mono text-slate-600 dark:text-slate-300">{workspace.ownerId}</span>
@@ -87,12 +92,14 @@ export const WorkspaceDetailsView: React.FC<WorkspaceDetailsViewProps> = ({ work
         </div>
       </div>
 
-      <InviteMemberDialog
-        isOpen={inviteModalOpen}
-        onClose={() => setInviteModalOpen(false)}
-        onInvite={inviteMember}
-        workspaceName={workspace.name}
-      />
+      {canInviteMembers && (
+        <InviteMemberDialog
+          isOpen={inviteModalOpen}
+          onClose={() => setInviteModalOpen(false)}
+          onInvite={inviteMember}
+          workspaceName={workspace.name}
+        />
+      )}
     </div>
   );
 };

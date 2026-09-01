@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Badge, Button } from '@nirmaanify/ui';
-import { HardDrive, Database, Cloud, Check } from 'lucide-react';
+import { HardDrive, Database, Cloud, Check, Lock } from 'lucide-react';
 import { StorageDriverType, StorageDriverInfo } from '@nirmaanify/types';
+import { useRBAC } from '../../hooks/use-rbac';
 
 interface StorageDriverSwitcherProps {
   activeDriver: StorageDriverType;
@@ -13,9 +14,10 @@ interface StorageDriverSwitcherProps {
 
 export const StorageDriverSwitcher: React.FC<StorageDriverSwitcherProps> = ({
   activeDriver,
-  drivers,
   onSwitchDriver,
 }) => {
+  const { canSwitchStorageDriver } = useRBAC();
+
   const getDriverIcon = (type: StorageDriverType) => {
     switch (type) {
       case 'local':
@@ -61,9 +63,11 @@ export const StorageDriverSwitcher: React.FC<StorageDriverSwitcherProps> = ({
         return (
           <Card
             key={driver.id}
-            hoverable
-            onClick={() => !isActive && onSwitchDriver(driver.id)}
-            className={`cursor-pointer flex flex-col justify-between transition-all ${
+            hoverable={canSwitchStorageDriver}
+            onClick={() => canSwitchStorageDriver && !isActive && onSwitchDriver(driver.id)}
+            className={`flex flex-col justify-between transition-all ${
+              canSwitchStorageDriver ? 'cursor-pointer' : 'cursor-default'
+            } ${
               isActive
                 ? 'border-2 border-[#635BFF] bg-[#635BFF]/5 dark:bg-[#635BFF]/5 shadow-lg shadow-[#635BFF]/5'
                 : ''
@@ -88,23 +92,39 @@ export const StorageDriverSwitcher: React.FC<StorageDriverSwitcherProps> = ({
             </CardHeader>
 
             <CardFooter className="p-6 pt-0">
-              <Button
-                variant={isActive ? 'default' : 'outline'}
-                size="sm"
-                className="w-full text-xs font-semibold"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSwitchDriver(driver.id);
-                }}
-              >
-                {isActive ? (
+              {isActive ? (
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled
+                  className="w-full text-xs font-semibold bg-[#635BFF] text-white opacity-100"
+                >
                   <span className="flex items-center gap-1.5">
                     <Check className="h-3.5 w-3.5" /> Active Storage Driver
                   </span>
-                ) : (
-                  'Switch to this Driver'
-                )}
-              </Button>
+                </Button>
+              ) : canSwitchStorageDriver ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs font-semibold"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSwitchDriver(driver.id);
+                  }}
+                >
+                  Switch to this Driver
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  className="w-full text-xs font-semibold opacity-60 flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="h-3 w-3" /> Admin Only
+                </Button>
+              )}
             </CardFooter>
           </Card>
         );
