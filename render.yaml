@@ -61,11 +61,6 @@ services:
           type: redis
           name: nirmaanify-redis
           property: port
-      - key: REDIS_PASSWORD
-        fromService:
-          type: redis
-          name: nirmaanify-redis
-          property: password
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
@@ -74,7 +69,7 @@ services:
         fromService:
           type: web
           name: nirmaanify-web
-          property: url
+          property: host
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
@@ -108,7 +103,7 @@ services:
         fromService:
           type: web
           name: nirmaanify-api
-          property: url
+          property: host
       - key: AUTH_SECRET
         generateValue: true
       - key: NEXTAUTH_SECRET
@@ -119,12 +114,12 @@ services:
         fromService:
           type: web
           name: nirmaanify-web
-          property: url
+          property: host
       - key: NEXTAUTH_URL
         fromService:
           type: web
           name: nirmaanify-web
-          property: url
+          property: host
       - key: AUTH_GITHUB_ID
         sync: false
       - key: AUTH_GITHUB_SECRET
@@ -165,8 +160,3 @@ services:
           type: redis
           name: nirmaanify-redis
           property: port
-      - key: REDIS_PASSWORD
-        fromService:
-          type: redis
-          name: nirmaanify-redis
-          property: password
