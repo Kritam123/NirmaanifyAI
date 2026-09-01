@@ -38,7 +38,10 @@ export class MailService {
   private readonly fromAddress: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.appUrl = this.configService.get<string>('APP_URL') || 'http://localhost:3000';
+    const rawAppUrl = (this.configService.get<string>('APP_URL') || process.env.APP_URL || 'http://localhost:3000').trim();
+    this.appUrl = (rawAppUrl.startsWith('http://') || rawAppUrl.startsWith('https://'))
+      ? rawAppUrl
+      : `https://${rawAppUrl}`;
     this.fromAddress =
       this.configService.get<string>('SMTP_FROM') ||
       '"Nirmaanify AI" <noreply@nirmaanify.ai>';

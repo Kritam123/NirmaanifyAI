@@ -27,8 +27,17 @@ export const setStoredToken = (token: string | null): void => {
   }
 };
 
+const getApiBaseUrl = (): string => {
+  let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  url = url.trim();
+  if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
+  }
+  return url;
+};
+
 export const apiClient: NirmaanifyApiClient = createApiClient({
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+  baseUrl: getApiBaseUrl(),
   getToken: getStoredToken,
   setToken: setStoredToken,
 });
