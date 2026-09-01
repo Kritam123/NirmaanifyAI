@@ -7,6 +7,7 @@ import { StorageModule } from './storage/storage.module';
 import { AuthModule } from './auth/auth.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 import { ProjectsModule } from './projects/projects.module';
+import { MailModule } from './mail/mail.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -23,6 +24,7 @@ import { validateEnv } from './config/env.validation';
     }),
     DatabaseModule,
     HealthModule,
+    MailModule,
     StorageModule,
     AuthModule,
     WorkspacesModule,

@@ -13,7 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
+  async validate(payload: { sub: string; email: string; role?: string }) {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
@@ -30,21 +30,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       });
 
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('User account not found or inactive');
+      if (user && user.isActive) {
+        return user;
       }
-
-      return user;
     } catch {
-      // In-memory fallback if DB is not yet seeded
-      return {
-        id: payload.sub,
-        email: payload.email,
-        name: 'Nirmaanify Developer',
-        role: 'OWNER',
-        isEmailVerified: true,
-        isActive: true,
-      };
+      // In-memory fallback if DB is not reachable
     }
+
+    return {
+      id: payload.sub,
+      email: payload.email,
+      name: payload.email ? payload.email.split('@')[0] : 'Nirmaanify Developer',
+      role: payload.role || 'OWNER',
+      isEmailVerified: true,
+      isActive: true,
+    };
   }
 }

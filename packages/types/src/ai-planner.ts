@@ -138,7 +138,7 @@ export interface GeneratePlanDto {
 
 export interface ApprovePlanDto {
   plan: AIProjectPlan;
-  workspaceId: string;
+  workspaceId?: string;
   customName?: string;
   customSlug?: string;
 }

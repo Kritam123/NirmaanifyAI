@@ -12,9 +12,11 @@ import { AuthService } from './auth.service';
 import {
   RegisterDto,
   LoginDto,
+  OAuthLoginDto,
   ForgotPasswordDto,
   ResetPasswordDto,
   VerifyEmailDto,
+  ResendVerificationDto,
 } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -38,12 +40,19 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('oauth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Authenticate or link user via OAuth provider (Google, GitHub)' })
+  async oauthLogin(@Body() dto: OAuthLoginDto) {
+    return this.authService.oauthLogin(dto);
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current authenticated user profile and workspaces' })
-  async getProfile(@CurrentUser('id') userId: string) {
-    return this.authService.getProfile(userId);
+  async getProfile(@CurrentUser() user: any) {
+    return this.authService.getProfile(user?.id, user?.email);
   }
 
   @Post('forgot-password')
@@ -62,8 +71,15 @@ export class AuthController {
 
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify user email with verification token' })
+  @ApiOperation({ summary: 'Verify user email with verification token or OTP' })
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyEmail(dto);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend email verification token and OTP' })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto);
   }
 }

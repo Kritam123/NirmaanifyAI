@@ -48,8 +48,7 @@ Nirmaanify AI strictly separates two design environments:
 
 ## 3. Typography Hierarchy
 
-- **Display Font:** `Geist` (Modern geometric sans-serif for headings and platform hero elements)
-- **Application UI:** `Inter` (High-legibility interface typography)
+- **Display & UI Font:** `Poppins` (Modern geometric sans-serif for headings, badges, and platform UI)
 - **Code & Tokens:** `Geist Mono` (Monospaced font for JSON schema, code generation, and key shortcuts)
 
 ---

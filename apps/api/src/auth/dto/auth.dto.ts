@@ -55,8 +55,75 @@ export class ResetPasswordDto {
 }
 
 export class VerifyEmailDto {
-  @ApiProperty({ example: 'verification-token-uuid' })
+  @ApiPropertyOptional({ example: 'verification-token-uuid' })
+  @IsOptional()
+  @IsString()
+  token?: string;
+
+  @ApiPropertyOptional({ example: '123456' })
+  @IsOptional()
+  @IsString()
+  otp?: string;
+
+  @ApiPropertyOptional({ example: 'alex@company.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
+export class ResendVerificationDto {
+  @ApiProperty({ example: 'alex@company.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+}
+
+export class OAuthLoginDto {
+  @ApiProperty({ example: 'GOOGLE', enum: ['GOOGLE', 'GITHUB'] })
   @IsString()
   @IsNotEmpty()
-  token!: string;
+  provider!: 'GOOGLE' | 'GITHUB';
+
+  @ApiProperty({ example: '1092837465' })
+  @IsString()
+  @IsNotEmpty()
+  providerAccountId!: string;
+
+  @ApiProperty({ example: 'alex@company.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiPropertyOptional({ example: 'Alex Developer' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'https://avatars.githubusercontent.com/u/12345' })
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  accessToken?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  refreshToken?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  expiresAt?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  idToken?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  profileData?: Record<string, any>;
 }
