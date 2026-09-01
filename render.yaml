@@ -1,0 +1,172 @@
+# ==============================================================================
+# Nirmaanify AI — Render Blueprint (render.yaml)
+# Multi-Tenant AI Cloud Workspace & Fullstack Application Platform
+# ==============================================================================
+# Deploy entire monorepo stack with 1 click:
+# - PostgreSQL Database (Prisma ORM)
+# - Redis (BullMQ Worker Queue)
+# - NestJS Backend REST API (nirmaanify-api)
+# - Next.js 15 App Router Frontend (nirmaanify-web)
+# - Background Worker (nirmaanify-worker)
+# ==============================================================================
+
+version: "1"
+
+databases:
+  - name: nirmaanify-postgres
+    databaseName: nirmaanify
+    user: nirmaanify_user
+    plan: free
+    region: oregon
+    postgresMajorVersion: "16"
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Managed Redis Key-Value Store & Queue
+  # ----------------------------------------------------------------------------
+  - type: redis
+    name: nirmaanify-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  # ----------------------------------------------------------------------------
+  # 2. NestJS Backend REST API Service
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: nirmaanify-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile && pnpm db:generate && pnpm db:push && pnpm --filter @nirmaanify/database build && pnpm --filter @nirmaanify/types build && pnpm --filter @nirmaanify/api-client build && pnpm --filter api build"
+    startCommand: "pnpm --filter api start"
+    healthCheckPath: "/api/v1/health"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nirmaanify-postgres
+          property: connectionString
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: nirmaanify-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: nirmaanify-redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: nirmaanify-redis
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: APP_URL
+        fromService:
+          type: web
+          name: nirmaanify-web
+          property: url
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 465
+      - key: SMTP_SECURE
+        value: "true"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: STORAGE_DRIVER
+        value: local
+
+  # ----------------------------------------------------------------------------
+  # 3. Next.js 15 App Router Frontend Web Service
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: nirmaanify-web
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @nirmaanify/types build && pnpm --filter @nirmaanify/design-tokens build && pnpm --filter @nirmaanify/icons build && pnpm --filter @nirmaanify/ui build && pnpm --filter @nirmaanify/api-client build && pnpm --filter web build"
+    startCommand: "pnpm --filter web start"
+    healthCheckPath: "/"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: nirmaanify-api
+          property: url
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: AUTH_TRUST_HOST
+        value: "true"
+      - key: AUTH_URL
+        fromService:
+          type: web
+          name: nirmaanify-web
+          property: url
+      - key: NEXTAUTH_URL
+        fromService:
+          type: web
+          name: nirmaanify-web
+          property: url
+      - key: AUTH_GITHUB_ID
+        sync: false
+      - key: AUTH_GITHUB_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: AUTH_GOOGLE_ID
+        sync: false
+      - key: AUTH_GOOGLE_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+  # ----------------------------------------------------------------------------
+  # 4. BullMQ Background Worker Engine
+  # ----------------------------------------------------------------------------
+  - type: worker
+    name: nirmaanify-worker
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @nirmaanify/types build && pnpm --filter worker build"
+    startCommand: "pnpm --filter worker start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: nirmaanify-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: nirmaanify-redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: nirmaanify-redis
+          property: password
