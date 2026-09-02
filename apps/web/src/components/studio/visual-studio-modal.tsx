@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ProjectDto,
   ProjectSchema,
@@ -23,9 +24,9 @@ import { ComponentPalette } from './component-palette';
 import { LayersPanel } from './layers-panel';
 import { PropertyInspector } from './property-inspector';
 import { VisualCanvas } from './visual-canvas';
-import { Dialog, Button, Input, useToast } from '@nirmaanify/ui';
+import { Button, Dialog, Input, useToast } from '@nirmaanify/ui';
 import { useAuth } from '../../context/auth-context';
-import { Copy, Check, FileCode, Code2 } from 'lucide-react';
+import { Copy, Check, FileCode, Code2, Save, Sparkles, Layers } from 'lucide-react';
 
 interface VisualStudioModalProps {
   project: ProjectDto | null;
@@ -98,7 +99,40 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [mode, setMode] = useState<'builder' | 'preview'>('builder');
   const [zoom, setZoom] = useState<number>(1);
+
+  // Manual save state
   const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const lastSavedRef = useRef<string>(JSON.stringify(initialSchema));
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+
+  // Collapsible sidebars (persisted in localStorage)
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      const l = localStorage.getItem('nirmaanify_studio_left_collapsed');
+      const r = localStorage.getItem('nirmaanify_studio_right_collapsed');
+      if (l !== null) setLeftCollapsed(l === 'true');
+      if (r !== null) setRightCollapsed(r === 'true');
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('nirmaanify_studio_left_collapsed', String(leftCollapsed));
+    } catch {}
+  }, [leftCollapsed]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('nirmaanify_studio_right_collapsed', String(rightCollapsed));
+    } catch {}
+  }, [rightCollapsed]);
+
+  // SSR safety for createPortal
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Wrap the selection/page setters so the history engine can replay them
   // on undo/redo without the studio dropping its cursor context.
@@ -125,31 +159,122 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const [codeModalOpen, setCodeModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  // Sync initial schema when project changes
+  // Sync initial schema ONLY when the project identity changes (i.e. the
+// user navigated to a different project). We deliberately do NOT depend
+// on the `project` object reference here — after a save, `updateProject`
+// replaces the project in the context's projects list, which would
+// otherwise re-fire this effect and bounce the user back to the first
+// page even though they stayed on the same project.
   useEffect(() => {
-    if (project) {
-      const s =
-        project.projectSchema &&
-        project.projectSchema.pages &&
-        Array.isArray(project.projectSchema.pages) &&
-        typeof project.projectSchema.pages[0] === 'object'
-          ? (project.projectSchema as ProjectSchema)
-          : createDefaultProjectSchema(project.name, project.type);
+    if (!project) return;
+    const s =
+      project.projectSchema &&
+      project.projectSchema.pages &&
+      Array.isArray(project.projectSchema.pages) &&
+      typeof project.projectSchema.pages[0] === 'object'
+        ? (project.projectSchema as ProjectSchema)
+        : createDefaultProjectSchema(project.name, project.type);
 
-      // Normalize parent pointers in case the persisted schema is from an older
-      // version of the engine that didn't maintain them.
-      s.pages?.forEach((p) => p?.rootNode && normalizeParentPointers(p.rootNode, null));
+    s.pages?.forEach((p) => p?.rootNode && normalizeParentPointers(p.rootNode, null));
 
-      const initialMeta = s.pages && s.pages.length > 0
-        ? { selectedNodeId: s.pages[0].rootNode.id, activePageId: s.pages[0].id }
-        : {};
-      reset(s, initialMeta);
-      if (s.pages && s.pages.length > 0) {
-        setActivePageId(s.pages[0].id);
-        setSelectedNodeId(s.pages[0].rootNode.id);
-      }
+    const initialMeta = s.pages && s.pages.length > 0
+      ? { selectedNodeId: s.pages[0].rootNode.id, activePageId: s.pages[0].id }
+      : {};
+    reset(s, initialMeta);
+    if (s.pages && s.pages.length > 0) {
+      setActivePageId(s.pages[0].id);
+      setSelectedNodeId(s.pages[0].rootNode.id);
     }
-  }, [project, reset]);
+
+    const snapshot = JSON.stringify(s);
+    lastSavedRef.current = snapshot;
+    setIsDirty(false);
+    setSavedAt(new Date());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
+
+  // Track dirty state: compare current schema against the last saved snapshot.
+  useEffect(() => {
+    const snapshot = JSON.stringify(projectSchema);
+    if (snapshot !== lastSavedRef.current) {
+      setIsDirty(true);
+    }
+  }, [projectSchema]);
+
+  // Manual save handler — also reused by the 30s auto-save loop. We keep an
+  // `isSavingRef` alongside `isSaving` state so the auto-save interval can
+  // read the latest value without racing on a stale React closure.
+  const isSavingRef = useRef(false);
+  const isDirtyRef = useRef(false);
+  const handleSaveRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    isSavingRef.current = isSaving;
+  }, [isSaving]);
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  const handleSave = useCallback(async () => {
+    if (!project || isSavingRef.current) return;
+    isSavingRef.current = true;
+    setIsSaving(true);
+    try {
+      await updateProject(project.id, { projectSchema: projectSchema as any });
+      const snapshot = JSON.stringify(projectSchema);
+      lastSavedRef.current = snapshot;
+      setIsDirty(false);
+      isDirtyRef.current = false;
+      setSavedAt(new Date());
+      toast({
+        title: 'Project saved',
+        description: `${projectSchema.pages.length} page${projectSchema.pages.length === 1 ? '' : 's'} synced to cloud.`,
+        type: 'success',
+      });
+    } catch (err) {
+      console.error('Save error:', err);
+      toast({
+        title: 'Save failed',
+        description: 'Could not persist your changes. Please try again.',
+        type: 'error',
+      });
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
+    }
+  }, [project, projectSchema, updateProject, toast]);
+
+  // Keep `handleSaveRef` pointing at the latest handleSave so the
+  // auto-save interval below can call it without capturing a stale closure.
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  }, [handleSave]);
+
+  // Auto-save: every 30 seconds, if the schema has diverged from the last
+  // saved snapshot. We compare via `isDirtyRef.current` (kept in sync with
+  // `isDirty` state above) so the interval doesn't need to re-render on
+  // every keystroke. The interval cleans up when the modal closes, when
+  // the project changes, or when the component unmounts.
+  const AUTO_SAVE_INTERVAL_MS = 30_000;
+  useEffect(() => {
+    if (!isOpen || !project) return;
+    const intervalId = window.setInterval(() => {
+      if (isDirtyRef.current && !isSavingRef.current) {
+        handleSaveRef.current();
+      }
+    }, AUTO_SAVE_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [isOpen, project?.id]);
+
+  // Warn before closing if there are unsaved changes
+  const handleClose = useCallback(() => {
+    if (isDirty) {
+      const ok = typeof window !== 'undefined'
+        ? window.confirm('You have unsaved changes. Discard them and close the studio?')
+        : true;
+      if (!ok) return;
+    }
+    onClose();
+  }, [isDirty, onClose]);
 
   // Active page resolution
   const activePage: PageSchema = useMemo(() => {
@@ -191,30 +316,29 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     return ReactCodeGenerator.generatePageComponent(activePage);
   }, [activePage]);
 
-  // Auto-save debounce effect
-  useEffect(() => {
-    if (!project) return;
-    setIsSaving(true);
-
-    const timer = setTimeout(async () => {
-      try {
-        await updateProject(project.id, {
-          projectSchema: projectSchema as any,
-        });
-      } catch (err) {
-        console.error('Auto-save error:', err);
-      } finally {
-        setIsSaving(false);
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [projectSchema, project, updateProject]);
-
-  // Keyboard shortcuts (Ctrl+Z, Ctrl+Y, Escape)
+  // Keyboard shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+S, Ctrl+[, Ctrl+], Escape)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+
+      // Toggle left sidebar: Ctrl/Cmd + [
+      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        e.preventDefault();
+        setLeftCollapsed((prev) => !prev);
+        return;
+      }
+      // Toggle right sidebar: Ctrl/Cmd + ]
+      if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+        e.preventDefault();
+        setRightCollapsed((prev) => !prev);
+        return;
+      }
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -226,13 +350,17 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         e.preventDefault();
         redo();
       } else if (e.key === 'Escape') {
-        setSelectedNodeId(null);
+        if (isDirty) {
+          handleClose();
+        } else {
+          setSelectedNodeId(null);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, undo, redo]);
+  }, [isOpen, undo, redo, handleSave, isDirty, handleClose]);
 
   // Restore selection + active page after undo/redo. We only apply metadata
   // when the target id still exists in the current schema; otherwise we
@@ -286,13 +414,9 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   // Add Component handler
   const handleAddComponent = (type: string) => {
     const parentId = selectedNodeId || activePage.rootNode.id;
-    // createComponentNode already sets `parent` on the new node; we still run
-    // rewireParentPointers below as a defensive normalization in case the
-    // (id, parent) pair was supplied by the user from the layer panel.
     const newNode = createComponentNode(type, {}, parentId);
 
     updateActivePageRootNode((root) => {
-      // If a container is selected, add as child; otherwise append to root.
       const insertNode = (parent: ComponentNode): ComponentNode => {
         if (parent.id === parentId) {
           return rewireParentPointers({
@@ -465,8 +589,6 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
             clonedRaw.id = `node-${clonedRaw.type}-${Date.now().toString(36)}`;
             clonedRaw.name = `${clonedRaw.name || clonedRaw.type} (Copy)`;
 
-            // Rewire the entire subtree so the cloned node and its descendants
-            // point at the new parent's id (curr.id).
             const cloned = rewireParentPointers(clonedRaw, curr.id);
 
             const newChildren = [...curr.children];
@@ -564,10 +686,17 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     toast({ title: 'Copied Code', description: 'React TSX component copied to clipboard', type: 'success' });
   };
 
-  if (!isOpen || !project) return null;
+  const lastSavedLabel = savedAt
+    ? savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '—';
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[#0E121E] text-slate-100 flex flex-col overflow-hidden animate-in fade-in duration-200">
+  if (!isOpen || !project || !mounted) return null;
+
+  const studioContent = (
+    <div className="fixed inset-0 z-[100] bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden animate-in fade-in duration-200 font-sans">
+      {/* Brand gradient accent strip across the top */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] shrink-0 z-40" />
+
       {/* Top Bar */}
       <StudioTopbar
         project={projectSchema}
@@ -578,8 +707,16 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         canUndo={canUndo}
         canRedo={canRedo}
         isSaving={isSaving}
+        isDirty={isDirty}
         isValid={validationResult.isValid}
         errorsCount={validationResult.errors.length}
+        lastSavedLabel={lastSavedLabel}
+        autoSaveEnabled={isOpen && !!project}
+        autoSaveIntervalLabel={`${AUTO_SAVE_INTERVAL_MS / 1000}s`}
+        leftCollapsed={leftCollapsed}
+        rightCollapsed={rightCollapsed}
+        onToggleLeft={() => setLeftCollapsed((v) => !v)}
+        onToggleRight={() => setRightCollapsed((v) => !v)}
         onSelectPage={(id) => {
           setActivePageId(id);
           setSelectedNodeId(null);
@@ -592,7 +729,8 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         onRedo={redo}
         onViewSchema={() => setSchemaModalOpen(true)}
         onViewCode={() => setCodeModalOpen(true)}
-        onCloseStudio={onClose}
+        onSave={handleSave}
+        onCloseStudio={handleClose}
       />
 
       {/* In-Studio AI Command Bar */}
@@ -608,45 +746,75 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         {/* Left Sidebar in Builder Mode */}
         {mode === 'builder' && (
           <div className="flex">
-            {/* Narrow Icon Switcher */}
-            <div className="w-12 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0E121E] flex flex-col items-center py-3 gap-2 shrink-0 select-none">
+            {/* Narrow Icon Switcher (always visible in builder mode) */}
+            <div className="w-11 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col items-center py-2.5 gap-1 shrink-0 select-none">
+              <div className="h-7 w-7 rounded-md bg-gradient-to-br from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] flex items-center justify-center mb-1 shadow-sm shadow-[#635BFF]/30">
+                <span className="text-white font-bold text-[10px]">N</span>
+              </div>
               <button
-                onClick={() => setActiveLeftTab('palette')}
+                onClick={() => {
+                  if (leftCollapsed) setLeftCollapsed(false);
+                  setActiveLeftTab('palette');
+                }}
                 title="Component Palette"
-                className={`p-2 rounded-xl transition-colors ${
-                  activeLeftTab === 'palette'
-                    ? 'bg-[#635BFF] text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#161926]'
+                aria-label="Switch to Component Palette"
+                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
+                  !leftCollapsed && activeLeftTab === 'palette'
+                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
+                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
                 }`}
               >
-                <div className="h-4 w-4 font-bold text-xs flex items-center justify-center">+</div>
+                <Sparkles className="h-3.5 w-3.5" />
               </button>
               <button
-                onClick={() => setActiveLeftTab('layers')}
+                onClick={() => {
+                  if (leftCollapsed) setLeftCollapsed(false);
+                  setActiveLeftTab('layers');
+                }}
                 title="Layers Tree"
-                className={`p-2 rounded-xl transition-colors ${
-                  activeLeftTab === 'layers'
-                    ? 'bg-[#635BFF] text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#161926]'
+                aria-label="Switch to Layers Tree"
+                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
+                  !leftCollapsed && activeLeftTab === 'layers'
+                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
+                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
                 }`}
               >
-                <div className="h-4 w-4 flex items-center justify-center font-mono text-[10px]">☰</div>
+                <Layers className="h-3.5 w-3.5" />
+              </button>
+              <div className="flex-1" />
+              <button
+                onClick={() => setLeftCollapsed((v) => !v)}
+                title={leftCollapsed ? 'Expand left panel (Ctrl+[)' : 'Collapse left panel (Ctrl+[)'}
+                aria-label={leftCollapsed ? 'Expand left panel' : 'Collapse left panel'}
+                className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] transition-colors"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  {leftCollapsed ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 5l-7 7 7 7" />
+                  )}
+                </svg>
               </button>
             </div>
 
-            {/* Left Panel Content */}
-            {activeLeftTab === 'palette' ? (
-              <ComponentPalette onAddComponent={handleAddComponent} />
-            ) : (
-              <LayersPanel
-                rootNode={activePage.rootNode}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
-                onDeleteNode={handleDeleteNode}
-                onDuplicateNode={handleDuplicateNode}
-                onToggleLockNode={handleToggleLockNode}
-                onToggleHideNode={handleToggleHideNode}
-              />
+            {/* Left Panel Content (only when not collapsed) */}
+            {!leftCollapsed && (
+              <div className="animate-in slide-in-from-left-2 duration-200">
+                {activeLeftTab === 'palette' ? (
+                  <ComponentPalette onAddComponent={handleAddComponent} />
+                ) : (
+                  <LayersPanel
+                    rootNode={activePage.rootNode}
+                    selectedNodeId={selectedNodeId}
+                    onSelectNode={setSelectedNodeId}
+                    onDeleteNode={handleDeleteNode}
+                    onDuplicateNode={handleDuplicateNode}
+                    onToggleLockNode={handleToggleLockNode}
+                    onToggleHideNode={handleToggleHideNode}
+                  />
+                )}
+              </div>
             )}
           </div>
         )}
@@ -665,17 +833,37 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           onDuplicateNode={handleDuplicateNode}
           onMoveNode={handleMoveNode}
           onDropComponent={handleDropComponent}
-          onOpenAddModal={() => setActiveLeftTab('palette')}
+          onOpenAddModal={() => {
+            setLeftCollapsed(false);
+            setActiveLeftTab('palette');
+          }}
         />
 
         {/* Right Property Inspector in Builder Mode */}
-        {mode === 'builder' && (
-          <PropertyInspector
-            selectedNode={selectedNode}
-            onUpdateProps={handleUpdateProps}
-            onUpdateStyle={handleUpdateStyle}
-            onUpdateName={handleUpdateName}
-          />
+        {mode === 'builder' && !rightCollapsed && (
+          <div className="animate-in slide-in-from-right-2 duration-200">
+            <PropertyInspector
+              selectedNode={selectedNode}
+              onUpdateProps={handleUpdateProps}
+              onUpdateStyle={handleUpdateStyle}
+              onUpdateName={handleUpdateName}
+              onCollapse={() => setRightCollapsed(true)}
+            />
+          </div>
+        )}
+
+        {/* Floating chevron to re-open right inspector when collapsed */}
+        {mode === 'builder' && rightCollapsed && (
+          <button
+            onClick={() => setRightCollapsed(false)}
+            title="Open inspector (Ctrl+])"
+            aria-label="Open inspector"
+            className="absolute right-3 top-20 z-30 h-8 w-8 inline-flex items-center justify-center rounded-full bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-500 hover:text-[#635BFF] hover:border-[#635BFF]/40 hover:shadow-md hover:shadow-[#635BFF]/20 transition-all"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 5l-7 7 7 7" />
+            </svg>
+          </button>
         )}
       </div>
 
@@ -703,7 +891,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         }
       >
         <div className="space-y-2">
-          <pre className="p-4 rounded-xl bg-slate-950 text-cyan-300 font-mono text-[11px] overflow-auto max-h-[500px]">
+          <pre className="p-4 rounded-xl bg-slate-950 dark:bg-[#06080F] text-[#22D3EE] font-mono text-[11px] overflow-auto max-h-[500px] border border-slate-200 dark:border-[#24293D]">
             {generatedReactCode}
           </pre>
         </div>
@@ -768,11 +956,13 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         }
       >
         <div className="space-y-2">
-          <pre className="p-4 rounded-xl bg-slate-950 text-emerald-400 font-mono text-[11px] overflow-auto max-h-[500px]">
+          <pre className="p-4 rounded-xl bg-slate-950 dark:bg-[#06080F] text-emerald-400 font-mono text-[11px] overflow-auto max-h-[500px] border border-slate-200 dark:border-[#24293D]">
             {JSON.stringify(projectSchema, null, 2)}
           </pre>
         </div>
       </Dialog>
     </div>
   );
+
+  return createPortal(studioContent, document.body);
 }

@@ -5,7 +5,6 @@ import { ComponentNode } from '@nirmaanify/types';
 import { resolveComponent } from './component-resolver';
 import { ComponentErrorBoundary } from './error-boundary';
 import { MissingComponentFallback } from './missing-component-fallback';
-import { Trash2, Copy, Eye, Lock } from 'lucide-react';
 
 export interface DynamicRendererProps {
   node: ComponentNode;
@@ -16,6 +15,7 @@ export interface DynamicRendererProps {
   onHoverNode?: (id: string | null) => void;
   onDeleteNode?: (id: string) => void;
   onDuplicateNode?: (id: string) => void;
+  onMoveNode?: (id: string, direction: 'up' | 'down') => void;
 }
 
 export function DynamicRenderer({
@@ -27,6 +27,7 @@ export function DynamicRenderer({
   onHoverNode,
   onDeleteNode,
   onDuplicateNode,
+  onMoveNode,
 }: DynamicRendererProps): React.ReactElement | null {
   if (node.isHidden && mode !== 'builder') {
     return null;
@@ -54,6 +55,7 @@ export function DynamicRenderer({
           onHoverNode={onHoverNode}
           onDeleteNode={onDeleteNode}
           onDuplicateNode={onDuplicateNode}
+          onMoveNode={onMoveNode}
         />
       ))
     : undefined;
@@ -129,39 +131,6 @@ export function DynamicRenderer({
           : ''
       }`}
     >
-      {/* Active Node Selection Badge & Quick Actions */}
-      {isSelected && (
-        <div
-          className="absolute -top-7 left-0 z-30 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#635BFF] text-white text-[10px] font-bold shadow-md select-none"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span className="font-mono">{node.name || node.type}</span>
-          {node.isLocked && <Lock className="h-3 w-3 text-amber-300 ml-0.5" />}
-          {node.isHidden && <Eye className="h-3 w-3 text-slate-300 ml-0.5" />}
-
-          <div className="flex items-center gap-1 ml-2 border-l border-white/20 pl-1.5">
-            {onDuplicateNode && (
-              <button
-                onClick={() => onDuplicateNode(node.id)}
-                title="Duplicate node"
-                className="p-0.5 hover:bg-white/20 rounded transition-colors"
-              >
-                <Copy className="h-3 w-3" />
-              </button>
-            )}
-            {onDeleteNode && (
-              <button
-                onClick={() => onDeleteNode(node.id)}
-                title="Delete node"
-                className="p-0.5 hover:bg-rose-500 rounded transition-colors"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {content}
     </div>
   );

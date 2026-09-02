@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { ComponentNode } from '@nirmaanify/types';
 import { createComponentNode } from '@nirmaanify/component-registry';
-import { Sparkles, Zap, Plus, Layers, Check, ArrowRight } from 'lucide-react';
+import { Sparkles, Zap, Wand2, ArrowRight } from 'lucide-react';
 import { Button, useToast } from '@nirmaanify/ui';
 
 interface AiCommandBarProps {
@@ -25,7 +25,7 @@ export function AiCommandBar({
 
     setIsGenerating(true);
     toast({
-      title: 'AI Architecting Component',
+      title: 'AI architecting component',
       description: `Analyzing: "${text.slice(0, 45)}..."`,
       type: 'info',
     });
@@ -191,7 +191,6 @@ export function AiCommandBar({
         };
         generatedNodes.push(formContainer);
       } else {
-        // General Hero / Banner
         const heroNode: ComponentNode = {
           id: `node-ai-hero-${Date.now()}`,
           type: 'hero',
@@ -213,7 +212,7 @@ export function AiCommandBar({
       setPrompt('');
 
       toast({
-        title: 'Component Generated & Placed! ✨',
+        title: 'Component generated & placed',
         description: `Synthesized architecture tree inserted into canvas.`,
         type: 'success',
       });
@@ -221,41 +220,62 @@ export function AiCommandBar({
   };
 
   return (
-    <div className="p-2 border-b border-slate-200 dark:border-[#24293D] bg-gradient-to-r from-[#635BFF]/10 via-[#8B5CF6]/10 to-transparent shrink-0">
-      <div className="flex items-center gap-2 max-w-4xl mx-auto">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-[#635BFF] dark:text-[#A5AEFD] shrink-0">
-          <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-          <span>AI Studio Command</span>
+    <div className="relative border-b border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] shrink-0 overflow-hidden">
+      {/* Subtle gradient wash background */}
+      <div
+        aria-hidden
+        className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
+        style={{
+          background:
+            'linear-gradient(90deg, rgba(99,91,255,1) 0%, rgba(139,92,246,1) 50%, rgba(34,211,238,1) 100%)',
+        }}
+      />
+
+      <div className="relative px-3.5 py-2 flex items-center gap-2.5">
+        {/* AI label */}
+        <div className="flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-gradient-to-br from-[#635BFF]/10 to-[#8B5CF6]/10 border border-[#635BFF]/20 shrink-0">
+          <Sparkles className="h-3 w-3 text-[#635BFF] animate-pulse" />
+          <span className="text-[10.5px] font-bold text-[#635BFF] dark:text-[#A5AEFD] uppercase tracking-wider">
+            AI Studio Command
+          </span>
         </div>
 
-        <input
-          type="text"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleExecuteAiCommand()}
-          placeholder='Ask AI: e.g. "Add a 3-tier pricing section", "Add 3-column product catalog", "Add a contact form"...'
-          className="flex-1 bg-white dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#635BFF]"
-        />
+        {/* Input */}
+        <div className="flex-1 relative">
+          <Wand2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <input
+            type="text"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleExecuteAiCommand()}
+            placeholder='Describe what to add — e.g. "3-tier pricing", "product catalog", "contact form"'
+            className="w-full pl-8 pr-2 h-7 rounded-md bg-slate-50 dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-[12px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+          />
+        </div>
 
+        {/* Generate button */}
         <Button
           size="sm"
           variant="default"
           isLoading={isGenerating}
           onClick={() => handleExecuteAiCommand()}
-          leftIcon={<Zap className="h-3.5 w-3.5" />}
-          className="shrink-0"
+          leftIcon={!isGenerating ? <Zap className="h-3.5 w-3.5" /> : undefined}
+          className="h-7 shadow-md shadow-[#635BFF]/30 shrink-0"
         >
-          Generate
+          {isGenerating ? 'Generating' : 'Generate'}
         </Button>
       </div>
 
-      <div className="flex items-center gap-2 max-w-4xl mx-auto mt-1.5 pl-2 overflow-x-auto text-[10px] text-slate-400 scrollbar-none">
-        <span className="font-semibold text-slate-500">Quick Prompts:</span>
+      {/* Quick prompts row */}
+      <div className="relative px-3.5 pb-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+        <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
+          Quick
+        </span>
         {[
-          { label: '💎 3-Tier Pricing', prompt: 'Add a 3-tier pricing section with features and CTA' },
-          { label: '🛍️ Store Catalog Grid', prompt: 'Add an e-commerce product grid with 3 items' },
-          { label: '📊 KPI Analytics Row', prompt: 'Add a 3-metric KPI analytics row' },
-          { label: '✉️ Contact Form', prompt: 'Add a contact inquiry form with name, email and message' },
+          { label: '3-Tier Pricing', prompt: 'Add a 3-tier pricing section with features and CTA' },
+          { label: 'Store Catalog', prompt: 'Add an e-commerce product grid with 3 items' },
+          { label: 'KPI Analytics', prompt: 'Add a 3-metric KPI analytics row' },
+          { label: 'Contact Form', prompt: 'Add a contact inquiry form with name, email and message' },
         ].map((item) => (
           <button
             key={item.label}
@@ -263,8 +283,9 @@ export function AiCommandBar({
               setPrompt(item.prompt);
               handleExecuteAiCommand(item.prompt);
             }}
-            className="px-2 py-0.5 rounded-md bg-white/70 dark:bg-[#161926]/70 hover:bg-[#635BFF]/15 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#24293D] transition-colors whitespace-nowrap"
+            className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-600 dark:text-slate-300 hover:border-[#635BFF]/40 hover:bg-[#635BFF]/8 hover:text-[#635BFF] transition-all text-[10.5px] font-semibold"
           >
+            <ArrowRight className="h-2.5 w-2.5 opacity-60" />
             {item.label}
           </button>
         ))}

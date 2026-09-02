@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
+import { useRouter } from 'next/navigation';
+import { ROUTES } from '../../lib/routes';
 
 interface ProjectCardProps {
   project: ProjectDto;
@@ -77,8 +79,15 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
   const badge = TYPE_BADGE[project.type];
 
+  const router = useRouter();
+
   const handleCardOpen = () => {
     if (onOpen) onOpen(project);
+  };
+
+  const handleOpenStudio = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    router.push(`${ROUTES.DASHBOARD.PROJECT_DETAIL(project.id)}?studio=open`);
   };
 
   const handleDuplicate = async (e: React.MouseEvent) => {
@@ -277,10 +286,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            toast({ title: 'Visual studio', description: `Loading ${project.name}...`, type: 'info' });
-          }}
+          onClick={handleOpenStudio}
         >
           Open studio
         </Button>

@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Card,
   CardTitle,
@@ -22,13 +23,70 @@ import {
 } from 'lucide-react';
 import { ProjectDto } from '@nirmaanify/types';
 import { ROUTES } from '../../lib/routes';
+import { VisualStudioModal } from '../studio/visual-studio-modal';
 
 interface ProjectDetailsViewProps {
   project: ProjectDto;
 }
 
+const studioStorageKey = (projectId: string) => `nirmaanify_studio_open:${projectId}`;
+
 export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project }) => {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+
+  // Restore persisted studio state on mount / project change.
+  useEffect(() => {
+    try {
+      const wasOpen = localStorage.getItem(studioStorageKey(project.id)) === 'true';
+      if (wasOpen) {
+        setIsStudioOpen(true);
+      }
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id]);
+
+  // One-time URL trigger from external links (e.g. "Open studio" on ProjectCard).
+  const urlTriggerHandledRef = React.useRef(false);
+  useEffect(() => {
+    if (urlTriggerHandledRef.current) return;
+    if (searchParams?.get('studio') === 'open') {
+      urlTriggerHandledRef.current = true;
+      setIsStudioOpen(true);
+    }
+  }, [searchParams]);
+
+  // Persist studio state so it survives reloads.
+  useEffect(() => {
+    try {
+      localStorage.setItem(studioStorageKey(project.id), String(isStudioOpen));
+    } catch {
+      /* ignore */
+    }
+  }, [isStudioOpen, project.id]);
+
+  const openStudio = useCallback(() => {
+    setIsStudioOpen(true);
+  }, []);
+
+  const closeStudio = useCallback(() => {
+    setIsStudioOpen(false);
+    // Strip the `?studio=open` query param so a reload doesn't re-trigger it.
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('studio')) {
+          url.searchParams.delete('studio');
+          window.history.replaceState({}, '', url.toString());
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
 
   const handleExport = () => {
     toast({
@@ -116,7 +174,7 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
                   }>)
                 : [];
               const schemaPages = Array.isArray(project.projectSchema?.pages)
-                ? (project.projectSchema!.pages as string[])
+                ? (project.projectSchema!.pages as Array<unknown>)
                 : [];
 
               const items =
@@ -126,11 +184,24 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
                       title: p.name,
                       status: p.isProtected ? 'Auth required' : 'Generated',
                     }))
-                  : schemaPages.map((p) => ({
-                      path: p,
-                      title: p === '/' ? 'Home' : p.replace(/^\//, ''),
-                      status: 'Generated',
-                    }));
+                  : schemaPages.map((p) => {
+                      if (typeof p === 'string') {
+                        return {
+                          path: p,
+                          title: p === '/' ? 'Home' : p.replace(/^\//, ''),
+                          status: 'Generated',
+                        };
+                      }
+                      const obj = p as { path?: string; name?: string };
+                      const path = typeof obj?.path === 'string' ? obj.path : '/';
+                      const title =
+                        typeof obj?.name === 'string' && obj.name.length > 0
+                          ? obj.name
+                          : path === '/'
+                          ? 'Home'
+                          : path.replace(/^\//, '');
+                      return { path, title, status: 'Generated' };
+                    });
 
               if (items.length === 0) {
                 return (
@@ -235,25 +306,25 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
             >
               Export codebase
             </Button>
-            <Button
-              variant="default"
-              size="sm"
-              leftIcon={<Play className="h-4 w-4" />}
-              onClick={() =>
-                toast({
-                  title: 'Visual studio ready',
-                  description: 'Canvas synchronized with live React renderer.',
-                  type: 'success',
-                })
-              }
-            >
-              Launch visual builder
-            </Button>
+<Button
+            variant="default"
+            size="sm"
+            leftIcon={<Play className="h-4 w-4" />}
+            onClick={openStudio}
+          >
+            Launch visual builder
+          </Button>
           </>
         }
       />
 
       <Tabs items={tabItems} defaultTab="blueprint" />
+
+      <VisualStudioModal
+        project={project}
+        isOpen={isStudioOpen}
+        onClose={closeStudio}
+      />
     </div>
   );
 };
