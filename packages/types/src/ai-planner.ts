@@ -91,7 +91,16 @@ export interface PlanCmsRequirements {
 
 export interface PlanPluginRecommendation {
   name: string;
-  category: 'Payments' | 'Storage' | 'Auth' | 'Analytics' | 'AI / LLM' | 'Queue' | 'Email';
+  category:
+    | 'Payments'
+    | 'Storage'
+    | 'Auth'
+    | 'Analytics'
+    | 'AI / LLM'
+    | 'Queue'
+    | 'Email'
+    | 'UI / Design'
+    | 'Integration';
   reason: string;
   isRecommended: boolean;
 }
@@ -138,7 +147,7 @@ export interface GeneratePlanDto {
 
 export interface ApprovePlanDto {
   plan: AIProjectPlan;
-  workspaceId: string;
+  workspaceId?: string;
   customName?: string;
   customSlug?: string;
 }
