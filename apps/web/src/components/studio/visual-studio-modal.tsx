@@ -13,6 +13,8 @@ import {
   ProjectValidator,
   createDefaultProjectSchema,
   createComponentNode,
+  rewireParentPointers,
+  normalizeParentPointers,
 } from '@nirmaanify/component-registry';
 import { StudioTopbar } from './studio-topbar';
 import { ComponentPalette } from './component-palette';
@@ -27,6 +29,28 @@ interface VisualStudioModalProps {
   project: ProjectDto | null;
   isOpen: boolean;
   onClose: () => void;
+}
+
+function findNodeInTree(root: ComponentNode, id: string | null): ComponentNode | null {
+  if (!id) return null;
+  if (!root) return null;
+  if (root.id === id) return root;
+  if (Array.isArray(root.children)) {
+    for (const c of root.children) {
+      const res = findNodeInTree(c, id);
+      if (res) return res;
+    }
+  }
+  if (root.slots && typeof root.slots === 'object') {
+    for (const arr of Object.values(root.slots)) {
+      if (!Array.isArray(arr)) continue;
+      for (const c of arr) {
+        const res = findNodeInTree(c, id);
+        if (res) return res;
+      }
+    }
+  }
+  return null;
 }
 
 export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModalProps) {
@@ -61,16 +85,29 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     reset,
     canUndo,
     canRedo,
+    meta: historyMeta,
+    setMeta: setHistoryMeta,
   } = useProjectHistory(initialSchema);
 
   // Active editor view states
-  const [activePageId, setActivePageId] = useState<string>('');
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [activePageId, setActivePageIdRaw] = useState<string>('');
+  const [selectedNodeId, setSelectedNodeIdRaw] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [activeLeftTab, setActiveLeftTab] = useState<'palette' | 'layers'>('palette');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [mode, setMode] = useState<'builder' | 'preview'>('builder');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Wrap the selection/page setters so the history engine can replay them
+  // on undo/redo without the studio dropping its cursor context.
+  const setActivePageId = (id: string) => {
+    setActivePageIdRaw(id);
+    setHistoryMeta({ activePageId: id });
+  };
+  const setSelectedNodeId = (id: string | null) => {
+    setSelectedNodeIdRaw(id);
+    setHistoryMeta({ selectedNodeId: id });
+  };
 
   // Add Page Modal
   const [addPageModalOpen, setAddPageModalOpen] = useState(false);
@@ -93,7 +130,14 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           ? (project.projectSchema as ProjectSchema)
           : createDefaultProjectSchema(project.name, project.type);
 
-      reset(s);
+      // Normalize parent pointers in case the persisted schema is from an older
+      // version of the engine that didn't maintain them.
+      s.pages?.forEach((p) => p?.rootNode && normalizeParentPointers(p.rootNode, null));
+
+      const initialMeta = s.pages && s.pages.length > 0
+        ? { selectedNodeId: s.pages[0].rootNode.id, activePageId: s.pages[0].id }
+        : {};
+      reset(s, initialMeta);
       if (s.pages && s.pages.length > 0) {
         setActivePageId(s.pages[0].id);
         setSelectedNodeId(s.pages[0].rootNode.id);
@@ -179,6 +223,31 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, undo, redo]);
 
+  // Restore selection + active page after undo/redo. We only apply metadata
+  // when the target id still exists in the current schema; otherwise we
+  // gracefully fall back to the root of the active page.
+  useEffect(() => {
+    if (!historyMeta) return;
+    if (historyMeta.activePageId && historyMeta.activePageId !== activePageId) {
+      const exists = projectSchema.pages?.some((p) => p.id === historyMeta.activePageId);
+      if (exists) {
+        setActivePageIdRaw(historyMeta.activePageId);
+      }
+    }
+    if (historyMeta.selectedNodeId !== undefined && historyMeta.selectedNodeId !== selectedNodeId) {
+      const target = historyMeta.selectedNodeId;
+      const page = projectSchema.pages?.find((p) => p.id === (historyMeta.activePageId ?? activePageId));
+      if (!page) return;
+      const found = findNodeInTree(page.rootNode, target);
+      if (found) {
+        setSelectedNodeIdRaw(target);
+      } else if (page.rootNode) {
+        setSelectedNodeIdRaw(page.rootNode.id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyMeta]);
+
   // Helper to update current page component tree
   const updateActivePageRootNode = useCallback(
     (updater: (currentRoot: ComponentNode) => ComponentNode) => {
@@ -205,22 +274,26 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Add Component handler
   const handleAddComponent = (type: string) => {
-    const newNode = createComponentNode(type, {}, selectedNodeId || activePage.rootNode.id);
+    const parentId = selectedNodeId || activePage.rootNode.id;
+    // createComponentNode already sets `parent` on the new node; we still run
+    // rewireParentPointers below as a defensive normalization in case the
+    // (id, parent) pair was supplied by the user from the layer panel.
+    const newNode = createComponentNode(type, {}, parentId);
 
     updateActivePageRootNode((root) => {
-      // If a container is selected, add as child
+      // If a container is selected, add as child; otherwise append to root.
       const insertNode = (parent: ComponentNode): ComponentNode => {
-        if (parent.id === (selectedNodeId || root.id)) {
-          return {
+        if (parent.id === parentId) {
+          return rewireParentPointers({
             ...parent,
             children: [...(parent.children || []), newNode],
-          };
+          });
         }
         if (parent.children) {
-          return {
+          return rewireParentPointers({
             ...parent,
             children: parent.children.map(insertNode),
-          };
+          });
         }
         return parent;
       };
@@ -313,9 +386,13 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           const index = curr.children.findIndex((c) => c.id === nodeId);
           if (index !== -1) {
             const target = curr.children[index];
-            const cloned: ComponentNode = JSON.parse(JSON.stringify(target));
-            cloned.id = `node-${cloned.type}-${Date.now().toString(36)}`;
-            cloned.name = `${cloned.name || cloned.type} (Copy)`;
+            const clonedRaw: ComponentNode = JSON.parse(JSON.stringify(target));
+            clonedRaw.id = `node-${clonedRaw.type}-${Date.now().toString(36)}`;
+            clonedRaw.name = `${clonedRaw.name || clonedRaw.type} (Copy)`;
+
+            // Rewire the entire subtree so the cloned node and its descendants
+            // point at the new parent's id (curr.id).
+            const cloned = rewireParentPointers(clonedRaw, curr.id);
 
             const newChildren = [...curr.children];
             newChildren.splice(index + 1, 0, cloned);
@@ -366,18 +443,21 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const handleAddPageSubmit = () => {
     if (!newPageName.trim() || !newPagePath.trim()) return;
 
+    const pageId = `page-${Date.now()}`;
+    const rootId = `root-${Date.now()}`;
     const newPage: PageSchema = {
-      id: `page-${Date.now()}`,
+      id: pageId,
       name: newPageName.trim(),
       path: newPagePath.trim().startsWith('/') ? newPagePath.trim() : `/${newPagePath.trim()}`,
       title: newPageTitle.trim() || newPageName.trim(),
       layout: 'default',
       rootNode: {
-        id: `root-${Date.now()}`,
+        id: rootId,
         type: 'container',
         name: 'Page Root',
         props: { maxWidth: '1200px', padding: '24px', direction: 'column', gap: '24px' },
         children: [],
+        parent: null,
       },
     };
 

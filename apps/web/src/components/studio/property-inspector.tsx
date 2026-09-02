@@ -3,7 +3,20 @@
 import React, { useState } from 'react';
 import { ComponentNode, ComponentNodeStyle } from '@nirmaanify/types';
 import { getComponentDefinition, InspectorControl } from '@nirmaanify/component-registry';
-import { Sliders, Code2, Palette, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
+import {
+  Sliders,
+  Code2,
+  Palette,
+  Layers,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Image as ImageIcon,
+  Hash,
+  X,
+} from 'lucide-react';
 import { Input, Textarea, Select, Badge, Card } from '@nirmaanify/ui';
 
 interface PropertyInspectorProps {
@@ -125,7 +138,7 @@ export function PropertyInspector({
                       <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                         {ctrl.label}
                       </label>
-                      {ctrl.type === 'slider' && (
+                      {(ctrl.type === 'slider' || ctrl.type === 'number') && (
                         <span className="text-[10px] font-mono text-[#635BFF]">{val}</span>
                       )}
                     </div>
@@ -146,6 +159,31 @@ export function PropertyInspector({
                         onChange={(e) => handlePropChange(ctrl.name, e.target.value)}
                         className="w-full p-2 rounded-lg text-xs bg-white dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#635BFF]"
                       />
+                    )}
+
+                    {ctrl.type === 'number' && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={val ?? 0}
+                          min={ctrl.min}
+                          max={ctrl.max}
+                          step={ctrl.step ?? 1}
+                          onChange={(e) => handlePropChange(ctrl.name, Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 rounded-lg text-xs font-mono bg-white dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#635BFF]"
+                        />
+                        {ctrl.min !== undefined && ctrl.max !== undefined && (
+                          <input
+                            type="range"
+                            min={ctrl.min}
+                            max={ctrl.max}
+                            step={ctrl.step ?? 1}
+                            value={val ?? ctrl.min}
+                            onChange={(e) => handlePropChange(ctrl.name, Number(e.target.value))}
+                            className="w-full accent-[#635BFF]"
+                          />
+                        )}
+                      </div>
                     )}
 
                     {ctrl.type === 'select' && ctrl.options && (
@@ -192,7 +230,7 @@ export function PropertyInspector({
                       <div className="flex items-center gap-2">
                         <input
                           type="color"
-                          value={val || '#635BFF'}
+                          value={isHexColor(val) ? val : '#635BFF'}
                           onChange={(e) => handlePropChange(ctrl.name, e.target.value)}
                           className="h-7 w-8 rounded cursor-pointer border border-slate-200 dark:border-[#24293D] bg-transparent"
                         />
@@ -224,6 +262,48 @@ export function PropertyInspector({
                           </button>
                         ))}
                       </div>
+                    )}
+
+                    {ctrl.type === 'icon' && (
+                      <IconPicker
+                        value={val}
+                        options={ctrl.options?.map((o) => String(o.value))}
+                        onChange={(v) => handlePropChange(ctrl.name, v)}
+                      />
+                    )}
+
+                    {ctrl.type === 'image-url' && (
+                      <div className="space-y-2">
+                        {val && (
+                          <div className="relative w-full h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-[#24293D] bg-slate-100 dark:bg-[#161926]">
+                            <img
+                              src={val}
+                              alt="preview"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <ImageIcon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <input
+                            type="url"
+                            value={val || ''}
+                            placeholder="https://images.unsplash.com/..."
+                            onChange={(e) => handlePropChange(ctrl.name, e.target.value)}
+                            className="w-full px-2 py-1 rounded-lg text-xs font-mono bg-white dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {ctrl.type === 'spacing' && (
+                      <SpacingControl
+                        value={val || { top: '0px', right: '0px', bottom: '0px', left: '0px' }}
+                        onChange={(v) => handlePropChange(ctrl.name, v)}
+                      />
                     )}
                   </div>
                 );
@@ -290,6 +370,147 @@ export function PropertyInspector({
             </pre>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// HELPERS
+// ==========================================
+
+function isHexColor(value: any): boolean {
+  return typeof value === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
+}
+
+interface SpacingValue {
+  top: string;
+  right: string;
+  bottom: string;
+  left: string;
+}
+
+function SpacingControl({
+  value,
+  onChange,
+}: {
+  value: SpacingValue;
+  onChange: (v: SpacingValue) => void;
+}) {
+  const fields: { key: keyof SpacingValue; label: string }[] = [
+    { key: 'top', label: 'Top' },
+    { key: 'right', label: 'Right' },
+    { key: 'bottom', label: 'Bottom' },
+    { key: 'left', label: 'Left' },
+  ];
+
+  const update = (key: keyof SpacingValue, v: string) => onChange({ ...value, [key]: v });
+  const applyAll = (v: string) => onChange({ top: v, right: v, bottom: v, left: v });
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Hash className="h-3 w-3 text-slate-400" />
+        <input
+          type="text"
+          placeholder="All sides"
+          onChange={(e) => applyAll(e.target.value)}
+          className="flex-1 px-2 py-1 rounded-lg text-[11px] font-mono bg-white dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {fields.map((f) => (
+          <div key={f.key} className="flex items-center gap-1">
+            <span className="text-[10px] font-bold uppercase text-slate-400 w-9">{f.label.slice(0, 1)}</span>
+            <input
+              type="text"
+              placeholder="0px"
+              value={value[f.key] || ''}
+              onChange={(e) => update(f.key, e.target.value)}
+              className="flex-1 px-2 py-1 rounded-lg text-[11px] font-mono bg-white dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// A curated subset of lucide-react icons exposed to the inspector. Listing
+// the names explicitly avoids pulling the full ~2000-icon registry into the
+// bundle via dynamic iteration.
+const ICON_NAMES = [
+  'Box', 'BoxSelect', 'Layout', 'LayoutGrid', 'LayoutTemplate', 'Navigation',
+  'PanelBottom', 'Heading', 'Type', 'Text', 'Square', 'SquareMousePointer',
+  'Tag', 'Minus', 'Image', 'CreditCard', 'Sparkles', 'BadgeCheck', 'CircleDot',
+  'ShoppingBag', 'ShoppingCart', 'FormInput', 'TextCursorInput', 'BarChart3',
+  'TrendingUp', 'TrendingDown', 'Star', 'Check', 'CheckCircle2', 'X', 'XCircle',
+  'Eye', 'EyeOff', 'Lock', 'Unlock', 'Copy', 'Trash2', 'Plus', 'ChevronDown',
+  'ChevronRight', 'ArrowRight', 'ArrowUpRight', 'Mail', 'MessageCircle',
+  'Github', 'Twitter', 'Linkedin', 'Globe', 'Palette', 'Zap', 'Code2', 'Layers',
+  'Monitor', 'Tablet', 'Smartphone',
+];
+
+function IconPicker({
+  value,
+  options,
+  onChange,
+}: {
+  value?: string;
+  options?: string[];
+  onChange: (v: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const allowed = options && options.length > 0 ? options : ICON_NAMES;
+  const filtered = allowed.filter((n) =>
+    !query ? true : n.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const SelectedIcon = (LucideIcons as any)[value as string] as React.ComponentType<{ className?: string }> | undefined;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+        <span className="text-slate-400">
+          {SelectedIcon ? <SelectedIcon className="h-3.5 w-3.5" /> : <Palette className="h-3.5 w-3.5" />}
+        </span>
+        <input
+          type="text"
+          placeholder="Search icons..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="flex-1 bg-transparent text-[11px] focus:outline-none text-slate-900 dark:text-slate-100"
+        />
+        {value && (
+          <button
+            onClick={() => onChange('')}
+            className="text-slate-400 hover:text-rose-400"
+            title="Clear icon"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-6 gap-1 max-h-32 overflow-y-auto p-1 rounded-lg bg-slate-50 dark:bg-[#06080F] border border-slate-200 dark:border-[#24293D]">
+        {filtered.map((name) => {
+          const Icon = (LucideIcons as any)[name] as React.ComponentType<{ className?: string }> | undefined;
+          if (!Icon) return null;
+          const active = value === name;
+          return (
+            <button
+              key={name}
+              onClick={() => onChange(name)}
+              title={name}
+              className={`p-1.5 rounded transition-colors ${
+                active
+                  ? 'bg-[#635BFF] text-white'
+                  : 'text-slate-500 hover:bg-white hover:text-[#635BFF] dark:hover:bg-[#161926]'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -7,3 +7,5 @@ export * from './renderer/dynamic-renderer';
 export * from './engine/history-engine';
 export * from './engine/validation-engine';
 export * from './engine/template-generator';
+export * from './engine/plan-adapter';
+export * from './engine/parent-utils';

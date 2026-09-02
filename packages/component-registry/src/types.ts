@@ -53,6 +53,7 @@ export interface ComponentRenderProps {
   onSelectNode?: (id: string, e?: React.MouseEvent) => void;
   onHoverNode?: (id: string | null) => void;
   children?: React.ReactNode;
+  slots?: Record<string, React.ReactNode>;
   [key: string]: any;
 }
 
