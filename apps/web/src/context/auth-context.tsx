@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useSession, signOut as nextAuthSignOut } from 'next-auth/react';
 import {
   UserDto,
   WorkspaceDto,
@@ -9,7 +10,11 @@ import {
   AIProjectPlan,
   GeneratePlanDto,
   ApprovePlanDto,
+  AuthResponseDto,
 } from '@nirmaanify/types';
+import { apiClient, getStoredToken, setStoredToken } from '../lib/api';
+
+const ACTIVE_WS_KEY = 'nirmaanify_active_ws';
 
 interface AuthContextType {
   user: UserDto | null;
@@ -17,11 +22,15 @@ interface AuthContextType {
   workspaces: WorkspaceDto[];
   projects: ProjectDto[];
   isAuthenticated: boolean;
-  login: (email: string, pass?: string) => Promise<void>;
-  register: (name: string, email: string, pass?: string) => Promise<void>;
-  logout: () => void;
-  switchWorkspace: (workspaceId: string) => void;
-  createWorkspace: (name: string) => Promise<void>;
+  isLoading: boolean;
+  token: string | null;
+  login: (email: string, pass: string) => Promise<AuthResponseDto>;
+  register: (name: string, email: string, pass: string) => Promise<AuthResponseDto>;
+  logout: () => Promise<void>;
+  switchWorkspace: (workspaceId: string) => Promise<void>;
+  createWorkspace: (name: string, slug?: string, isPersonal?: boolean) => Promise<WorkspaceDto>;
+  deleteWorkspace: (workspaceId: string) => Promise<void>;
+  leaveWorkspace: (workspaceId: string) => Promise<void>;
   createProject: (project: Partial<ProjectDto>) => Promise<ProjectDto>;
   updateProject: (id: string, updates: Partial<ProjectDto>) => Promise<ProjectDto>;
   deleteProject: (id: string) => Promise<void>;
@@ -32,438 +41,484 @@ interface AuthContextType {
   modifyAiPlan: (planId: string, updates: Partial<AIProjectPlan>) => Promise<AIProjectPlan>;
   approveAiPlan: (dto: ApprovePlanDto) => Promise<ProjectDto>;
   inviteMember: (email: string, role: UserRole) => Promise<void>;
+  updateMemberRole: (userId: string, role: UserRole) => Promise<void>;
+  removeMember: (userId: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ message: string }>;
+  resetPassword: (token: string, newPassword: string) => Promise<{ message: string }>;
+  verifyEmail: (dtoOrToken: string | { token?: string; otp?: string; email?: string }) => Promise<{ success: boolean; message: string; user?: UserDto; accessToken?: string }>;
+  resendVerification: (email: string) => Promise<{ success: boolean; message: string }>;
+  refreshData: () => Promise<void>;
 }
-
-const DEFAULT_USER: UserDto = {
-  id: 'usr-alex-001',
-  name: 'Alex Developer',
-  email: 'alex@nirmaanify.ai',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-  role: 'OWNER',
-  isEmailVerified: true,
-  isActive: true,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
-
-const DEFAULT_WORKSPACES: WorkspaceDto[] = [
-  {
-    id: 'ws-personal-001',
-    name: "Alex's Personal Studio",
-    slug: 'alex-personal',
-    isPersonal: true,
-    ownerId: 'usr-alex-001',
-    role: 'OWNER',
-    projectCount: 3,
-    memberCount: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'ws-team-002',
-    name: 'Acme SaaS Corp',
-    slug: 'acme-saas',
-    isPersonal: false,
-    ownerId: 'usr-alex-001',
-    role: 'OWNER',
-    projectCount: 6,
-    memberCount: 5,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const INITIAL_PROJECTS: ProjectDto[] = [
-  {
-    id: 'proj-ecom-001',
-    name: 'Fashion Hub Store',
-    slug: 'fashion-hub',
-    description: 'Modern luxury clothing boutique with Next.js App Router, NestJS API, and PostgreSQL.',
-    type: 'ECOMMERCE',
-    workspaceId: 'ws-personal-001',
-    framework: 'Next.js 15 App Router',
-    uiLibrary: 'shadcn/ui + Tailwind CSS',
-    isBackendEnabled: true,
-    isArchived: false,
-    status: 'ACTIVE',
-    projectSchema: {
-      pages: ['/', '/products', '/products/[slug]', '/cart', '/checkout'],
-      modules: ['Products', 'Orders', 'Payments'],
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'proj-saas-002',
-    name: 'Nirmaan AI Video Studio',
-    slug: 'ai-video-studio',
-    description: 'Generative video SaaS platform with real-time preview and BullMQ background workers.',
-    type: 'SAAS',
-    workspaceId: 'ws-personal-001',
-    framework: 'Next.js 15 App Router',
-    uiLibrary: 'shadcn/ui + Framer Motion',
-    isBackendEnabled: true,
-    isArchived: false,
-    status: 'ACTIVE',
-    projectSchema: {
-      pages: ['/dashboard', '/studio', '/team', '/billing'],
-      modules: ['Generation', 'Billing', 'Storage'],
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'proj-blog-003',
-    name: 'Engineering Tech Blog',
-    slug: 'engineering-blog',
-    description: 'High-performance developer documentation and engineering journal with dynamic CMS.',
-    type: 'BLOG',
-    workspaceId: 'ws-personal-001',
-    framework: 'Next.js 15 Static',
-    uiLibrary: 'Tailwind CSS Typography',
-    isBackendEnabled: false,
-    isArchived: false,
-    status: 'ACTIVE',
-    projectSchema: {
-      pages: ['/', '/blog/[slug]', '/category/[slug]', '/authors/[slug]'],
-      cms: ['Articles', 'Authors'],
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserDto | null>(DEFAULT_USER);
-  const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>(DEFAULT_WORKSPACES);
-  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceDto | null>(DEFAULT_WORKSPACES[0]);
-  const [projects, setProjects] = useState<ProjectDto[]>(INITIAL_PROJECTS);
+  const { data: nextAuthSession, status: nextAuthStatus } = useSession();
+  const [user, setUser] = useState<UserDto | null>(null);
+  const [token, setTokenState] = useState<string | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceDto | null>(null);
+  const [projects, setProjects] = useState<ProjectDto[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const login = async (email: string) => {
-    const u: UserDto = {
-      id: `usr-${Date.now()}`,
-      name: email.split('@')[0],
-      email,
-      role: 'OWNER',
-      isEmailVerified: true,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setUser(u);
+  // Sync NextAuth social auth session with AuthContext
+  useEffect(() => {
+    if (nextAuthSession?.user) {
+      const socialUser = nextAuthSession.user as any;
+      const providerName = (socialUser.provider || 'GOOGLE') as 'GOOGLE' | 'GITHUB' | 'CREDENTIALS';
+
+      const syncedUser: UserDto = {
+        id: socialUser.id || user?.id || `usr-${Date.now()}`,
+        name: socialUser.name || user?.name || 'Developer',
+        email: socialUser.email || user?.email || '',
+        avatarUrl: socialUser.image || user?.avatarUrl,
+        role: (socialUser.role as UserRole) || 'OWNER',
+        primaryProvider: providerName,
+        socialAccounts: socialUser.socialAccount ? [socialUser.socialAccount] : undefined,
+        isEmailVerified: true,
+        isActive: true,
+        createdAt: user?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setUser(syncedUser);
+
+      if ((nextAuthSession as any).accessToken) {
+        const nextToken = (nextAuthSession as any).accessToken;
+        setTokenState(nextToken);
+        setStoredToken(nextToken);
+        apiClient.setToken(nextToken);
+
+        // Fetch workspaces from PostgreSQL for social user
+        apiClient.workspaces
+          .listWorkspaces()
+          .then(async (wsList) => {
+            if (Array.isArray(wsList) && wsList.length > 0) {
+              setWorkspaces(wsList);
+              const savedWsId = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_WS_KEY) : null;
+              const matched = wsList.find((w) => w.id === savedWsId) || wsList[0];
+              setActiveWorkspace(matched);
+              if (typeof window !== 'undefined' && matched) {
+                localStorage.setItem(ACTIVE_WS_KEY, matched.id);
+              }
+              try {
+                const projList = await apiClient.projects.listProjects(matched.id);
+                if (Array.isArray(projList)) setProjects(projList);
+              } catch {
+                // Ignored
+              }
+            } else {
+              setWorkspaces([]);
+              setActiveWorkspace(null);
+              setProjects([]);
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem(ACTIVE_WS_KEY);
+              }
+            }
+          })
+          .catch(() => {
+            setWorkspaces([]);
+            setActiveWorkspace(null);
+            setProjects([]);
+          })
+          .finally(() => setIsLoading(false));
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [nextAuthSession]);
+
+  // Initialize auth state on mount from stored token and reload workspaces + profile
+  useEffect(() => {
+    const savedToken = getStoredToken();
+    if (savedToken) {
+      setTokenState(savedToken);
+      apiClient.setToken(savedToken);
+
+      // Concurrently fetch profile and real workspaces from PostgreSQL
+      Promise.allSettled([
+        apiClient.auth.getProfile(),
+        apiClient.workspaces.listWorkspaces(),
+      ])
+        .then(async ([profileRes, wsRes]) => {
+          if (profileRes.status === 'fulfilled' && profileRes.value) {
+            setUser(profileRes.value);
+          }
+
+          let currentWs: WorkspaceDto | null = null;
+          if (wsRes.status === 'fulfilled' && Array.isArray(wsRes.value)) {
+            const realWorkspaces = wsRes.value;
+            setWorkspaces(realWorkspaces);
+
+            if (realWorkspaces.length > 0) {
+              const savedWsId = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_WS_KEY) : null;
+              currentWs = realWorkspaces.find((w) => w.id === savedWsId) || realWorkspaces[0];
+              setActiveWorkspace(currentWs);
+              if (typeof window !== 'undefined' && currentWs) {
+                localStorage.setItem(ACTIVE_WS_KEY, currentWs.id);
+              }
+            } else {
+              // Real DB returned 0 workspaces: clear active workspace & projects
+              setActiveWorkspace(null);
+              setProjects([]);
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem(ACTIVE_WS_KEY);
+              }
+            }
+          }
+
+          // Fetch projects for the real active workspace
+          if (currentWs) {
+            try {
+              const projList = await apiClient.projects.listProjects(currentWs.id);
+              if (Array.isArray(projList)) {
+                setProjects(projList);
+              }
+            } catch {
+              setProjects([]);
+            }
+          } else {
+            setProjects([]);
+          }
+        })
+        .catch(() => {
+          // If token verification fails, clear invalid token
+          setTokenState(null);
+          setStoredToken(null);
+          apiClient.setToken(null);
+          setUser(null);
+          setWorkspaces([]);
+          setActiveWorkspace(null);
+          setProjects([]);
+        })
+        .finally(() => setIsLoading(false));
+    } else {
+      if (nextAuthStatus !== 'loading') {
+        setIsLoading(false);
+      }
+    }
+  }, [nextAuthStatus]);
+
+  const refreshData = useCallback(async () => {
+    try {
+      const [fetchedWs, fetchedProjects] = await Promise.allSettled([
+        apiClient.workspaces.listWorkspaces(),
+        apiClient.projects.listProjects(activeWorkspace?.id),
+      ]);
+
+      if (fetchedWs.status === 'fulfilled' && Array.isArray(fetchedWs.value)) {
+        const wsList = fetchedWs.value;
+        setWorkspaces(wsList);
+
+        if (wsList.length === 0) {
+          setActiveWorkspace(null);
+          setProjects([]);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(ACTIVE_WS_KEY);
+          }
+        } else if (!activeWorkspace || !wsList.some((w) => w.id === activeWorkspace.id)) {
+          const savedWsId = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_WS_KEY) : null;
+          const fallback = wsList.find((w) => w.id === savedWsId) || wsList[0];
+          setActiveWorkspace(fallback);
+          if (typeof window !== 'undefined' && fallback) {
+            localStorage.setItem(ACTIVE_WS_KEY, fallback.id);
+          }
+        }
+      }
+
+      if (fetchedProjects.status === 'fulfilled' && Array.isArray(fetchedProjects.value)) {
+        setProjects(fetchedProjects.value);
+      }
+    } catch {
+      // Ignored for refresh polling
+    }
+  }, [activeWorkspace]);
+
+  const login = async (email: string, pass: string): Promise<AuthResponseDto> => {
+    const res = await apiClient.auth.login({ email, password: pass });
+    setUser(res.user);
+    setTokenState(res.accessToken);
+    setStoredToken(res.accessToken);
+    apiClient.setToken(res.accessToken);
+
+    if (Array.isArray(res.workspaces) && res.workspaces.length > 0) {
+      setWorkspaces(res.workspaces);
+      const ws = res.activeWorkspace || res.workspaces[0];
+      setActiveWorkspace(ws);
+      if (typeof window !== 'undefined' && ws) {
+        localStorage.setItem(ACTIVE_WS_KEY, ws.id);
+      }
+      try {
+        const projList = await apiClient.projects.listProjects(ws.id);
+        if (Array.isArray(projList)) setProjects(projList);
+      } catch {
+        // Ignored
+      }
+    } else {
+      setWorkspaces([]);
+      setActiveWorkspace(null);
+      setProjects([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(ACTIVE_WS_KEY);
+      }
+    }
+
+    return res;
   };
 
-  const register = async (name: string, email: string) => {
-    const u: UserDto = {
-      id: `usr-${Date.now()}`,
-      name,
-      email,
-      role: 'OWNER',
-      isEmailVerified: true,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const ws: WorkspaceDto = {
-      id: `ws-${Date.now()}`,
-      name: `${name}'s Workspace`,
-      slug: `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-personal`,
-      isPersonal: true,
-      ownerId: u.id,
-      role: 'OWNER',
-      projectCount: 0,
-      memberCount: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setUser(u);
-    setWorkspaces([ws]);
-    setActiveWorkspace(ws);
+  const register = async (name: string, email: string, pass: string): Promise<AuthResponseDto> => {
+    const res = await apiClient.auth.register({ name, email, password: pass });
+    setUser(res.user);
+    setTokenState(res.accessToken);
+    setStoredToken(res.accessToken);
+    apiClient.setToken(res.accessToken);
+
+    if (Array.isArray(res.workspaces) && res.workspaces.length > 0) {
+      setWorkspaces(res.workspaces);
+      const ws = res.activeWorkspace || res.workspaces[0];
+      setActiveWorkspace(ws);
+      if (typeof window !== 'undefined' && ws) {
+        localStorage.setItem(ACTIVE_WS_KEY, ws.id);
+      }
+    } else {
+      setWorkspaces([]);
+      setActiveWorkspace(null);
+      setProjects([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(ACTIVE_WS_KEY);
+      }
+    }
+
+    return res;
   };
 
-  const logout = () => {
+  const logout = async () => {
     setUser(null);
+    setTokenState(null);
+    setStoredToken(null);
+    apiClient.setToken(null);
     setActiveWorkspace(null);
+    setWorkspaces([]);
+    setProjects([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ACTIVE_WS_KEY);
+      localStorage.removeItem('nirmaanify_auth_token');
+    }
+    if (nextAuthSession) {
+      try {
+        await nextAuthSignOut({ redirect: false });
+      } catch {
+        // Ignored
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
-  const switchWorkspace = (workspaceId: string) => {
+  const switchWorkspace = async (workspaceId: string) => {
     const ws = workspaces.find((w) => w.id === workspaceId);
-    if (ws) setActiveWorkspace(ws);
+    if (ws) {
+      setActiveWorkspace(ws);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(ACTIVE_WS_KEY, ws.id);
+      }
+      try {
+        const projList = await apiClient.projects.listProjects(ws.id);
+        if (Array.isArray(projList)) setProjects(projList);
+      } catch {
+        // Ignored
+      }
+    }
   };
 
-  const createWorkspace = async (name: string) => {
-    const newWs: WorkspaceDto = {
-      id: `ws-${Date.now()}`,
+  const createWorkspace = async (
+    name: string,
+    slug?: string,
+    isPersonal?: boolean
+  ): Promise<WorkspaceDto> => {
+    const created = await apiClient.workspaces.createWorkspace({
       name,
-      slug: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      isPersonal: false,
-      ownerId: user?.id || 'usr-alex-001',
-      role: 'OWNER',
-      projectCount: 0,
-      memberCount: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setWorkspaces((prev) => [...prev, newWs]);
-    setActiveWorkspace(newWs);
+      slug: slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      isPersonal: Boolean(isPersonal),
+    });
+    setWorkspaces((prev) => [created, ...prev.filter((w) => w.id !== created.id)]);
+    setActiveWorkspace(created);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(ACTIVE_WS_KEY, created.id);
+    }
+    return created;
   };
 
   const createProject = async (data: Partial<ProjectDto>): Promise<ProjectDto> => {
-    try {
-      const res = await fetch(`${API_BASE}/projects`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          workspaceId: activeWorkspace?.id || 'ws-personal-001',
-        }),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setProjects((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
-        return created;
-      }
-    } catch {
-      // Fallback
-    }
-
-    const fallback: ProjectDto = {
-      id: `proj-${Date.now()}`,
-      name: data.name || 'Untitled Project',
-      slug: data.slug || (data.name || 'untitled').toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      description: data.description || 'Generated with Nirmaanify AI',
-      type: data.type || 'WEBSITE',
-      workspaceId: activeWorkspace?.id || 'ws-personal-001',
-      framework: data.framework || 'Next.js 15 App Router',
-      uiLibrary: data.uiLibrary || 'shadcn/ui + Tailwind CSS',
-      isBackendEnabled: Boolean(data.isBackendEnabled),
-      isArchived: false,
-      status: 'ACTIVE',
-      projectSchema: data.projectSchema || { pages: ['/'] },
-      aiPlan: data.aiPlan,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setProjects((prev) => [fallback, ...prev]);
-    return fallback;
+    const created = await apiClient.projects.createProject({
+      ...data,
+      workspaceId: data.workspaceId || activeWorkspace?.id || '',
+    });
+    setProjects((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
+    return created;
   };
 
   const updateProject = async (id: string, updates: Partial<ProjectDto>): Promise<ProjectDto> => {
-    try {
-      const res = await fetch(`${API_BASE}/projects/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
-        return updated;
-      }
-    } catch {
-      // Fallback
-    }
-
-    let updatedProject: ProjectDto | null = null;
-    setProjects((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          updatedProject = { ...p, ...updates, updatedAt: new Date().toISOString() };
-          return updatedProject;
-        }
-        return p;
-      }),
-    );
-    return updatedProject!;
+    const updated = await apiClient.projects.updateProject(id, updates);
+    setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    return updated;
   };
 
   const deleteProject = async (id: string): Promise<void> => {
-    try {
-      await fetch(`${API_BASE}/projects/${id}`, { method: 'DELETE' });
-    } catch {
-      // Fallback
-    }
+    await apiClient.projects.deleteProject(id);
     setProjects((prev) => prev.filter((p) => p.id !== id));
   };
 
   const duplicateProject = async (id: string): Promise<ProjectDto> => {
-    try {
-      const res = await fetch(`${API_BASE}/projects/${id}/duplicate`, { method: 'POST' });
-      if (res.ok) {
-        const duplicated = await res.json();
-        setProjects((prev) => [duplicated, ...prev]);
-        return duplicated;
-      }
-    } catch {
-      // Fallback
-    }
-
-    const source = projects.find((p) => p.id === id);
-    const duplicated: ProjectDto = {
-      ...(source || INITIAL_PROJECTS[0]),
-      id: `proj-${Date.now()}`,
-      name: `${source?.name || 'Project'} (Copy)`,
-      slug: `${source?.slug || 'project'}-copy-${Math.floor(Math.random() * 1000)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const duplicated = await apiClient.projects.duplicateProject(id);
     setProjects((prev) => [duplicated, ...prev]);
     return duplicated;
   };
 
   const archiveProject = async (id: string): Promise<ProjectDto> => {
-    try {
-      const res = await fetch(`${API_BASE}/projects/${id}/archive`, { method: 'PATCH' });
-      if (res.ok) {
-        const updated = await res.json();
-        setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
-        return updated;
-      }
-    } catch {
-      // Fallback
-    }
-    return updateProject(id, { isArchived: true, status: 'ARCHIVED' });
+    const archived = await apiClient.projects.archiveProject(id);
+    setProjects((prev) => prev.map((p) => (p.id === id ? archived : p)));
+    return archived;
   };
 
   const unarchiveProject = async (id: string): Promise<ProjectDto> => {
-    try {
-      const res = await fetch(`${API_BASE}/projects/${id}/unarchive`, { method: 'PATCH' });
-      if (res.ok) {
-        const updated = await res.json();
-        setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
-        return updated;
-      }
-    } catch {
-      // Fallback
-    }
-    return updateProject(id, { isArchived: false, status: 'ACTIVE' });
+    const unarchived = await apiClient.projects.unarchiveProject(id);
+    setProjects((prev) => prev.map((p) => (p.id === id ? unarchived : p)));
+    return unarchived;
   };
 
   const generateAiPlan = async (dto: GeneratePlanDto): Promise<AIProjectPlan> => {
-    try {
-      const res = await fetch(`${API_BASE}/projects/ai/plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // Fallback
-    }
-
-    // Client-side fallback if server is unreachable
-    const words = dto.prompt.split(/\s+/).slice(0, 3).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    const title = words || 'AI Application';
-    return {
-      id: `plan-${Date.now()}`,
-      prompt: dto.prompt,
-      name: title,
-      slug: title.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      description: dto.prompt,
-      type: dto.preferredType || 'SAAS',
-      framework: 'Next.js 15 App Router (React 19)',
-      uiLibrary: 'shadcn/ui + Tailwind CSS',
-      pages: [
-        { name: 'Home Landing', path: '/', description: 'Hero and overview', isProtected: false, components: ['HeroSection', 'FeatureGrid'] },
-        { name: 'Dashboard', path: '/dashboard', description: 'Main application portal', isProtected: true, components: ['StatsOverview', 'RecentActivity'] },
-      ],
-      features: [
-        { title: 'Core Functionality', description: 'Primary user workflow', category: 'core' },
-        { title: 'Auth & Profile', description: 'JWT Authentication', category: 'auth' },
-      ],
-      components: [
-        { name: 'AppNavbar', type: 'layout', source: 'shadcn', description: 'Navigation bar' },
-        { name: 'DashboardCard', type: 'ui', source: 'shadcn', description: 'Metric card' },
-      ],
-      requiredPackages: [
-        { name: 'lucide-react', version: '^0.475.0', scope: 'dependencies', purpose: 'Icons' },
-        { name: 'zod', version: '^3.24.2', scope: 'dependencies', purpose: 'Validation' },
-      ],
-      backendRequirements: {
-        enabled: true,
-        framework: 'NestJS 11',
-        modules: [{ name: 'AppModule', description: 'Main controller', endpoints: [{ method: 'GET', path: '/api/v1/data', description: 'Fetch data' }] }],
-        auth: { type: 'jwt', providers: ['Email/Password'] },
-      },
-      databaseRequirements: {
-        engine: 'PostgreSQL 16 with Prisma ORM',
-        models: [{ name: 'Record', description: 'App data model', fields: [{ name: 'id', type: 'UUID', isPrimary: true }] }],
-      },
-      cmsRequirements: { enabled: false, type: 'None', collections: [] },
-      pluginRecommendations: [
-        { name: 'BullMQ Queue', category: 'Queue', reason: 'Asynchronous workers', isRecommended: true },
-      ],
-      architecturePlan: {
-        summary: 'Scalable Next.js + NestJS microservices',
-        frontendStack: ['Next.js 15', 'Tailwind CSS'],
-        backendStack: ['NestJS 11'],
-        databaseStack: ['PostgreSQL 16'],
-        deploymentTarget: 'Vercel + Docker',
-        scalabilityNotes: 'Decoupled API gateway',
-      },
-      status: 'DRAFT',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    return await apiClient.projects.generateAiPlan(dto);
   };
 
   const modifyAiPlan = async (planId: string, updates: Partial<AIProjectPlan>): Promise<AIProjectPlan> => {
-    try {
-      const res = await fetch(`${API_BASE}/projects/ai/plan/${planId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // Fallback
-    }
-    return updates as AIProjectPlan;
+    return await apiClient.projects.modifyAiPlan(planId, updates);
   };
 
   const approveAiPlan = async (dto: ApprovePlanDto): Promise<ProjectDto> => {
-    try {
-      const res = await fetch(`${API_BASE}/projects/ai/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-      });
-      if (res.ok) {
-        const project = await res.json();
-        setProjects((prev) => [project, ...prev.filter((p) => p.id !== project.id)]);
-        return project;
-      }
-    } catch {
-      // Fallback
-    }
-
-    const created = await createProject({
-      name: dto.customName || dto.plan.name,
-      slug: dto.customSlug || dto.plan.slug,
-      description: dto.plan.description,
-      type: dto.plan.type,
-      framework: dto.plan.framework,
-      uiLibrary: dto.plan.uiLibrary,
-      isBackendEnabled: dto.plan.backendRequirements.enabled,
-      projectSchema: {
-        pages: dto.plan.pages.map((p) => p.path),
-        modules: dto.plan.backendRequirements.modules.map((m) => m.name),
-      },
-      aiPlan: { ...dto.plan, status: 'APPROVED' },
+    const created = await apiClient.projects.approveAiPlan({
+      ...dto,
+      workspaceId: dto.workspaceId || activeWorkspace?.id || '',
     });
+    setProjects((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
     return created;
   };
 
-  const inviteMember = async () => {
-    // Member invited
+  const inviteMember = async (email: string, role: UserRole): Promise<void> => {
+    if (!activeWorkspace) throw new Error('No active workspace selected');
+    await apiClient.workspaces.inviteMember(activeWorkspace.id, { email, role });
+    await refreshData();
+  };
+
+  const updateMemberRole = async (userId: string, role: UserRole): Promise<void> => {
+    if (!activeWorkspace) throw new Error('No active workspace selected');
+    await apiClient.workspaces.updateMemberRole(activeWorkspace.id, userId, role);
+    await refreshData();
+  };
+
+  const removeMember = async (userId: string): Promise<void> => {
+    if (!activeWorkspace) throw new Error('No active workspace selected');
+    await apiClient.workspaces.removeMember(activeWorkspace.id, userId);
+    await refreshData();
+  };
+
+  const deleteWorkspace = async (workspaceId: string): Promise<void> => {
+    await apiClient.workspaces.deleteWorkspace(workspaceId);
+
+    const updatedWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
+    setWorkspaces(updatedWorkspaces);
+
+    // If the deleted workspace was the active one, smoothly switch to the next workspace or null
+    if (activeWorkspace?.id === workspaceId) {
+      if (updatedWorkspaces.length > 0) {
+        const nextWs = updatedWorkspaces[0];
+        setActiveWorkspace(nextWs);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(ACTIVE_WS_KEY, nextWs.id);
+        }
+        try {
+          const projList = await apiClient.projects.listProjects(nextWs.id);
+          if (Array.isArray(projList)) {
+            setProjects(projList);
+          } else {
+            setProjects([]);
+          }
+        } catch {
+          setProjects([]);
+        }
+      } else {
+        // No workspaces left: smoothly reset active state without UI crashes
+        setActiveWorkspace(null);
+        setProjects([]);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(ACTIVE_WS_KEY);
+        }
+      }
+    }
+  };
+
+  const leaveWorkspace = async (workspaceId: string): Promise<void> => {
+    await apiClient.workspaces.leaveWorkspace(workspaceId);
+
+    const updatedWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
+    setWorkspaces(updatedWorkspaces);
+
+    // If the left workspace was the active one, smoothly switch to next workspace or null
+    if (activeWorkspace?.id === workspaceId) {
+      if (updatedWorkspaces.length > 0) {
+        const nextWs = updatedWorkspaces[0];
+        setActiveWorkspace(nextWs);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(ACTIVE_WS_KEY, nextWs.id);
+        }
+        try {
+          const projList = await apiClient.projects.listProjects(nextWs.id);
+          if (Array.isArray(projList)) {
+            setProjects(projList);
+          } else {
+            setProjects([]);
+          }
+        } catch {
+          setProjects([]);
+        }
+      } else {
+        setActiveWorkspace(null);
+        setProjects([]);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(ACTIVE_WS_KEY);
+        }
+      }
+    }
+  };
+
+  const forgotPassword = async (email: string) => {
+    return await apiClient.auth.forgotPassword({ email });
+  };
+
+  const resetPassword = async (token: string, newPassword: string) => {
+    return await apiClient.auth.resetPassword({ token, newPassword });
+  };
+
+  const verifyEmail = async (
+    dtoOrToken: string | { token?: string; otp?: string; email?: string }
+  ) => {
+    const payload = typeof dtoOrToken === 'string' ? { token: dtoOrToken } : dtoOrToken;
+    const res = await apiClient.auth.verifyEmail(payload);
+    if (res.user) {
+      setUser(res.user);
+    }
+    if (res.accessToken) {
+      setTokenState(res.accessToken);
+      setStoredToken(res.accessToken);
+      apiClient.setToken(res.accessToken);
+    }
+    await refreshData();
+    return res;
+  };
+
+  const resendVerification = async (email: string) => {
+    return await apiClient.auth.resendVerification(email);
   };
 
   return (
@@ -474,11 +529,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         workspaces,
         projects,
         isAuthenticated: user !== null,
+        isLoading,
+        token,
         login,
         register,
         logout,
         switchWorkspace,
         createWorkspace,
+        deleteWorkspace,
+        leaveWorkspace,
         createProject,
         updateProject,
         deleteProject,
@@ -489,6 +548,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         modifyAiPlan,
         approveAiPlan,
         inviteMember,
+        updateMemberRole,
+        removeMember,
+        forgotPassword,
+        resetPassword,
+        verifyEmail,
+        resendVerification,
+        refreshData,
       }}
     >
       {children}

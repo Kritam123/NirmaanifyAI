@@ -41,7 +41,7 @@ export function DynamicRenderer({
   const isSelected = selectedNodeId === node.id;
   const isHovered = hoveredNodeId === node.id && !isSelected;
 
-  // Recursively render child components
+  // Recursively render child components.
   const renderedChildren = node.children && node.children.length > 0
     ? node.children.map((child) => (
         <DynamicRenderer
@@ -58,6 +58,30 @@ export function DynamicRenderer({
       ))
     : undefined;
 
+  // Recursively render named slots. Components that want slot-based composition
+  // (e.g. card with `header` / `footer` / `media` slots) declare them on their
+  // definition and consume them by reading `props.slots[slotName]` instead of
+  // receiving them as `children`.
+  const renderedSlots: Record<string, React.ReactNode> = {};
+  if (node.slots && typeof node.slots === 'object') {
+    Object.entries(node.slots).forEach(([slotKey, slotChildren]) => {
+      if (!Array.isArray(slotChildren) || slotChildren.length === 0) return;
+      renderedSlots[slotKey] = slotChildren.map((slotChild) => (
+        <DynamicRenderer
+          key={slotChild.id}
+          node={slotChild}
+          mode={mode}
+          selectedNodeId={selectedNodeId}
+          hoveredNodeId={hoveredNodeId}
+          onSelectNode={onSelectNode}
+          onHoverNode={onHoverNode}
+          onDeleteNode={onDeleteNode}
+          onDuplicateNode={onDuplicateNode}
+        />
+      ));
+    });
+  }
+
   const content = (
     <ComponentErrorBoundary nodeId={node.id}>
       <Component
@@ -70,6 +94,7 @@ export function DynamicRenderer({
         onHoverNode={onHoverNode}
         style={node.style}
         {...node.props}
+        slots={Object.keys(renderedSlots).length > 0 ? renderedSlots : undefined}
       >
         {renderedChildren}
       </Component>
@@ -113,7 +138,7 @@ export function DynamicRenderer({
           <span className="font-mono">{node.name || node.type}</span>
           {node.isLocked && <Lock className="h-3 w-3 text-amber-300 ml-0.5" />}
           {node.isHidden && <Eye className="h-3 w-3 text-slate-300 ml-0.5" />}
-          
+
           <div className="flex items-center gap-1 ml-2 border-l border-white/20 pl-1.5">
             {onDuplicateNode && (
               <button

@@ -104,16 +104,31 @@ export const CardDefinition: ComponentDefinition<{
     { name: 'description', label: 'Card Description', type: 'textarea', group: 'content', defaultValue: 'Provide meaningful context...' },
     { name: 'hoverable', label: 'Hover Elevation', type: 'switch', group: 'style', defaultValue: true },
   ],
-  component: ({ title, description, hoverable = true, children, style }) => {
+  component: ({ title, description, hoverable = true, children, slots, style }) => {
+    // `slots` lets authors compose a card with named regions (e.g. header,
+    // footer, media). Falls back to the legacy `children` slot when no
+    // named slot is provided.
+    const bodyContent =
+      slots?.body ??
+      slots?.default ??
+      children;
+
+    const headerSlot = slots?.header;
+    const footerSlot = slots?.footer;
+    const mediaSlot = slots?.media;
+
     return (
       <Card hoverable={hoverable} style={style} className="w-full">
-        {(title || description) && (
+        {mediaSlot && <div className="overflow-hidden">{mediaSlot}</div>}
+        {(title || description || headerSlot) && (
           <CardHeader>
+            {headerSlot}
             {title && <CardTitle className="text-base">{title}</CardTitle>}
             {description && <CardDescription>{description}</CardDescription>}
           </CardHeader>
         )}
-        <CardContent className="space-y-3">{children}</CardContent>
+        <CardContent className="space-y-3">{bodyContent}</CardContent>
+        {footerSlot && <div className="px-6 pb-6 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">{footerSlot}</div>}
       </Card>
     );
   },

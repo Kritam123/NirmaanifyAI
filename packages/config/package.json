@@ -2,5 +2,9 @@
   "name": "@nirmaanify/config",
   "version": "0.1.0",
   "private": true,
-  "main": "index.js"
+  "main": "index.js",
+  "scripts": {
+    "build": "echo config",
+    "typecheck": "echo config"
+  }
 }

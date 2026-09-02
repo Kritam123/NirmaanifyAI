@@ -20,7 +20,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   title,
   contextBadge = 'platform',
   breadcrumbs = [],
-  user = { name: 'Alex Developer', email: 'alex@nirmaanify.ai' },
+  user,
   className,
 }) => {
   const { theme, setTheme } = useTheme();
@@ -71,15 +71,18 @@ export const Topbar: React.FC<TopbarProps> = ({
           onClick={toggleTheme}
         />
 
-        <div className="h-4 w-[1px] bg-slate-200 dark:bg-[#24293D]" />
-
-        <div className="flex items-center gap-2.5">
-          <Avatar fallback="AD" size="sm" status="online" />
-          <div className="hidden lg:block text-left">
-            <p className="text-xs font-semibold leading-tight">{user.name}</p>
-            <p className="text-[11px] text-slate-400">{user.email}</p>
-          </div>
-        </div>
+        {user && (
+          <>
+            <div className="h-4 w-[1px] bg-slate-200 dark:bg-[#24293D]" />
+            <div className="flex items-center gap-2.5">
+              <Avatar fallback={user.name?.slice(0, 2).toUpperCase() || 'US'} size="sm" status="online" />
+              <div className="hidden lg:block text-left">
+                <p className="text-xs font-semibold leading-tight">{user.name}</p>
+                <p className="text-[11px] text-slate-400">{user.email}</p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </header>
   );

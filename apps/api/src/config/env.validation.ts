@@ -16,6 +16,13 @@ export const envSchema = z.object({
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   S3_BUCKET_NAME: z.string().default('nirmaanify-storage'),
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().default(465),
+  SMTP_SECURE: z.string().default('true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default('"Nirmaanify AI" <noreply@nirmaanify.ai>'),
+  APP_URL: z.string().default('http://localhost:3000'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
