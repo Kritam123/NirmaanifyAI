@@ -5,7 +5,15 @@ export interface PlanPage {
   path: string;
   description: string;
   isProtected?: boolean;
-  components: string[];
+  /**
+   * Page-scoped component list. Accepted shapes:
+   *   - `string[]` of human-readable component names (matches the LLM
+   *     blueprint that the API planner emits)
+   *   - `PlanComponent[]` of fully-typed component descriptors (used by
+   *     the visual studio when materializing a plan into a schema)
+   *   - a mix of either
+   */
+  components: Array<string | PlanComponent>;
 }
 
 export interface PlanFeature {

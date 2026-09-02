@@ -542,14 +542,17 @@ export function AiPlannerModal({ isOpen, onClose, initialPrompt = '', initialPre
                     <p className="font-mono text-[11px] text-[#635BFF]">{p.path}</p>
                     <p className="text-slate-500 text-[11px]">{p.description}</p>
                     <div className="flex flex-wrap gap-1 pt-1">
-                      {p.components.map((comp) => (
-                        <span
-                          key={comp}
-                          className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#161926] text-[10px] text-slate-600 dark:text-slate-300 font-mono"
-                        >
-                          {comp}
-                        </span>
-                      ))}
+                      {p.components.map((comp, idx) => {
+                        const label = typeof comp === 'string' ? comp : comp.name;
+                        return (
+                          <span
+                            key={`${label}-${idx}`}
+                            className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#161926] text-[10px] text-slate-600 dark:text-slate-300 font-mono"
+                          >
+                            {label}
+                          </span>
+                        );
+                      })}
                     </div>
                   </Card>
                 ))}

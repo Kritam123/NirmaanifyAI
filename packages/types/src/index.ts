@@ -4,4 +4,5 @@ export * from './backend';
 export * from './queues';
 export * from './storage';
 export * from './ai-planner';
+export * from './project-schema';
 export * from './rbac';
