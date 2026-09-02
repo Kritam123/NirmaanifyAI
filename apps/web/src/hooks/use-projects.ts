@@ -6,19 +6,27 @@ import { apiClient } from '../lib/api';
 import { useAuth } from '../context/auth-context';
 import { useToast } from '@nirmaanify/ui';
 
+export type ArchiveFilter = 'all' | 'active' | 'archived';
+
 export function useProjects() {
-  const { projects: contextProjects, activeWorkspace, createProject: contextCreateProject } = useAuth();
+  const {
+    projects: contextProjects,
+    activeWorkspace,
+    createProject: contextCreateProject,
+    refreshData,
+  } = useAuth();
   const { toast } = useToast();
   const [projects, setProjects] = useState<ProjectDto[]>(contextProjects);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [filterType, setFilterType] = useState<string>('ALL');
+  const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const fetchProjects = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await apiClient.projects.listProjects(activeWorkspace?.id);
-      if (data && data.length > 0) {
+      if (Array.isArray(data) && data.length > 0) {
         setProjects(data);
       } else {
         setProjects(contextProjects);
@@ -38,7 +46,7 @@ export function useProjects() {
     try {
       const created = await contextCreateProject(dto);
       toast({
-        title: 'Project Created',
+        title: 'Project created',
         description: `${created.name} is ready for development.`,
         type: 'success',
       });
@@ -55,11 +63,16 @@ export function useProjects() {
 
   const filteredProjects = projects.filter((p) => {
     const matchesType = filterType === 'ALL' || p.type === filterType;
+    const matchesArchive =
+      archiveFilter === 'all' ||
+      (archiveFilter === 'active' && !p.isArchived) ||
+      (archiveFilter === 'archived' && p.isArchived);
     const matchesSearch =
       !searchQuery.trim() ||
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesType && matchesSearch;
+      p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.slug.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesArchive && matchesSearch;
   });
 
   return {
@@ -68,9 +81,12 @@ export function useProjects() {
     isLoading,
     filterType,
     setFilterType,
+    archiveFilter,
+    setArchiveFilter,
     searchQuery,
     setSearchQuery,
     fetchProjects,
     createProject,
+    refreshData,
   };
 }

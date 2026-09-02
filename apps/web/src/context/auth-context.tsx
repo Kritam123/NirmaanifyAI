@@ -7,6 +7,9 @@ import {
   WorkspaceDto,
   ProjectDto,
   UserRole,
+  AIProjectPlan,
+  GeneratePlanDto,
+  ApprovePlanDto,
   AuthResponseDto,
 } from '@nirmaanify/types';
 import { apiClient, getStoredToken, setStoredToken } from '../lib/api';
@@ -29,6 +32,14 @@ interface AuthContextType {
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   leaveWorkspace: (workspaceId: string) => Promise<void>;
   createProject: (project: Partial<ProjectDto>) => Promise<ProjectDto>;
+  updateProject: (id: string, updates: Partial<ProjectDto>) => Promise<ProjectDto>;
+  deleteProject: (id: string) => Promise<void>;
+  duplicateProject: (id: string) => Promise<ProjectDto>;
+  archiveProject: (id: string) => Promise<ProjectDto>;
+  unarchiveProject: (id: string) => Promise<ProjectDto>;
+  generateAiPlan: (dto: GeneratePlanDto) => Promise<AIProjectPlan>;
+  modifyAiPlan: (planId: string, updates: Partial<AIProjectPlan>) => Promise<AIProjectPlan>;
+  approveAiPlan: (dto: ApprovePlanDto) => Promise<ProjectDto>;
   inviteMember: (email: string, role: UserRole) => Promise<void>;
   updateMemberRole: (userId: string, role: UserRole) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
@@ -342,9 +353,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const createProject = async (data: Partial<ProjectDto>): Promise<ProjectDto> => {
     const created = await apiClient.projects.createProject({
       ...data,
-      workspaceId: activeWorkspace?.id || '',
+      workspaceId: data.workspaceId || activeWorkspace?.id || '',
     });
-    setProjects((prev) => [created, ...prev]);
+    setProjects((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
+    return created;
+  };
+
+  const updateProject = async (id: string, updates: Partial<ProjectDto>): Promise<ProjectDto> => {
+    const updated = await apiClient.projects.updateProject(id, updates);
+    setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    return updated;
+  };
+
+  const deleteProject = async (id: string): Promise<void> => {
+    await apiClient.projects.deleteProject(id);
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const duplicateProject = async (id: string): Promise<ProjectDto> => {
+    const duplicated = await apiClient.projects.duplicateProject(id);
+    setProjects((prev) => [duplicated, ...prev]);
+    return duplicated;
+  };
+
+  const archiveProject = async (id: string): Promise<ProjectDto> => {
+    const archived = await apiClient.projects.archiveProject(id);
+    setProjects((prev) => prev.map((p) => (p.id === id ? archived : p)));
+    return archived;
+  };
+
+  const unarchiveProject = async (id: string): Promise<ProjectDto> => {
+    const unarchived = await apiClient.projects.unarchiveProject(id);
+    setProjects((prev) => prev.map((p) => (p.id === id ? unarchived : p)));
+    return unarchived;
+  };
+
+  const generateAiPlan = async (dto: GeneratePlanDto): Promise<AIProjectPlan> => {
+    return await apiClient.projects.generateAiPlan(dto);
+  };
+
+  const modifyAiPlan = async (planId: string, updates: Partial<AIProjectPlan>): Promise<AIProjectPlan> => {
+    return await apiClient.projects.modifyAiPlan(planId, updates);
+  };
+
+  const approveAiPlan = async (dto: ApprovePlanDto): Promise<ProjectDto> => {
+    const created = await apiClient.projects.approveAiPlan({
+      ...dto,
+      workspaceId: dto.workspaceId || activeWorkspace?.id || '',
+    });
+    setProjects((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
     return created;
   };
 
@@ -482,6 +539,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         deleteWorkspace,
         leaveWorkspace,
         createProject,
+        updateProject,
+        deleteProject,
+        duplicateProject,
+        archiveProject,
+        unarchiveProject,
+        generateAiPlan,
+        modifyAiPlan,
+        approveAiPlan,
         inviteMember,
         updateMemberRole,
         removeMember,

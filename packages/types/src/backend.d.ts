@@ -1,3 +1,6 @@
+<<<<<<< HEAD
+export type UserRole = 'OWNER' | 'ADMIN' | 'DEVELOPER' | 'EDITOR' | 'VIEWER' | 'MEMBER';
+=======
 export type AuthProvider = 'CREDENTIALS' | 'GOOGLE' | 'GITHUB';
 export type UserRole = 'OWNER' | 'ADMIN' | 'DEVELOPER' | 'EDITOR' | 'VIEWER' | 'MEMBER';
 export interface SocialAccountDto {
@@ -19,14 +22,18 @@ export interface SocialAccountDto {
     createdAt: string | Date;
     updatedAt: string | Date;
 }
+>>>>>>> 05b06acd7cf015c476a9692f50eb828aafa77aa0
 export interface UserDto {
     id: string;
     email: string;
     name: string;
     avatarUrl?: string;
     role: UserRole;
+<<<<<<< HEAD
+=======
     primaryProvider?: AuthProvider;
     socialAccounts?: SocialAccountDto[];
+>>>>>>> 05b06acd7cf015c476a9692f50eb828aafa77aa0
     isEmailVerified: boolean;
     isActive: boolean;
     createdAt: string | Date;
@@ -69,7 +76,15 @@ export interface ProjectDto {
     framework: string;
     uiLibrary: string;
     isBackendEnabled: boolean;
+    isArchived?: boolean;
+    status?: string;
     projectSchema: Record<string, any>;
+<<<<<<< HEAD
+    aiPlan?: any;
+    createdAt: string | Date;
+    updatedAt: string | Date;
+}
+=======
     createdAt: string | Date;
     updatedAt: string | Date;
 }
@@ -114,6 +129,7 @@ export interface InviteMemberDto {
     email: string;
     role: UserRole;
 }
+>>>>>>> 05b06acd7cf015c476a9692f50eb828aafa77aa0
 export interface AuthResponseDto {
     user: UserDto;
     accessToken: string;

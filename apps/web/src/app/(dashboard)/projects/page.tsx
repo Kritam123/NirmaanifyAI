@@ -1,75 +1,121 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PageHeader, Button, EmptyState } from '@nirmaanify/ui';
+import { PageHeader, Button, EmptyState, Card } from '@nirmaanify/ui';
 import { Plus, Boxes } from 'lucide-react';
+import {
+  ProjectCard,
+  ProjectFilters,
+  CreateProjectDialog,
+  EditProjectDialog,
+  ProjectSettingsDialog,
+  DeleteProjectDialog,
+} from '../../../components/projects';
 import { useProjects } from '../../../hooks/use-projects';
-import { ProjectCard } from '../../../components/projects/ProjectCard';
-import { ProjectFilters } from '../../../components/projects/ProjectFilters';
-import { CreateProjectDialog } from '../../../components/projects/CreateProjectDialog';
+import { useProjectActions } from '../../../hooks/use-project-actions';
+import { ROUTES } from '../../../lib/routes';
 
 export default function ProjectsPage() {
+  const [createOpen, setCreateOpen] = useState(false);
+
   const {
     projects,
+    allProjects,
     filterType,
     setFilterType,
+    archiveFilter,
+    setArchiveFilter,
     searchQuery,
     setSearchQuery,
+    isLoading,
   } = useProjects();
 
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const actions = useProjectActions();
+
+  const activeCount = allProjects.filter((p) => !p.isArchived).length;
+  const archivedCount = allProjects.filter((p) => p.isArchived).length;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Projects & Microservices"
+        title="Projects & microservices"
         description="Scaffold, develop, and deploy full-stack applications in your active workspace."
         actions={
           <Button
             variant="default"
             size="sm"
-            onClick={() => setCreateModalOpen(true)}
+            onClick={() => setCreateOpen(true)}
             leftIcon={<Plus className="h-4 w-4" />}
           >
-            Create Project
+            Create project
           </Button>
         }
       />
 
-      {/* Filters Bar */}
-      <ProjectFilters
-        filterType={filterType}
-        onFilterChange={setFilterType}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
+      <Card className="p-4">
+        <ProjectFilters
+          filterType={filterType}
+          onFilterChange={setFilterType}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          archiveFilter={archiveFilter}
+          onArchiveFilterChange={setArchiveFilter}
+          activeCount={activeCount}
+          archivedCount={archivedCount}
+        />
+      </Card>
 
-      {/* Projects Grid */}
       {projects.length === 0 ? (
         <EmptyState
           icon={<Boxes className="h-8 w-8 text-[#635BFF]" />}
           title="No matching projects found"
           description={
-            searchQuery || filterType !== 'ALL'
-              ? 'Try changing your search query or filter selection.'
+            searchQuery || filterType !== 'ALL' || archiveFilter !== 'all'
+              ? 'Try changing your search, type filter, or status filter.'
               : 'You have not created any projects in this workspace yet.'
           }
-          actionLabel="Create Project"
+          actionLabel="Create project"
           actionIcon={<Plus className="h-3.5 w-3.5" />}
-          onAction={() => setCreateModalOpen(true)}
+          onAction={() => setCreateOpen(true)}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((proj) => (
-            <ProjectCard key={proj.id} project={proj} />
+            <ProjectCard
+              key={proj.id}
+              project={proj}
+              onEdit={actions.openEdit}
+              onSettings={actions.openSettings}
+              onDelete={actions.openDelete}
+              onOpen={(p) => actions.router.push(ROUTES.DASHBOARD.PROJECT_DETAIL(p.id))}
+            />
           ))}
         </div>
       )}
 
-      {/* Create Project Modal */}
-      <CreateProjectDialog
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+      <CreateProjectDialog isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+
+      <EditProjectDialog
+        project={actions.state.editing}
+        isOpen={!!actions.state.editing}
+        onClose={actions.closeEdit}
+      />
+
+      <ProjectSettingsDialog
+        project={actions.state.settings}
+        isOpen={!!actions.state.settings}
+        onClose={actions.closeSettings}
+        onEdit={() => {
+          const target = actions.state.settings;
+          actions.closeSettings();
+          if (target) actions.openEdit(target);
+        }}
+      />
+
+      <DeleteProjectDialog
+        project={actions.state.deleting}
+        isOpen={!!actions.state.deleting}
+        onClose={actions.closeDelete}
       />
     </div>
   );

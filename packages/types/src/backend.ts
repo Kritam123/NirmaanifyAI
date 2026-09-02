@@ -86,7 +86,10 @@ export interface ProjectDto {
   framework: string;
   uiLibrary: string;
   isBackendEnabled: boolean;
+  isArchived?: boolean;
+  status?: string;
   projectSchema: Record<string, any>;
+  aiPlan?: any;
   createdAt: string | Date;
   updatedAt: string | Date;
 }

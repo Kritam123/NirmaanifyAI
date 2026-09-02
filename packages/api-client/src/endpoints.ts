@@ -34,7 +34,16 @@ export const API_ENDPOINTS = {
     BASE: `${API_PREFIX}/projects`,
     LIST: (workspaceId?: string) =>
       workspaceId ? `${API_PREFIX}/projects?workspaceId=${encodeURIComponent(workspaceId)}` : `${API_PREFIX}/projects`,
+    GET: (id: string) => `${API_PREFIX}/projects/${id}`,
     CREATE: `${API_PREFIX}/projects`,
+    UPDATE: (id: string) => `${API_PREFIX}/projects/${id}`,
+    DELETE: (id: string) => `${API_PREFIX}/projects/${id}`,
+    DUPLICATE: (id: string) => `${API_PREFIX}/projects/${id}/duplicate`,
+    ARCHIVE: (id: string) => `${API_PREFIX}/projects/${id}/archive`,
+    UNARCHIVE: (id: string) => `${API_PREFIX}/projects/${id}/unarchive`,
+    GENERATE_PLAN: `${API_PREFIX}/projects/ai/plan`,
+    MODIFY_PLAN: (planId: string) => `${API_PREFIX}/projects/ai/plan/${planId}`,
+    APPROVE_PLAN: `${API_PREFIX}/projects/ai/approve`,
   },
   STORAGE: {
     BASE: `${API_PREFIX}/storage`,
