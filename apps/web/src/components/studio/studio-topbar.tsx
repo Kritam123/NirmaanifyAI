@@ -16,10 +16,6 @@ import {
   X,
   Plus,
   ZoomIn,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
 } from 'lucide-react';
 import { Button } from '@nirmaanify/ui';
 
@@ -38,10 +34,10 @@ interface StudioTopbarProps {
   lastSavedLabel: string;
   autoSaveEnabled: boolean;
   autoSaveIntervalLabel: string;
-  leftCollapsed: boolean;
-  rightCollapsed: boolean;
-  onToggleLeft: () => void;
-  onToggleRight: () => void;
+  leftCollapsed?: boolean;
+  rightCollapsed?: boolean;
+  onToggleLeft?: () => void;
+  onToggleRight?: () => void;
   onSelectPage: (pageId: string) => void;
   onAddPage: () => void;
   onChangeViewport: (viewport: 'desktop' | 'tablet' | 'mobile') => void;
@@ -70,10 +66,6 @@ export function StudioTopbar({
   lastSavedLabel,
   autoSaveEnabled,
   autoSaveIntervalLabel,
-  leftCollapsed,
-  rightCollapsed,
-  onToggleLeft,
-  onToggleRight,
   onSelectPage,
   onAddPage,
   onChangeViewport,
@@ -99,20 +91,6 @@ export function StudioTopbar({
           <X className="h-3.5 w-3.5" />
         </button>
 
-        {mode === 'builder' && (
-          <button
-            onClick={onToggleLeft}
-            title={`${leftCollapsed ? 'Expand' : 'Collapse'} components panel (Ctrl+[)`}
-            aria-label={leftCollapsed ? 'Expand components panel' : 'Collapse components panel'}
-            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 transition-all"
-          >
-            {leftCollapsed ? (
-              <PanelLeftOpen className="h-3.5 w-3.5" />
-            ) : (
-              <PanelLeftClose className="h-3.5 w-3.5" />
-            )}
-          </button>
-        )}
 
         {/* Project mark + name (single line, no slug subtitle) */}
         <div className="flex items-center gap-1.5 pl-0.5 pr-1">
@@ -318,21 +296,6 @@ export function StudioTopbar({
           </div>
         )}
 
-        {/* Right sidebar toggle */}
-        {mode === 'builder' && (
-          <button
-            onClick={onToggleRight}
-            title={`${rightCollapsed ? 'Expand' : 'Collapse'} inspector (Ctrl+])`}
-            aria-label={rightCollapsed ? 'Expand inspector' : 'Collapse inspector'}
-            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 transition-all"
-          >
-            {rightCollapsed ? (
-              <PanelRightOpen className="h-3.5 w-3.5" />
-            ) : (
-              <PanelRightClose className="h-3.5 w-3.5" />
-            )}
-          </button>
-        )}
       </div>
     </header>
   );

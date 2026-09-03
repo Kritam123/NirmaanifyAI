@@ -20,3 +20,69 @@ body {
   color: var(--foreground);
   font-family: var(--font-poppins), 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* ==========================================================================
+   Project Theme Custom Scrollbar (Small Width)
+   Theme Palette: #635BFF (Indigo), #8B5CF6 (Violet), #22D3EE (Cyan)
+   ========================================================================== */
+
+/* Standard Firefox / Modern CSS */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #635BFF transparent;
+}
+
+.dark * {
+  scrollbar-color: #8B5CF6 transparent;
+}
+
+/* WebKit / Chromium / Safari / Edge */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(99, 91, 255, 0.04);
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #635BFF 0%, #8B5CF6 100%);
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #4D3FF5 0%, #7C3AED 100%);
+  box-shadow: 0 0 8px rgba(99, 91, 255, 0.5);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Dark Mode WebKit adjustments */
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #7C6EF6 0%, #9F75FF 100%);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #8B5CF6 0%, #A78BFA 100%);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+}
+
+/* Utility to completely hide scrollbar while retaining scrollability */
+@layer utilities {
+  .scrollbar-none {
+    -ms-overflow-style: none; /* IE & Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* WebKit */
+  }
+}

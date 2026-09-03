@@ -26,7 +26,7 @@ import { PropertyInspector } from './property-inspector';
 import { VisualCanvas } from './visual-canvas';
 import { Button, Dialog, Input, useToast } from '@nirmaanify/ui';
 import { useAuth } from '../../context/auth-context';
-import { Copy, Check, FileCode, Code2, Save, Sparkles, Layers } from 'lucide-react';
+import { Copy, Check, FileCode, Code2, Save, Sparkles, Layers, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 interface VisualStudioModalProps {
   project: ProjectDto | null;
@@ -748,9 +748,20 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           <div className="flex">
             {/* Narrow Icon Switcher (always visible in builder mode) */}
             <div className="w-11 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col items-center py-2.5 gap-1 shrink-0 select-none">
-              <div className="h-7 w-7 rounded-md bg-gradient-to-br from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] flex items-center justify-center mb-1 shadow-sm shadow-[#635BFF]/30">
-                <span className="text-white font-bold text-[10px]">N</span>
-              </div>
+              {/* Collapse / Expand Toggle Button at Top */}
+              <button
+                onClick={() => setLeftCollapsed((v) => !v)}
+                title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
+                aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] border border-slate-200 dark:border-[#24293D] transition-all mb-1 shadow-xs"
+              >
+                {leftCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" />
+                )}
+              </button>
+
               <button
                 onClick={() => {
                   if (leftCollapsed) setLeftCollapsed(false);
@@ -784,17 +795,15 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
               <div className="flex-1" />
               <button
                 onClick={() => setLeftCollapsed((v) => !v)}
-                title={leftCollapsed ? 'Expand left panel (Ctrl+[)' : 'Collapse left panel (Ctrl+[)'}
-                aria-label={leftCollapsed ? 'Expand left panel' : 'Collapse left panel'}
+                title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
+                aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] transition-colors"
               >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                  {leftCollapsed ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 5l-7 7 7 7" />
-                  )}
-                </svg>
+                {leftCollapsed ? (
+                  <PanelLeftOpen className="h-3.5 w-3.5" />
+                ) : (
+                  <PanelLeftClose className="h-3.5 w-3.5" />
+                )}
               </button>
             </div>
 

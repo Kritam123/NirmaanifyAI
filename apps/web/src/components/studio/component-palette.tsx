@@ -24,6 +24,7 @@ import { Badge } from '@nirmaanify/ui';
 
 interface ComponentPaletteProps {
   onAddComponent: (type: string) => void;
+  onCollapse?: () => void;
 }
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {

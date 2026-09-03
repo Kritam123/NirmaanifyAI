@@ -25,6 +25,7 @@ interface LayersPanelProps {
   onDuplicateNode: (id: string) => void;
   onToggleLockNode: (id: string) => void;
   onToggleHideNode: (id: string) => void;
+  onCollapse?: () => void;
 }
 
 export function LayersPanel({
