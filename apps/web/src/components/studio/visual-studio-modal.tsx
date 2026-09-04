@@ -1046,6 +1046,8 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
               onUpdateProps={handleUpdateProps}
               onUpdateStyle={handleUpdateStyle}
               onUpdateName={handleUpdateName}
+              viewport={viewport}
+              onChangeViewport={setViewport}
               onCollapse={() => setRightCollapsed(true)}
             />
           </div>

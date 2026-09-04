@@ -1,11 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, EyeOff } from 'lucide-react';
 import { ComponentNode } from '@nirmaanify/types';
 import { resolveComponent } from './component-resolver';
 import { ComponentErrorBoundary } from './error-boundary';
 import { MissingComponentFallback } from './missing-component-fallback';
+import { useViewport } from './viewport-context';
 
 export interface DynamicRendererProps {
   node: ComponentNode;
@@ -37,8 +38,14 @@ export function DynamicRenderer({
   onReparentNode,
 }: DynamicRendererProps): React.ReactElement | null {
   const [dropPos, setDropPos] = React.useState<'before' | 'after' | 'inside' | null>(null);
+  const { viewport } = useViewport();
 
-  if (node.isHidden) {
+  const isHiddenOnCurrentDevice =
+    (viewport === 'mobile' && Boolean(node.style?.hideOnMobile)) ||
+    (viewport === 'tablet' && Boolean(node.style?.hideOnTablet)) ||
+    (viewport === 'desktop' && Boolean(node.style?.hideOnDesktop));
+
+  if (node.isHidden || (isHiddenOnCurrentDevice && mode !== 'builder')) {
     return null;
   }
 
@@ -189,6 +196,8 @@ export function DynamicRenderer({
       className={`relative group/node transition-all min-w-0 max-w-full ${
         canDrag ? 'cursor-pointer' : ''
       } ${
+        isHiddenOnCurrentDevice ? 'opacity-40 grayscale-[40%] border-2 border-dashed border-amber-400/60 rounded-lg' : ''
+      } ${
         isSelected
           ? 'ring-2 ring-[#635BFF] ring-offset-2 dark:ring-offset-[#0E121E] z-20'
           : isHovered
@@ -196,6 +205,14 @@ export function DynamicRenderer({
           : ''
       }`}
     >
+      {/* Hidden on current device badge */}
+      {isHiddenOnCurrentDevice && (
+        <div className="absolute top-2 left-2 z-40 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[9.5px] font-semibold flex items-center gap-1 shadow-md pointer-events-none capitalize">
+          <EyeOff className="w-2.5 h-2.5" />
+          <span>Hidden on {viewport}</span>
+        </div>
+      )}
+
       {/* Locked badge */}
       {node.isLocked && isSelected && (
         <div className="absolute top-2 right-2 z-40 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center gap-1 shadow-md pointer-events-none">

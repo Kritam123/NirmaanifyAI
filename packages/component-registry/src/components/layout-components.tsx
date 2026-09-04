@@ -2,6 +2,8 @@ import React from 'react';
 import { z } from 'zod';
 import { ComponentDefinition } from '../types';
 import { Button } from '@nirmaanify/ui';
+import { Menu, X } from 'lucide-react';
+import { useViewport } from '../renderer/viewport-context';
 
 // ==========================================
 // 1. CONTAINER
@@ -68,14 +70,20 @@ export const ContainerDefinition: ComponentDefinition<{
     },
   ],
   component: ({ maxWidth, padding, direction, gap, children, style }) => {
+    const { isMobile } = useViewport();
+    const shouldStack = isMobile && direction === 'row' && style?.stackOnMobile !== false;
+    const effectiveDirection = shouldStack ? 'column' : direction;
+    const effectivePadding = isMobile && style?.mobilePadding ? style.mobilePadding : padding;
+    const effectiveGap = isMobile && style?.mobileGap ? style.mobileGap : gap;
+
     return (
       <div
         style={{
           maxWidth,
-          padding,
+          padding: effectivePadding,
           display: 'flex',
-          flexDirection: direction,
-          gap,
+          flexDirection: effectiveDirection,
+          gap: effectiveGap,
           width: '100%',
           margin: '0 auto',
           boxSizing: 'border-box',
@@ -135,12 +143,23 @@ export const GridDefinition: ComponentDefinition<{
     },
   ],
   component: ({ columns, gap, children, style }) => {
+    const { isMobile, isTablet } = useViewport();
+
+    let effectiveCols = columns;
+    if (isMobile) {
+      effectiveCols = style?.mobileColumns !== undefined ? Number(style.mobileColumns) : 1;
+    } else if (isTablet) {
+      effectiveCols = style?.tabletColumns !== undefined ? Number(style.tabletColumns) : Math.min(columns, 2);
+    }
+
+    const effectiveGap = isMobile && style?.mobileGap ? style.mobileGap : gap;
+
     return (
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-          gap,
+          gridTemplateColumns: `repeat(${effectiveCols}, minmax(0, 1fr))`,
+          gap: effectiveGap,
           width: '100%',
           minWidth: 0,
           boxSizing: 'border-box',
@@ -150,7 +169,7 @@ export const GridDefinition: ComponentDefinition<{
       >
         {children || (
           <div className="col-span-full p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-center text-xs text-slate-400">
-            Empty Grid ({columns} Columns) — Add child components
+            Empty Grid ({effectiveCols} Column{effectiveCols > 1 ? 's' : ''}) — Add child components
           </div>
         )}
       </div>
@@ -209,18 +228,31 @@ export const SectionDefinition: ComponentDefinition<{
     },
   ],
   component: ({ backgroundColor, paddingY, paddingX, children, style }) => {
+    const { isMobile, isTablet } = useViewport();
+    let effectivePy = paddingY;
+    let effectivePx = paddingX;
+    if (isMobile) {
+      effectivePy = style?.mobilePaddingY || '32px';
+      effectivePx = style?.mobilePaddingX || '16px';
+    } else if (isTablet) {
+      effectivePy = '48px';
+      effectivePx = '20px';
+    }
+
     return (
       <section
         style={{
           backgroundColor,
-          paddingTop: paddingY,
-          paddingBottom: paddingY,
-          paddingLeft: paddingX,
-          paddingRight: paddingX,
+          paddingTop: effectivePy,
+          paddingBottom: effectivePy,
+          paddingLeft: effectivePx,
+          paddingRight: effectivePx,
           width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
           ...style,
         }}
-        className="w-full transition-all"
+        className="w-full transition-all min-w-0 max-w-full"
       >
         {children}
       </section>
@@ -263,33 +295,80 @@ export const NavbarDefinition: ComponentDefinition<{
   ],
   component: ({ brandName, links, ctaText, isSticky, style }) => {
     const navItems = (links || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const { isMobile, isTablet } = useViewport();
+    const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
     return (
       <header
         style={style}
-        className={`w-full py-4 px-6 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-[#0E121E]/90 backdrop-blur-md flex items-center justify-between transition-all ${
+        className={`w-full py-3.5 px-6 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-[#0E121E]/95 backdrop-blur-md flex flex-col transition-all ${
           isSticky ? 'sticky top-0 z-40' : ''
         }`}
       >
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-[#635BFF] to-[#22D3EE] flex items-center justify-center text-white font-black text-sm">
-            {brandName.charAt(0)}
+        <div className="w-full flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-[#635BFF] to-[#22D3EE] flex items-center justify-center text-white font-black text-sm shadow-sm shadow-[#635BFF]/30">
+              {brandName.charAt(0)}
+            </div>
+            <span className="font-bold text-sm tracking-tight text-slate-900 dark:text-white">{brandName}</span>
           </div>
-          <span className="font-bold text-sm tracking-tight">{brandName}</span>
+
+          {/* Desktop Navigation Links & CTA */}
+          {!isMobile && !isTablet && (
+            <>
+              <nav className="flex items-center gap-6 text-xs font-medium text-slate-600 dark:text-slate-300">
+                {navItems.map((item) => (
+                  <span key={item} className="hover:text-[#635BFF] cursor-pointer transition-colors">
+                    {item}
+                  </span>
+                ))}
+              </nav>
+
+              <div className="flex items-center gap-3">
+                <Button size="sm" variant="default">
+                  {ctaText}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Mobile / Tablet Hamburger Toggle */}
+          {(isMobile || isTablet) && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMobileMenuOpen((v) => !v);
+              }}
+              title="Toggle mobile navigation menu"
+              aria-label="Toggle mobile navigation menu"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-[#24293D] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#141724] transition-colors cursor-pointer"
+            >
+              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
+          )}
         </div>
 
-        <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-600 dark:text-slate-300">
-          {navItems.map((item) => (
-            <span key={item} className="hover:text-[#635BFF] cursor-pointer transition-colors">
-              {item}
-            </span>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <Button size="sm" variant="default">
-            {ctaText}
-          </Button>
-        </div>
+        {/* Mobile Dropdown Menu Drawer */}
+        {(isMobile || isTablet) && mobileMenuOpen && (
+          <div className="w-full pt-3 pb-2 border-t border-slate-100 dark:border-[#24293D] mt-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+            <nav className="flex flex-col space-y-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
+              {navItems.map((item) => (
+                <span
+                  key={item}
+                  className="px-2 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-[#141724] cursor-pointer transition-colors"
+                >
+                  {item}
+                </span>
+              ))}
+            </nav>
+            <div className="pt-2 border-t border-slate-100 dark:border-[#24293D]/60">
+              <Button size="sm" variant="default" className="w-full">
+                {ctaText}
+              </Button>
+            </div>
+          </div>
+        )}
       </header>
     );
   },

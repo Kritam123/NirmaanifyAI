@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ComponentNode, ComponentNodeStyle } from '@nirmaanify/types';
 import { getComponentDefinition, InspectorControl } from '@nirmaanify/component-registry';
 import * as LucideIcons from 'lucide-react';
@@ -27,6 +27,10 @@ import {
   PanelRightClose,
   Lock,
   Maximize2,
+  Monitor,
+  Tablet,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Badge, Button, useToast } from '@nirmaanify/ui';
 
@@ -36,6 +40,8 @@ interface PropertyInspectorProps {
   onUpdateStyle: (nodeId: string, style: ComponentNodeStyle) => void;
   onUpdateName: (nodeId: string, name: string) => void;
   onCollapse?: () => void;
+  viewport?: 'desktop' | 'tablet' | 'mobile';
+  onChangeViewport?: (v: 'desktop' | 'tablet' | 'mobile') => void;
 }
 
 export function PropertyInspector({
@@ -44,14 +50,64 @@ export function PropertyInspector({
   onUpdateStyle,
   onUpdateName,
   onCollapse,
+  viewport = 'desktop',
+  onChangeViewport,
 }: PropertyInspectorProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'layout' | 'responsive' | 'interactions' | 'schema'>('content');
   const [copiedSchema, setCopiedSchema] = useState(false);
 
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkTabsScroll = useCallback(() => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+  }, []);
+
+  useEffect(() => {
+    checkTabsScroll();
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', checkTabsScroll, { passive: true });
+    window.addEventListener('resize', checkTabsScroll);
+    return () => {
+      el.removeEventListener('scroll', checkTabsScroll);
+      window.removeEventListener('resize', checkTabsScroll);
+    };
+  }, [checkTabsScroll]);
+
+  // When activeTab changes, auto-scroll that tab into view
+  useEffect(() => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    const tabEl = el.querySelector(`[data-tab="${activeTab}"]`) as HTMLElement | null;
+    if (tabEl) {
+      tabEl.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    }
+    checkTabsScroll();
+  }, [activeTab, checkTabsScroll]);
+
+  const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY !== 0 && tabsContainerRef.current) {
+      e.currentTarget.scrollLeft += e.deltaY;
+      checkTabsScroll();
+    }
+  };
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction === 'left' ? -90 : 90, behavior: 'smooth' });
+    setTimeout(checkTabsScroll, 200);
+  };
+
   if (!selectedNode) {
     return (
-      <div className="flex flex-col h-full bg-white dark:bg-[#0F111A] border-l border-slate-200 dark:border-[#24293D] w-[320px] shrink-0 select-none">
+      <div className="flex flex-col h-full bg-white dark:bg-[#0F111A] border-l border-slate-200 dark:border-[#24293D] w-[330px] shrink-0 select-none">
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200 dark:border-[#24293D]">
           <div className="flex items-center gap-1.5">
             <Sliders className="h-3.5 w-3.5 text-slate-400" />
@@ -110,7 +166,7 @@ export function PropertyInspector({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#0F111A] border-l border-slate-200 dark:border-[#24293D] w-[320px] shrink-0 select-none overflow-hidden">
+    <div className="flex flex-col h-full bg-white dark:bg-[#0F111A] border-l border-slate-200 dark:border-[#24293D] w-[330px] shrink-0 select-none overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-slate-200 dark:border-[#24293D] space-y-2 bg-white dark:bg-[#0F111A]">
         <div className="flex items-center justify-between">
@@ -139,29 +195,62 @@ export function PropertyInspector({
           </div>
         </div>
 
-        {/* 6-Tab Navigation - proper scrollable row */}
-        <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
-          <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-[#141724] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D] min-w-max">
-            {[
-              { id: 'content' as const, label: 'Content' },
-              { id: 'style' as const, label: 'Style' },
-              { id: 'layout' as const, label: 'Layout' },
-              { id: 'responsive' as const, label: 'Responsive' },
-              { id: 'interactions' as const, label: 'Action' },
-              { id: 'schema' as const, label: 'JSON' },
-            ].map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                className={`h-6 px-2 text-center font-semibold rounded transition-all duration-150 text-[10.5px] whitespace-nowrap ${
-                  activeTab === t.id
-                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+        {/* 6-Tab Navigation - sleek scrollable row with directional arrows only */}
+        <div className="relative group/tabs">
+          {/* Left scroll chevron button */}
+          {canScrollLeft && (
+            <button
+              type="button"
+              onClick={() => scrollTabs('left')}
+              title="Scroll left"
+              aria-label="Scroll tabs left"
+              className="absolute left-0 top-0 bottom-0 z-10 w-6 flex items-center justify-center rounded-l-lg bg-gradient-to-r from-white via-white/95 to-transparent dark:from-[#0F111A] dark:via-[#0F111A]/95 dark:to-transparent text-slate-500 hover:text-[#635BFF] transition-all cursor-pointer"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" />
+            </button>
+          )}
+
+          {/* Right scroll chevron button */}
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={() => scrollTabs('right')}
+              title="Scroll right"
+              aria-label="Scroll tabs right"
+              className="absolute right-0 top-0 bottom-0 z-10 w-6 flex items-center justify-center rounded-r-lg bg-gradient-to-l from-white via-white/95 to-transparent dark:from-[#0F111A] dark:via-[#0F111A]/95 dark:to-transparent text-slate-500 hover:text-[#635BFF] transition-all cursor-pointer"
+            >
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            </button>
+          )}
+
+          <div
+            ref={tabsContainerRef}
+            onWheel={handleTabsWheel}
+            className="overflow-x-auto scrollbar-none scroll-smooth"
+          >
+            <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-[#141724] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D] min-w-max">
+              {[
+                { id: 'content' as const, label: 'Content' },
+                { id: 'style' as const, label: 'Style' },
+                { id: 'layout' as const, label: 'Layout' },
+                { id: 'responsive' as const, label: 'Responsive' },
+                { id: 'interactions' as const, label: 'Action' },
+                { id: 'schema' as const, label: 'JSON' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  data-tab={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`h-6 px-2 text-center font-semibold rounded transition-all duration-150 text-[10.5px] whitespace-nowrap shrink-0 cursor-pointer ${
+                    activeTab === t.id
+                      ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -560,40 +649,388 @@ export function PropertyInspector({
               </div>
             </Field>
 
-            <Field label="Max Width">
-              <input
-                type="text"
-                placeholder="1200px or 100%"
-                value={selectedNode.style?.maxWidth || ''}
-                onChange={(e) => handleStyleChange('maxWidth', e.target.value)}
-                className="w-full px-2 py-1.5 rounded-md text-[11.5px] font-mono bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
-              />
+            {/* Width Sizing */}
+            <Field label="Width Dimensions">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] space-y-2.5">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Width</label>
+                    <div className="flex items-center gap-1">
+                      {['auto', '100%'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => handleStyleChange('width', preset)}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono border transition-all cursor-pointer ${
+                            selectedNode.style?.width === preset
+                              ? 'border-[#635BFF] bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD]'
+                              : 'bg-white dark:bg-[#0F111A] border-slate-200 dark:border-[#24293D] text-slate-500 hover:text-[#635BFF]'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. 100%, 640px, auto"
+                    value={selectedNode.style?.width || ''}
+                    onChange={(e) => handleStyleChange('width', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] font-mono bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-1">Min Width</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 0, 320px"
+                      value={selectedNode.style?.minWidth || ''}
+                      onChange={(e) => handleStyleChange('minWidth', e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg text-[11px] font-mono bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-1">Max Width</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1200px, 100%"
+                      value={selectedNode.style?.maxWidth ?? selectedNode.props?.maxWidth ?? ''}
+                      onChange={(e) => {
+                        handleStyleChange('maxWidth', e.target.value);
+                        if (selectedNode.props?.maxWidth !== undefined) {
+                          handlePropChange('maxWidth', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg text-[11px] font-mono bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </Field>
+
+            {/* Height Sizing */}
+            <Field label="Height Dimensions">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] space-y-2.5">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Height</label>
+                    <div className="flex items-center gap-1">
+                      {['auto', '100%', '100vh'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => handleStyleChange('height', preset)}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono border transition-all cursor-pointer ${
+                            selectedNode.style?.height === preset
+                              ? 'border-[#635BFF] bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD]'
+                              : 'bg-white dark:bg-[#0F111A] border-slate-200 dark:border-[#24293D] text-slate-500 hover:text-[#635BFF]'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. auto, 400px, 100%"
+                    value={selectedNode.style?.height || ''}
+                    onChange={(e) => handleStyleChange('height', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] font-mono bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-1">Min Height</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 200px, 100vh"
+                      value={selectedNode.style?.minHeight || ''}
+                      onChange={(e) => handleStyleChange('minHeight', e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg text-[11px] font-mono bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-1">Max Height</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 600px, 100vh"
+                      value={selectedNode.style?.maxHeight || ''}
+                      onChange={(e) => handleStyleChange('maxHeight', e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg text-[11px] font-mono bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </Field>
+
+            {/* Overflow Handling */}
+            <Field label="Overflow Handling">
+              <div className="grid grid-cols-4 gap-1 bg-white dark:bg-[#141724] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D]">
+                {[
+                  { label: 'Visible', val: 'visible' },
+                  { label: 'Hidden', val: 'hidden' },
+                  { label: 'Auto', val: 'auto' },
+                  { label: 'Scroll', val: 'scroll' },
+                ].map((item) => {
+                  const isActive = (selectedNode.style?.overflow || 'visible') === item.val;
+                  return (
+                    <button
+                      key={item.val}
+                      type="button"
+                      onClick={() => handleStyleChange('overflow', item.val)}
+                      className={`h-6 text-[10px] font-semibold rounded transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
             </Field>
           </div>
         )}
 
         {/* 4. RESPONSIVE TAB */}
         {activeTab === 'responsive' && (
-          <div className="space-y-3.5">
-            <div className="p-2.5 rounded-md bg-gradient-to-br from-[#635BFF]/8 to-[#8B5CF6]/8 border border-[#635BFF]/20 space-y-1">
-              <span className="font-semibold text-[11.5px] text-slate-800 dark:text-slate-200">
-                Device Breakpoint Rules
-              </span>
-              <p className="text-[10.5px] text-slate-500 leading-relaxed">
-                Configure adaptive styling and visibility across screen sizes.
-              </p>
+          <div className="space-y-4">
+            {/* Active Preview Viewport Switcher */}
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Preview Device</span>
+                <span className="font-mono text-[10px] text-[#635BFF] dark:text-[#A5AEFD] capitalize font-bold">
+                  {viewport || 'desktop'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1 bg-white dark:bg-[#0F111A] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D]">
+                {[
+                  { id: 'desktop' as const, label: 'Desktop', icon: <Monitor className="h-3 w-3" /> },
+                  { id: 'tablet' as const, label: 'Tablet', icon: <Tablet className="h-3 w-3" /> },
+                  { id: 'mobile' as const, label: 'Mobile', icon: <Smartphone className="h-3 w-3" /> },
+                ].map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => onChangeViewport?.(d.id)}
+                    className={`h-6.5 flex items-center justify-center gap-1 text-[10.5px] font-semibold rounded-md transition-all cursor-pointer ${
+                      (viewport || 'desktop') === d.id
+                        ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    {d.icon}
+                    <span>{d.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <Field label="Mobile Visibility (under 768px)">
-              <select
-                value={selectedNode.style?.mobileDisplay || 'block'}
-                onChange={(e) => handleStyleChange('mobileDisplay', e.target.value)}
-                className="w-full px-2 py-1.5 rounded-md text-[11.5px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
-              >
-                <option value="block">Visible on Mobile</option>
-                <option value="none">Hidden on Mobile Screens</option>
-              </select>
+            {/* Device Visibility Matrix */}
+            <Field label="Device Visibility">
+              <div className="space-y-1.5 pt-0.5">
+                {[
+                  { key: 'hideOnDesktop', label: 'Desktop (≥1024px)', icon: <Monitor className="h-3 w-3" /> },
+                  { key: 'hideOnTablet', label: 'Tablet (768px-1023px)', icon: <Tablet className="h-3 w-3" /> },
+                  { key: 'hideOnMobile', label: 'Mobile (<768px)', icon: <Smartphone className="h-3 w-3" /> },
+                ].map((dev) => {
+                  const isHidden = Boolean(selectedNode.style?.[dev.key]);
+                  return (
+                    <div
+                      key={dev.key}
+                      className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D]"
+                    >
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                        <span className="text-slate-400">{dev.icon}</span>
+                        <span>{dev.label}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleStyleChange(dev.key, !isHidden)}
+                        className={`h-5 px-2 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                          isHidden
+                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                            : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        }`}
+                      >
+                        {isHidden ? 'Hidden' : 'Visible'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </Field>
+
+            {/* Layout Specific: Container Stacking & Spacing */}
+            {selectedNode.type === 'container' && (
+              <>
+                <Field label="Mobile Layout Direction">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { label: 'Stack as Column', sub: 'Recommended for mobile', val: true },
+                      { label: 'Keep as Row', sub: 'Preserve horizontal row', val: false },
+                    ].map((opt) => {
+                      const isActive = selectedNode.style?.stackOnMobile !== false ? opt.val === true : opt.val === false;
+                      return (
+                        <button
+                          key={String(opt.val)}
+                          type="button"
+                          onClick={() => handleStyleChange('stackOnMobile', opt.val)}
+                          className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
+                            isActive
+                              ? 'border-[#635BFF] bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD]'
+                              : 'border-slate-200 dark:border-[#24293D] text-slate-500 hover:border-[#635BFF]/40'
+                          }`}
+                        >
+                          <div className="text-[11px] font-bold">{opt.label}</div>
+                          <div className="text-[9px] opacity-70 mt-0.5">{opt.sub}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+
+                <Field label="Mobile Padding">
+                  <select
+                    value={selectedNode.style?.mobilePadding || ''}
+                    onChange={(e) => handleStyleChange('mobilePadding', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 transition-all cursor-pointer"
+                  >
+                    <option value="">Inherit Desktop Padding</option>
+                    <option value="12px">Compact (12px)</option>
+                    <option value="16px">Standard Mobile (16px)</option>
+                    <option value="20px">Comfortable (20px)</option>
+                  </select>
+                </Field>
+              </>
+            )}
+
+            {/* Layout Specific: Grid Responsive Columns */}
+            {selectedNode.type === 'grid' && (
+              <>
+                <Field label="Mobile Columns (<768px)">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[1, 2].map((cols) => {
+                      const isActive = (selectedNode.style?.mobileColumns ?? 1) === cols;
+                      return (
+                        <button
+                          key={cols}
+                          type="button"
+                          onClick={() => handleStyleChange('mobileColumns', cols)}
+                          className={`py-1.5 px-2 rounded-lg text-center text-[11px] font-semibold border transition-all cursor-pointer ${
+                            isActive
+                              ? 'border-[#635BFF] bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD]'
+                              : 'border-slate-200 dark:border-[#24293D] text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          {cols} Column{cols > 1 ? 's' : ''} {cols === 1 ? '(Default)' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+
+                <Field label="Tablet Columns (768px-1023px)">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[1, 2, 3].map((cols) => {
+                      const currentTabletCols = selectedNode.style?.tabletColumns ?? Math.min(selectedNode.props?.columns || 3, 2);
+                      const isActive = currentTabletCols === cols;
+                      return (
+                        <button
+                          key={cols}
+                          type="button"
+                          onClick={() => handleStyleChange('tabletColumns', cols)}
+                          className={`py-1.5 px-2 rounded-lg text-center text-[11px] font-semibold border transition-all cursor-pointer ${
+                            isActive
+                              ? 'border-[#635BFF] bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD]'
+                              : 'border-slate-200 dark:border-[#24293D] text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          {cols} Col{cols > 1 ? 's' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+
+                <Field label="Mobile Grid Gap">
+                  <select
+                    value={selectedNode.style?.mobileGap || ''}
+                    onChange={(e) => handleStyleChange('mobileGap', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 transition-all cursor-pointer"
+                  >
+                    <option value="">Inherit Desktop Gap</option>
+                    <option value="12px">Compact (12px)</option>
+                    <option value="16px">Standard (16px)</option>
+                    <option value="20px">Spacious (20px)</option>
+                  </select>
+                </Field>
+              </>
+            )}
+
+            {/* Typography Specific: Mobile Text Alignment */}
+            {['heading', 'text', 'hero'].includes(selectedNode.type) && (
+              <Field label="Mobile Text Alignment">
+                <div className="grid grid-cols-4 gap-1 bg-white dark:bg-[#141724] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D]">
+                  {[
+                    { label: 'Inherit', val: '' },
+                    { label: 'Left', val: 'left' },
+                    { label: 'Center', val: 'center' },
+                    { label: 'Right', val: 'right' },
+                  ].map((btn) => {
+                    const isActive = (selectedNode.style?.mobileAlign || '') === btn.val;
+                    return (
+                      <button
+                        key={btn.val}
+                        type="button"
+                        onClick={() => handleStyleChange('mobileAlign', btn.val || undefined)}
+                        className={`h-6 text-[10.5px] font-semibold rounded transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+            )}
+
+            {/* Element Width Specific: Stretch to 100% on Mobile */}
+            {['button', 'card', 'product-card', 'feature-card', 'pricing-card'].includes(selectedNode.type) && (
+              <Field label="Mobile Full Width">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D]">
+                  <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                    Stretch to 100% width on mobile
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(selectedNode.style?.mobileFullWidth)}
+                    onClick={() => handleStyleChange('mobileFullWidth', !Boolean(selectedNode.style?.mobileFullWidth))}
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors cursor-pointer ${
+                      Boolean(selectedNode.style?.mobileFullWidth)
+                        ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6]'
+                        : 'bg-slate-300 dark:bg-[#3B4366]'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform shadow-sm ${
+                        Boolean(selectedNode.style?.mobileFullWidth) ? 'translate-x-3.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </Field>
+            )}
           </div>
         )}
 

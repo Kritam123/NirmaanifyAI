@@ -11,3 +11,4 @@ export * from './engine/code-generator';
 export * from './engine/plan-adapter';
 export * from './engine/parent-utils';
 export * from './engine/tree-utils';
+export * from './renderer/viewport-context';

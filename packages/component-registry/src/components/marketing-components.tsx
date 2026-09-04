@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ComponentDefinition } from '../types';
 import { Button, Badge, Card } from '@nirmaanify/ui';
 import { Sparkles, Check, Star, ArrowRight } from 'lucide-react';
+import { useViewport } from '../renderer/viewport-context';
 
 // ==========================================
 // 1. HERO BANNER
@@ -60,12 +61,15 @@ export const HeroDefinition: ComponentDefinition<{
     align = 'center',
     style,
   }) => {
+    const { isMobile } = useViewport();
+    const effectiveAlign = isMobile ? 'center' : align;
+
     return (
       <div
         style={style}
-        className={`relative py-16 px-6 max-w-5xl mx-auto flex flex-col ${
-          align === 'center' ? 'items-center text-center' : 'items-start text-left'
-        } space-y-6 transition-all`}
+        className={`relative ${isMobile ? 'py-10 px-4' : 'py-16 px-6'} max-w-5xl mx-auto flex flex-col ${
+          effectiveAlign === 'center' ? 'items-center text-center' : 'items-start text-left'
+        } space-y-6 transition-all min-w-0 max-w-full`}
       >
         {badgeText && (
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#635BFF]/10 border border-[#635BFF]/30 text-xs font-bold text-[#635BFF] dark:text-[#A5AEFD]">
@@ -74,22 +78,22 @@ export const HeroDefinition: ComponentDefinition<{
           </div>
         )}
 
-        <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.1]">
+        <h1 className={`${isMobile ? 'text-3xl' : 'text-4xl sm:text-6xl'} font-black tracking-tight text-slate-900 dark:text-white leading-[1.1] break-words [overflow-wrap:anywhere]`}>
           {title}
         </h1>
 
-        <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+        <p className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'} text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed break-words [overflow-wrap:anywhere]`}>
           {subtitle}
         </p>
 
-        <div className="flex flex-wrap items-center gap-3 pt-2">
+        <div className={`flex ${isMobile ? 'flex-col w-full' : 'flex-wrap'} items-center gap-3 pt-2`}>
           {primaryCtaText && (
-            <Button size="lg" variant="default" rightIcon={<ArrowRight className="h-4 w-4" />}>
+            <Button size="lg" variant="default" className={isMobile ? 'w-full' : ''} rightIcon={<ArrowRight className="h-4 w-4" />}>
               {primaryCtaText}
             </Button>
           )}
           {secondaryCtaText && (
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" className={isMobile ? 'w-full' : ''}>
               {secondaryCtaText}
             </Button>
           )}

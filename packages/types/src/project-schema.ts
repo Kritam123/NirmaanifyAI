@@ -5,6 +5,8 @@ import { ProjectType } from './backend';
 // 1. COMPONENT NODE SCHEMA
 // ==========================================
 
+export type ViewportMode = 'desktop' | 'tablet' | 'mobile';
+
 export interface ComponentNodeStyle {
   padding?: string;
   margin?: string;
@@ -18,9 +20,11 @@ export interface ComponentNodeStyle {
   fontWeight?: string;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   width?: string;
+  minWidth?: string;
   maxWidth?: string;
   height?: string;
   minHeight?: string;
+  maxHeight?: string;
   display?: 'flex' | 'grid' | 'block' | 'inline-block' | 'inline-flex';
   flexDirection?: 'row' | 'column' | 'row-reverse' | 'column-reverse';
   alignItems?: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline';
@@ -30,6 +34,17 @@ export interface ComponentNodeStyle {
   opacity?: number;
   overflow?: 'visible' | 'hidden' | 'scroll' | 'auto';
   customCss?: string;
+  // Multi-device responsive controls
+  hideOnDesktop?: boolean;
+  hideOnTablet?: boolean;
+  hideOnMobile?: boolean;
+  stackOnMobile?: boolean;
+  mobileColumns?: number;
+  tabletColumns?: number;
+  mobileAlign?: 'left' | 'center' | 'right';
+  mobileFullWidth?: boolean;
+  mobilePadding?: string;
+  mobileGap?: string;
   [key: string]: any;
 }
 

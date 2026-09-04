@@ -85,4 +85,23 @@ body {
   .scrollbar-none::-webkit-scrollbar {
     display: none; /* WebKit */
   }
+
+  /* Sleek studio horizontal mini-scrollbar */
+  .scrollbar-thin-studio {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 91, 255, 0.35) transparent;
+  }
+  .scrollbar-thin-studio::-webkit-scrollbar {
+    height: 3px;
+  }
+  .scrollbar-thin-studio::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin-studio::-webkit-scrollbar-thumb {
+    background: rgba(99, 91, 255, 0.3);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin-studio::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 91, 255, 0.7);
+  }
 }

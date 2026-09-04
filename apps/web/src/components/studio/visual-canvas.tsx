@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ComponentNode, PageSchema } from '@nirmaanify/types';
 import {
   DynamicRenderer,
+  ViewportProvider,
   getAllLayoutContainers,
   isDescendant,
   findNode,
@@ -168,10 +169,11 @@ export function VisualCanvas({
   };
 
   return (
-    <div
-      onClick={() => onSelectNode(page.rootNode.id)}
-      className="flex-1 bg-slate-50 dark:bg-[#090A0F] overflow-y-auto overflow-x-auto relative flex flex-col items-center p-5 pb-24 select-none"
-    >
+    <ViewportProvider viewport={viewport}>
+      <div
+        onClick={() => onSelectNode(page.rootNode.id)}
+        className="flex-1 bg-slate-50 dark:bg-[#090A0F] overflow-y-auto overflow-x-auto relative flex flex-col items-center p-5 pb-24 select-none"
+      >
       {/* Subtle radial brand glow behind the canvas */}
       <div
         aria-hidden
@@ -353,6 +355,7 @@ export function VisualCanvas({
 
       {/* Main Canvas Viewport Container with Zoom scaling & Dropzone */}
       <div
+        data-viewport={viewport}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -360,11 +363,11 @@ export function VisualCanvas({
           transform: `scale(${zoom})`,
           transformOrigin: 'top center',
         }}
-        className={`relative transition-all duration-200 min-h-[650px] h-auto shrink-0 bg-white dark:bg-[#0F111A] shadow-2xl shadow-slate-300/40 dark:shadow-[0_30px_60px_-15px_rgba(99,91,255,0.25)] rounded-2xl border ${
+        className={`relative transition-[width,max-width] duration-300 ease-out min-h-[650px] h-auto shrink-0 bg-white dark:bg-[#0F111A] shadow-2xl shadow-slate-300/40 dark:shadow-[0_30px_60px_-15px_rgba(99,91,255,0.25)] rounded-2xl border ${
           isDragOverCanvas
             ? 'border-2 border-[#635BFF] ring-4 ring-[#635BFF]/25'
             : 'border-slate-200/80 dark:border-[#24293D]'
-        } overflow-hidden flex flex-col ${viewportWidthClass}`}
+        } overflow-hidden flex flex-col ${viewportWidthClass} @container`}
       >
         {/* Top gradient accent bar inside the canvas */}
         <div className="h-[2px] w-full bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] shrink-0 rounded-t-2xl" />
@@ -420,6 +423,15 @@ export function VisualCanvas({
           </div>
         )}
       </div>
-    </div>
+
+      {/* Viewport device indicator */}
+      <div className="mt-4 px-3 py-1 rounded-full bg-white/90 dark:bg-[#0F111A]/90 backdrop-blur-md border border-slate-200/80 dark:border-[#24293D] text-[10.5px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shadow-sm">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="capitalize font-bold text-slate-700 dark:text-slate-200">{viewport} Viewport</span>
+        <span className="text-slate-300 dark:text-slate-600">•</span>
+        <span className="font-mono text-[10px]">{viewport === 'desktop' ? '1280px (Desktop)' : viewport === 'tablet' ? '768px (Tablet)' : '375px (Mobile)'}</span>
+      </div>
+      </div>
+    </ViewportProvider>
   );
 }
