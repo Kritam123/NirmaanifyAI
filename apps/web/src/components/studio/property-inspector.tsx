@@ -72,6 +72,22 @@ export function PropertyInspector({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'layout' | 'responsive' | 'interactions' | 'css' | 'schema'>('content');
   const [copiedSchema, setCopiedSchema] = useState(false);
+  const [isConfirmingReset, setIsConfirmingReset] = useState(false);
+  const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setIsConfirmingReset(false);
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
+  }, [selectedNode?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
+  }, []);
 
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -173,23 +189,6 @@ export function PropertyInspector({
       [styleKey]: value,
     });
   };
-
-  const [isConfirmingReset, setIsConfirmingReset] = useState(false);
-  const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    setIsConfirmingReset(false);
-    if (resetTimerRef.current) {
-      clearTimeout(resetTimerRef.current);
-      resetTimerRef.current = null;
-    }
-  }, [selectedNode?.id]);
-
-  useEffect(() => {
-    return () => {
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    };
-  }, []);
 
   const handleResetClick = (options?: { stylesOnly?: boolean; propsOnly?: boolean }) => {
     if (!selectedNode) return;
