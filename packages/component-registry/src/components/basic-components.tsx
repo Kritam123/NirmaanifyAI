@@ -75,7 +75,7 @@ export const HeadingDefinition: ComponentDefinition<{
           gradient
             ? 'bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] bg-clip-text text-transparent'
             : 'text-slate-900 dark:text-white'
-        } transition-all`}
+        } break-words [overflow-wrap:anywhere] transition-all`}
       >
         {text}
       </Tag>
@@ -147,7 +147,7 @@ export const TextDefinition: ComponentDefinition<{
           textAlign: align,
           ...style,
         }}
-        className={`${sizeClass} ${colorClass} transition-all`}
+        className={`${sizeClass} ${colorClass} break-words [overflow-wrap:anywhere] transition-all`}
       >
         {content}
       </p>

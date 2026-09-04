@@ -25,6 +25,8 @@ import {
   Type,
   Square,
   PanelRightClose,
+  Lock,
+  Maximize2,
 } from 'lucide-react';
 import { Badge, Button, useToast } from '@nirmaanify/ui';
 
@@ -49,7 +51,7 @@ export function PropertyInspector({
 
   if (!selectedNode) {
     return (
-      <div className="flex flex-col h-full bg-white dark:bg-[#0F111A] border-l border-slate-200 dark:border-[#24293D] w-[300px] shrink-0 select-none">
+      <div className="flex flex-col h-full bg-white dark:bg-[#0F111A] border-l border-slate-200 dark:border-[#24293D] w-[320px] shrink-0 select-none">
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200 dark:border-[#24293D]">
           <div className="flex items-center gap-1.5">
             <Sliders className="h-3.5 w-3.5 text-slate-400" />
@@ -108,7 +110,7 @@ export function PropertyInspector({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#0F111A] border-l border-slate-200 dark:border-[#24293D] w-[300px] shrink-0 select-none overflow-hidden">
+    <div className="flex flex-col h-full bg-white dark:bg-[#0F111A] border-l border-slate-200 dark:border-[#24293D] w-[320px] shrink-0 select-none overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-slate-200 dark:border-[#24293D] space-y-2 bg-white dark:bg-[#0F111A]">
         <div className="flex items-center justify-between">
@@ -164,8 +166,22 @@ export function PropertyInspector({
         </div>
       </div>
 
+      {/* Locked Notice Banner */}
+      {selectedNode.isLocked && (
+        <div className="mx-3 mt-2.5 px-2.5 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 flex items-center gap-2 text-[11px] shrink-0">
+          <Lock className="h-4 w-4 shrink-0 text-amber-500" />
+          <span className="leading-tight font-medium">
+            This component is locked. Unlock it in the Layers panel to make changes.
+          </span>
+        </div>
+      )}
+
       {/* Tab Contents */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4 text-xs">
+      <div
+        className={`flex-1 overflow-y-auto px-3 py-3 space-y-4 text-xs ${
+          selectedNode.isLocked ? 'pointer-events-none opacity-50' : ''
+        }`}
+      >
         {/* 1. CONTENT TAB */}
         {activeTab === 'content' && (
           <div className="space-y-3.5">
@@ -174,7 +190,8 @@ export function PropertyInspector({
                 type="text"
                 value={selectedNode.name || ''}
                 onChange={(e) => onUpdateName(selectedNode.id, e.target.value)}
-                className="w-full px-2 py-1.5 rounded-md text-[11.5px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+                placeholder="Component label..."
+                className="w-full px-2.5 py-1.5 rounded-lg text-[12px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
               />
             </Field>
 
@@ -204,16 +221,14 @@ export function PropertyInspector({
                         type="text"
                         value={val || ''}
                         onChange={(e) => handlePropChange(ctrl.name, e.target.value)}
-                        className="w-full px-2 py-1.5 rounded-md text-[11.5px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
+                        className="w-full px-2.5 py-1.5 rounded-lg text-[12px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all"
                       />
                     )}
 
                     {ctrl.type === 'textarea' && (
-                      <textarea
-                        rows={3}
+                      <AutoResizeTextarea
                         value={val || ''}
-                        onChange={(e) => handlePropChange(ctrl.name, e.target.value)}
-                        className="w-full p-2 rounded-md text-[11.5px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all resize-none"
+                        onChange={(newVal) => handlePropChange(ctrl.name, newVal)}
                       />
                     )}
 
@@ -643,6 +658,99 @@ function isHexColor(value: any): boolean {
   return typeof value === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
 }
 
+function AutoResizeTextarea({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const [isExpandedModal, setIsExpandedModal] = useState(false);
+
+  React.useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const nextHeight = Math.min(Math.max(el.scrollHeight, 72), 260);
+    el.style.height = `${nextHeight}px`;
+  }, [value]);
+
+  return (
+    <div className="relative group/textarea">
+      <textarea
+        ref={textareaRef}
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        rows={3}
+        className="w-full px-2.5 py-2 text-[12px] leading-relaxed rounded-lg bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all resize-y min-h-[72px] max-h-[300px] overflow-y-auto"
+      />
+      <div className="flex items-center justify-between mt-1 px-0.5 text-[10px] text-slate-400">
+        <span>{value ? value.length : 0} chars</span>
+        <button
+          type="button"
+          onClick={() => setIsExpandedModal(true)}
+          title="Open expanded editor"
+          className="text-[#635BFF] dark:text-[#A5AEFD] hover:underline font-medium flex items-center gap-1 cursor-pointer"
+        >
+          <Maximize2 className="h-2.5 w-2.5" />
+          <span>Expand</span>
+        </button>
+      </div>
+
+      {/* Expanded multi-line editor modal */}
+      {isExpandedModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] rounded-2xl shadow-2xl w-full max-w-lg p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#24293D] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-md bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD] flex items-center justify-center">
+                  <Type className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                  Full Content Editor
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsExpandedModal(false)}
+                className="h-6 w-6 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1C2030] transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <textarea
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              rows={8}
+              placeholder="Type your multi-line description or content here..."
+              className="w-full p-3 text-[13px] leading-relaxed rounded-xl bg-slate-50 dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF] transition-all resize-y min-h-[160px]"
+            />
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] text-slate-400 font-mono">
+                {value ? value.length : 0} characters
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsExpandedModal(false)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white text-xs font-semibold shadow-md shadow-[#635BFF]/25 hover:shadow-lg transition-all cursor-pointer"
+              >
+                Save &amp; Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Field({
   label,
   valueLabel,
@@ -653,13 +761,13 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between px-0.5">
-        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+        <label className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
           {label}
         </label>
         {valueLabel && (
-          <span className="text-[10px] font-mono text-[#635BFF] font-bold tabular-nums">{valueLabel}</span>
+          <span className="text-[10px] font-mono text-[#635BFF] dark:text-[#A5AEFD] font-bold tabular-nums">{valueLabel}</span>
         )}
       </div>
       {children}

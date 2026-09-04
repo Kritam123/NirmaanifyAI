@@ -17,6 +17,10 @@ import {
   ReactCodeGenerator,
   rewireParentPointers,
   normalizeParentPointers,
+  jumpNode,
+  moveNodeToTarget,
+  findNode,
+  findParentNode,
 } from '@nirmaanify/component-registry';
 import { StudioTopbar } from './studio-topbar';
 import { AiCommandBar } from './ai-command-bar';
@@ -340,6 +344,13 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         return;
       }
 
+      // Move / Jump selected node: Alt + ArrowUp / Alt + ArrowDown
+      if (selectedNodeId && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        handleMoveNode(selectedNodeId, e.key === 'ArrowUp' ? 'up' : 'down');
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -414,6 +425,11 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   // Add Component handler
   const handleAddComponent = (type: string) => {
     const parentId = selectedNodeId || activePage.rootNode.id;
+    const parentNode = findNode(activePage.rootNode, parentId);
+    if (parentNode?.isLocked) {
+      toast({ title: 'Container Locked', description: 'Cannot insert components into a locked container. Unlock it first.', type: 'warning' });
+      return;
+    }
     const newNode = createComponentNode(type, {}, parentId);
 
     updateActivePageRootNode((root) => {
@@ -442,11 +458,17 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Drag-and-Drop component dropped into canvas
   const handleDropComponent = (type: string, targetParentId?: string) => {
-    const newNode = createComponentNode(type, {}, targetParentId || activePage.rootNode.id);
+    const parentId = targetParentId || activePage.rootNode.id;
+    const parentNode = findNode(activePage.rootNode, parentId);
+    if (parentNode?.isLocked) {
+      toast({ title: 'Container Locked', description: 'Cannot drop components into a locked container. Unlock it first.', type: 'warning' });
+      return;
+    }
+    const newNode = createComponentNode(type, {}, parentId);
 
     updateActivePageRootNode((root) => {
       const insert = (curr: ComponentNode): ComponentNode => {
-        if (curr.id === (targetParentId || root.id)) {
+        if (curr.id === parentId) {
           return {
             ...curr,
             children: [...(curr.children || []), newNode],
@@ -467,28 +489,108 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     toast({ title: 'Dropped Component', description: `Added ${newNode.name} to canvas`, type: 'success' });
   };
 
-  // Move Node Up / Down within parent
+  // Move / Jump Node Up / Down across siblings and layout sections
   const handleMoveNode = (nodeId: string, direction: 'up' | 'down') => {
-    updateActivePageRootNode((root) => {
-      const move = (curr: ComponentNode): ComponentNode => {
-        if (curr.children) {
-          const idx = curr.children.findIndex((c) => c.id === nodeId);
-          if (idx !== -1) {
-            const newChildren = [...curr.children];
-            const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({
+        title: 'Component Locked',
+        description: 'Cannot move or jump a locked component. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
 
-            if (targetIdx >= 0 && targetIdx < newChildren.length) {
-              const [moved] = newChildren.splice(idx, 1);
-              newChildren.splice(targetIdx, 0, moved);
-              return { ...curr, children: newChildren };
-            }
-          }
-          return { ...curr, children: curr.children.map(move) };
-        }
-        return curr;
-      };
-      return move(root);
+    const parentNode = findParentNode(activePage.rootNode, nodeId);
+    if (parentNode?.isLocked) {
+      toast({
+        title: 'Container Locked',
+        description: 'Cannot move components inside a locked container. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    updateActivePageRootNode((root) => {
+      const updated = jumpNode(root, nodeId, direction);
+      if (!updated) {
+        toast({
+          title: direction === 'up' ? 'Top Boundary' : 'Bottom Boundary',
+          description: `Cannot move ${direction} further.`,
+          type: 'info',
+        });
+        return root;
+      }
+      return updated;
     });
+  };
+
+  // Reparent / Drag and Drop Move Node across layouts
+  const handleReparentNode = (
+    sourceId: string,
+    targetId: string,
+    position: 'before' | 'after' | 'inside'
+  ) => {
+    const sourceNode = findNode(activePage.rootNode, sourceId);
+    if (sourceNode?.isLocked) {
+      toast({
+        title: 'Component Locked',
+        description: 'Cannot move a locked component. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    const sourceParent = findParentNode(activePage.rootNode, sourceId);
+    if (sourceParent?.isLocked) {
+      toast({
+        title: 'Container Locked',
+        description: 'Cannot move components out of a locked container. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    const targetNode = findNode(activePage.rootNode, targetId);
+    if (position === 'inside' && targetNode?.isLocked) {
+      toast({
+        title: 'Container Locked',
+        description: 'Cannot move components into a locked container. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (position === 'before' || position === 'after') {
+      const targetParent = findParentNode(activePage.rootNode, targetId);
+      if (targetParent?.isLocked) {
+        toast({
+          title: 'Container Locked',
+          description: 'Cannot insert components into a locked container. Unlock it first.',
+          type: 'warning',
+        });
+        return;
+      }
+    }
+
+    updateActivePageRootNode((root) => {
+      const updated = moveNodeToTarget(root, sourceId, targetId, position);
+      if (!updated) {
+        toast({
+          title: 'Cannot Move Component',
+          description: 'Cannot move a locked component or place into a locked container.',
+          type: 'error',
+        });
+        return root;
+      }
+      toast({
+        title: 'Component Moved',
+        description: `Reparented component ${position} target layout.`,
+        type: 'success',
+      });
+      return updated;
+    });
+    setSelectedNodeId(sourceId);
   };
 
   // Insert AI generated node tree
@@ -506,6 +608,12 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Update Props
   const handleUpdateProps = (nodeId: string, newProps: Record<string, any>) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Unlock this component to edit its properties.', type: 'warning' });
+      return;
+    }
+
     updateActivePageRootNode((root) => {
       const update = (curr: ComponentNode): ComponentNode => {
         if (curr.id === nodeId) {
@@ -522,6 +630,12 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Update Styles
   const handleUpdateStyle = (nodeId: string, newStyle: ComponentNodeStyle) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Unlock this component to edit styles.', type: 'warning' });
+      return;
+    }
+
     updateActivePageRootNode((root) => {
       const update = (curr: ComponentNode): ComponentNode => {
         if (curr.id === nodeId) {
@@ -538,6 +652,12 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Update Node Name
   const handleUpdateName = (nodeId: string, newName: string) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Unlock this component to rename it.', type: 'warning' });
+      return;
+    }
+
     updateActivePageRootNode((root) => {
       const update = (curr: ComponentNode): ComponentNode => {
         if (curr.id === nodeId) {
@@ -556,6 +676,18 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const handleDeleteNode = (nodeId: string) => {
     if (nodeId === activePage.rootNode.id) {
       toast({ title: 'Protected Node', description: 'Cannot delete the page root container.', type: 'error' });
+      return;
+    }
+
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Cannot delete a locked component. Unlock it first.', type: 'warning' });
+      return;
+    }
+
+    const parentNode = findParentNode(activePage.rootNode, nodeId);
+    if (parentNode?.isLocked) {
+      toast({ title: 'Container Locked', description: 'Cannot delete components inside a locked container. Unlock it first.', type: 'warning' });
       return;
     }
 
@@ -579,6 +711,18 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Duplicate Node
   const handleDuplicateNode = (nodeId: string) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Cannot duplicate a locked component.', type: 'warning' });
+      return;
+    }
+
+    const parentNode = findParentNode(activePage.rootNode, nodeId);
+    if (parentNode?.isLocked) {
+      toast({ title: 'Container Locked', description: 'Cannot duplicate components inside a locked container. Unlock it first.', type: 'warning' });
+      return;
+    }
+
     updateActivePageRootNode((root) => {
       const duplicate = (curr: ComponentNode): ComponentNode => {
         if (curr.children) {
@@ -614,21 +758,64 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         if (curr.children) {
           return { ...curr, children: curr.children.map(update) };
         }
+        if (curr.slots && typeof curr.slots === 'object') {
+          const updatedSlots = Object.fromEntries(
+            Object.entries(curr.slots).map(([k, list]) => [
+              k,
+              Array.isArray(list) ? list.map(update) : list,
+            ])
+          );
+          return { ...curr, slots: updatedSlots };
+        }
         return curr;
       };
       return update(root);
     });
   };
 
-  // Toggle Hide
+  // Toggle Hide (cascades to all sub-children and slots)
   const handleToggleHideNode = (nodeId: string) => {
     updateActivePageRootNode((root) => {
+      // Helper to recursively set isHidden on a node and all its descendants
+      const setHiddenDeep = (node: ComponentNode, hidden: boolean): ComponentNode => {
+        const updatedChildren = Array.isArray(node.children)
+          ? node.children.map((child) => setHiddenDeep(child, hidden))
+          : node.children;
+
+        let updatedSlots = node.slots;
+        if (node.slots && typeof node.slots === 'object') {
+          updatedSlots = Object.fromEntries(
+            Object.entries(node.slots).map(([k, list]) => [
+              k,
+              Array.isArray(list) ? list.map((c) => setHiddenDeep(c, hidden)) : list,
+            ])
+          );
+        }
+
+        return {
+          ...node,
+          isHidden: hidden,
+          children: updatedChildren,
+          slots: updatedSlots,
+        };
+      };
+
       const update = (curr: ComponentNode): ComponentNode => {
         if (curr.id === nodeId) {
-          return { ...curr, isHidden: !curr.isHidden };
+          const nextHidden = !curr.isHidden;
+          return setHiddenDeep(curr, nextHidden);
         }
         if (curr.children) {
           return { ...curr, children: curr.children.map(update) };
+        }
+        if (curr.slots && typeof curr.slots === 'object') {
+          const updatedSlots = Object.fromEntries(
+            Object.entries(curr.slots).map(([k, list]) => [
+              k,
+              Array.isArray(list) ? list.map(update) : list,
+            ])
+          );
+          return { ...curr, slots: updatedSlots };
         }
         return curr;
       };
@@ -821,6 +1008,8 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
                     onDuplicateNode={handleDuplicateNode}
                     onToggleLockNode={handleToggleLockNode}
                     onToggleHideNode={handleToggleHideNode}
+                    onMoveNode={handleMoveNode}
+                    onReparentNode={handleReparentNode}
                   />
                 )}
               </div>
@@ -841,6 +1030,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           onDeleteNode={handleDeleteNode}
           onDuplicateNode={handleDuplicateNode}
           onMoveNode={handleMoveNode}
+          onReparentNode={handleReparentNode}
           onDropComponent={handleDropComponent}
           onOpenAddModal={() => {
             setLeftCollapsed(false);
@@ -850,7 +1040,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
         {/* Right Property Inspector in Builder Mode */}
         {mode === 'builder' && !rightCollapsed && (
-          <div className="animate-in slide-in-from-right-2 duration-200">
+          <div className="h-full flex animate-in slide-in-from-right-2 duration-200">
             <PropertyInspector
               selectedNode={selectedNode}
               onUpdateProps={handleUpdateProps}

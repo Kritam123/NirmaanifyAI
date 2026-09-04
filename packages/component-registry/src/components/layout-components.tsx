@@ -79,9 +79,10 @@ export const ContainerDefinition: ComponentDefinition<{
           width: '100%',
           margin: '0 auto',
           boxSizing: 'border-box',
+          minWidth: 0,
           ...style,
         }}
-        className="transition-all"
+        className="transition-all min-w-0 max-w-full"
       >
         {children || (
           <div className="p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-center text-xs text-slate-400">
@@ -141,9 +142,11 @@ export const GridDefinition: ComponentDefinition<{
           gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
           gap,
           width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
           ...style,
         }}
-        className="w-full transition-all"
+        className="w-full transition-all min-w-0 max-w-full"
       >
         {children || (
           <div className="col-span-full p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-center text-xs text-slate-400">

@@ -1,19 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ComponentNode, PageSchema } from '@nirmaanify/types';
-import { DynamicRenderer } from '@nirmaanify/component-registry';
+import {
+  DynamicRenderer,
+  getAllLayoutContainers,
+  isDescendant,
+  findNode,
+  findParentNode,
+} from '@nirmaanify/component-registry';
 import {
   ChevronRight,
   Plus,
   ArrowUp,
   ArrowDown,
+  ArrowRightLeft,
   Copy,
   Trash2,
   Lock,
   Layers,
   Sparkles,
   MousePointer2,
+  Square,
 } from 'lucide-react';
 import { Button } from '@nirmaanify/ui';
 
@@ -29,6 +37,11 @@ interface VisualCanvasProps {
   onDeleteNode: (id: string) => void;
   onDuplicateNode: (id: string) => void;
   onMoveNode: (id: string, direction: 'up' | 'down') => void;
+  onReparentNode?: (
+    sourceId: string,
+    targetId: string,
+    position: 'before' | 'after' | 'inside'
+  ) => void;
   onDropComponent: (type: string, targetParentId?: string, index?: number) => void;
   onOpenAddModal: () => void;
 }
@@ -45,10 +58,47 @@ export function VisualCanvas({
   onDeleteNode,
   onDuplicateNode,
   onMoveNode,
+  onReparentNode,
   onDropComponent,
   onOpenAddModal,
 }: VisualCanvasProps) {
   const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
+  const [isJumpMenuOpen, setIsJumpMenuOpen] = useState(false);
+  const jumpMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close jump menu on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (jumpMenuRef.current && !jumpMenuRef.current.contains(e.target as Node)) {
+        setIsJumpMenuOpen(false);
+      }
+    }
+    if (isJumpMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isJumpMenuOpen]);
+
+  // Find selected node details and parent
+  const selectedNode = useMemo(() => {
+    if (!page.rootNode || !selectedNodeId) return null;
+    return findNode(page.rootNode, selectedNodeId);
+  }, [page.rootNode, selectedNodeId]);
+
+  const selectedParent = useMemo(() => {
+    if (!page.rootNode || !selectedNodeId) return null;
+    return findParentNode(page.rootNode, selectedNodeId);
+  }, [page.rootNode, selectedNodeId]);
+
+  const isSelectedLocked = Boolean(selectedNode?.isLocked || selectedParent?.isLocked);
+
+  // Available layout containers for jump menu (must not be locked or descendant)
+  const availableSections = useMemo(() => {
+    if (!page.rootNode || !selectedNodeId) return [];
+    return getAllLayoutContainers(page.rootNode).filter(
+      (c) => c.id !== selectedNodeId && !c.isLocked && !isDescendant(page.rootNode, selectedNodeId, c.id)
+    );
+  }, [page.rootNode, selectedNodeId]);
 
   const getBreadcrumbs = (): { id: string; name: string }[] => {
     if (!selectedNodeId) return [{ id: page.rootNode.id, name: page.name }];
@@ -98,6 +148,16 @@ export function VisualCanvas({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOverCanvas(false);
+
+    const existingNodeId =
+      e.dataTransfer.getData('application/nirmaanify-node-id') ||
+      e.dataTransfer.getData('application/nirmaanify-layer-id');
+
+    if (existingNodeId) {
+      onReparentNode?.(existingNodeId, selectedNodeId || page.rootNode.id, 'inside');
+      return;
+    }
+
     const componentType =
       e.dataTransfer.getData('application/nirmaanify-component') ||
       e.dataTransfer.getData('text/plain');
@@ -110,7 +170,7 @@ export function VisualCanvas({
   return (
     <div
       onClick={() => onSelectNode(page.rootNode.id)}
-      className="flex-1 bg-slate-50 dark:bg-[#090A0F] overflow-auto relative flex flex-col items-center p-5 select-none"
+      className="flex-1 bg-slate-50 dark:bg-[#090A0F] overflow-y-auto overflow-x-auto relative flex flex-col items-center p-5 pb-24 select-none"
     >
       {/* Subtle radial brand glow behind the canvas */}
       <div
@@ -165,43 +225,124 @@ export function VisualCanvas({
           {/* Quick node contextual action buttons */}
           {selectedNodeId && selectedNodeId !== page.rootNode.id && (
             <div className="flex items-center gap-0.5 border-l border-slate-200 dark:border-[#24293D] pl-1.5">
+              {isSelectedLocked && (
+                <span
+                  title={selectedNode?.isLocked ? 'Selected component is locked' : 'Parent container is locked'}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 mr-1 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                >
+                  <Lock className="h-2.5 w-2.5" />
+                  <span>Locked</span>
+                </span>
+              )}
               <button
+                disabled={isSelectedLocked}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onMoveNode(selectedNodeId, 'up');
+                  if (!isSelectedLocked) onMoveNode(selectedNodeId, 'up');
                 }}
-                title="Move Up"
-                className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-[#141724] text-slate-600 dark:text-slate-300 hover:text-[#635BFF] transition-colors"
+                title={isSelectedLocked ? 'Element or container is locked' : 'Move Up / Jump layout (Alt+↑)'}
+                className={`h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors ${
+                  isSelectedLocked
+                    ? 'opacity-30 cursor-not-allowed text-slate-400'
+                    : 'hover:bg-slate-100 dark:hover:bg-[#141724] text-slate-600 dark:text-slate-300 hover:text-[#635BFF] cursor-pointer'
+                }`}
               >
                 <ArrowUp className="h-3 w-3" />
               </button>
               <button
+                disabled={isSelectedLocked}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onMoveNode(selectedNodeId, 'down');
+                  if (!isSelectedLocked) onMoveNode(selectedNodeId, 'down');
                 }}
-                title="Move Down"
-                className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-[#141724] text-slate-600 dark:text-slate-300 hover:text-[#635BFF] transition-colors"
+                title={isSelectedLocked ? 'Element or container is locked' : 'Move Down / Jump layout (Alt+↓)'}
+                className={`h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors ${
+                  isSelectedLocked
+                    ? 'opacity-30 cursor-not-allowed text-slate-400'
+                    : 'hover:bg-slate-100 dark:hover:bg-[#141724] text-slate-600 dark:text-slate-300 hover:text-[#635BFF] cursor-pointer'
+                }`}
               >
                 <ArrowDown className="h-3 w-3" />
               </button>
+
+              {/* Jump to section dropdown */}
+              <div className="relative" ref={jumpMenuRef}>
+                <button
+                  disabled={isSelectedLocked}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isSelectedLocked) setIsJumpMenuOpen((v) => !v);
+                  }}
+                  title={isSelectedLocked ? 'Element or container is locked' : 'Jump to another layout section'}
+                  className={`h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors ${
+                    isSelectedLocked
+                      ? 'opacity-30 cursor-not-allowed text-slate-400'
+                      : isJumpMenuOpen
+                        ? 'bg-[#635BFF]/20 text-[#635BFF] dark:text-[#A5AEFD]'
+                        : 'hover:bg-slate-100 dark:hover:bg-[#141724] text-slate-600 dark:text-slate-300 hover:text-[#635BFF] cursor-pointer'
+                  }`}
+                >
+                  <ArrowRightLeft className="h-3 w-3" />
+                </button>
+
+                {!isSelectedLocked && isJumpMenuOpen && (
+                  <div className="absolute left-0 top-7 z-50 w-52 py-1 bg-white dark:bg-[#0F111A] rounded-lg border border-slate-200 dark:border-[#24293D] shadow-xl text-[11px] animate-in fade-in zoom-in-95 duration-100 max-h-60 overflow-y-auto">
+                    <div className="px-2 py-1 text-[9.5px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-[#24293D]/60 mb-0.5">
+                      Jump to Layout Section
+                    </div>
+                    {availableSections.length === 0 ? (
+                      <div className="px-2 py-2 text-slate-400 text-center text-[10px]">
+                        No other layout sections
+                      </div>
+                    ) : (
+                      availableSections.map((sec) => (
+                        <button
+                          key={sec.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReparentNode?.(selectedNodeId, sec.id, 'inside');
+                            setIsJumpMenuOpen(false);
+                          }}
+                          className="w-full px-2 py-1 text-left flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-[#1C2030] text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                          style={{ paddingLeft: `${sec.depth * 8 + 8}px` }}
+                        >
+                          <Square className="h-2.5 w-2.5 text-[#635BFF]" />
+                          <span className="truncate">{sec.name}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
               <button
+                disabled={isSelectedLocked}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDuplicateNode(selectedNodeId);
+                  if (!isSelectedLocked) onDuplicateNode(selectedNodeId);
                 }}
-                title="Duplicate"
-                className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-[#141724] text-slate-600 dark:text-slate-300 hover:text-[#22D3EE] transition-colors"
+                title={isSelectedLocked ? 'Element or container is locked' : 'Duplicate'}
+                className={`h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors ${
+                  isSelectedLocked
+                    ? 'opacity-30 cursor-not-allowed text-slate-400'
+                    : 'hover:bg-slate-100 dark:hover:bg-[#141724] text-slate-600 dark:text-slate-300 hover:text-[#22D3EE] cursor-pointer'
+                }`}
               >
                 <Copy className="h-3 w-3" />
               </button>
               <button
+                disabled={isSelectedLocked}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDeleteNode(selectedNodeId);
+                  if (!isSelectedLocked) onDeleteNode(selectedNodeId);
                 }}
-                title="Delete"
-                className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-rose-500 hover:text-white text-rose-500 transition-colors"
+                title={isSelectedLocked ? 'Element or container is locked' : 'Delete'}
+                className={`h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors ${
+                  isSelectedLocked
+                    ? 'opacity-30 cursor-not-allowed text-slate-400'
+                    : 'hover:bg-rose-500 hover:text-white text-rose-500 cursor-pointer'
+                }`}
               >
                 <Trash2 className="h-3 w-3" />
               </button>
@@ -219,14 +360,14 @@ export function VisualCanvas({
           transform: `scale(${zoom})`,
           transformOrigin: 'top center',
         }}
-        className={`relative transition-all duration-200 min-h-[650px] bg-white dark:bg-[#0F111A] shadow-2xl shadow-slate-300/40 dark:shadow-[0_30px_60px_-15px_rgba(99,91,255,0.25)] rounded-2xl border ${
+        className={`relative transition-all duration-200 min-h-[650px] h-auto shrink-0 bg-white dark:bg-[#0F111A] shadow-2xl shadow-slate-300/40 dark:shadow-[0_30px_60px_-15px_rgba(99,91,255,0.25)] rounded-2xl border ${
           isDragOverCanvas
             ? 'border-2 border-[#635BFF] ring-4 ring-[#635BFF]/25'
             : 'border-slate-200/80 dark:border-[#24293D]'
-        } overflow-auto flex flex-col ${viewportWidthClass}`}
+        } overflow-hidden flex flex-col ${viewportWidthClass}`}
       >
         {/* Top gradient accent bar inside the canvas */}
-        <div className="h-[2px] w-full bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] shrink-0" />
+        <div className="h-[2px] w-full bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] shrink-0 rounded-t-2xl" />
 
         {/* Drop Zone Visual Overlay when dragging component over canvas */}
         {isDragOverCanvas && (
@@ -249,6 +390,7 @@ export function VisualCanvas({
             onDeleteNode={onDeleteNode}
             onDuplicateNode={onDuplicateNode}
             onMoveNode={onMoveNode}
+            onReparentNode={onReparentNode}
           />
         ) : (
           <div className="flex-1 p-16 flex flex-col items-center justify-center text-center space-y-4">

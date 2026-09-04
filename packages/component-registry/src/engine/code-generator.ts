@@ -6,6 +6,7 @@ export class ReactCodeGenerator {
     const iconImports = new Set<string>();
 
     const collectImports = (node: ComponentNode) => {
+      if (node.isHidden) return;
       switch (node.type) {
         case 'button':
         case 'badge':
@@ -82,11 +83,13 @@ ${jsxBody}
   }
 
   static generateNodeJsx(node: ComponentNode, indentLevel: number = 2): string {
+    if (node.isHidden) return '';
     const indent = '  '.repeat(indentLevel);
     const childIndent = '  '.repeat(indentLevel + 1);
 
-    const childrenJsx = node.children && node.children.length > 0
-      ? '\n' + node.children.map((c) => this.generateNodeJsx(c, indentLevel + 1)).join('\n') + '\n' + indent
+    const visibleChildren = (node.children || []).filter((c) => !c.isHidden);
+    const childrenJsx = visibleChildren.length > 0
+      ? '\n' + visibleChildren.map((c) => this.generateNodeJsx(c, indentLevel + 1)).filter(Boolean).join('\n') + '\n' + indent
       : '';
 
     switch (node.type) {

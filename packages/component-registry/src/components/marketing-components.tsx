@@ -143,8 +143,8 @@ export const FeatureCardDefinition: ComponentDefinition<{
           {tag && <Badge variant="indigo" size="sm">{tag}</Badge>}
         </div>
         <div>
-          <h4 className="font-bold text-base text-slate-900 dark:text-white">{title}</h4>
-          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{description}</p>
+          <h4 className="font-bold text-base text-slate-900 dark:text-white break-words [overflow-wrap:anywhere]">{title}</h4>
+          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed break-words [overflow-wrap:anywhere]">{description}</p>
         </div>
       </Card>
     );
@@ -213,8 +213,8 @@ export const PricingCardDefinition: ComponentDefinition<{
         )}
         <div className="space-y-4">
           <div>
-            <h4 className="font-bold text-lg text-slate-900 dark:text-white">{tierName}</h4>
-            <p className="text-xs text-slate-500 mt-1">{description}</p>
+            <h4 className="font-bold text-lg text-slate-900 dark:text-white break-words [overflow-wrap:anywhere]">{tierName}</h4>
+            <p className="text-xs text-slate-500 mt-1 break-words [overflow-wrap:anywhere]">{description}</p>
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-black text-slate-900 dark:text-white">{price}</span>
@@ -224,7 +224,7 @@ export const PricingCardDefinition: ComponentDefinition<{
             {featureList.map((f) => (
               <div key={f} className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                 <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>{f}</span>
+                <span className="break-words [overflow-wrap:anywhere]">{f}</span>
               </div>
             ))}
           </div>
@@ -280,7 +280,7 @@ export const TestimonialCardDefinition: ComponentDefinition<{
             <Star key={i} className="h-4 w-4 fill-amber-400" />
           ))}
         </div>
-        <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed">
+        <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed break-words [overflow-wrap:anywhere]">
           &ldquo;{quote}&rdquo;
         </p>
         <div className="pt-2 flex items-center gap-3">

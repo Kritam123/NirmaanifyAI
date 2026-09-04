@@ -34,7 +34,7 @@ describe('DynamicRenderer — basic behaviour', () => {
     expect(html).toContain('Unregistered Component');
   });
 
-  it('hides nodes flagged isHidden outside builder mode', () => {
+  it('hides nodes flagged isHidden in live and builder mode', () => {
     const node: ComponentNode = {
       id: 'h',
       type: 'heading',
@@ -43,10 +43,15 @@ describe('DynamicRenderer — basic behaviour', () => {
       isHidden: true,
       children: [],
     };
-    const html = renderToStaticMarkup(
+    const htmlLive = renderToStaticMarkup(
       React.createElement(DynamicRenderer, { node, mode: 'live' })
     );
-    expect(html).not.toContain('hidden-text');
+    expect(htmlLive).not.toContain('hidden-text');
+
+    const htmlBuilder = renderToStaticMarkup(
+      React.createElement(DynamicRenderer, { node, mode: 'builder' })
+    );
+    expect(htmlBuilder).toBe('');
   });
 
   it('recursively renders child components', () => {

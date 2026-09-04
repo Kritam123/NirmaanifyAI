@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Lock } from 'lucide-react';
 import { ComponentNode } from '@nirmaanify/types';
 import { resolveComponent } from './component-resolver';
 import { ComponentErrorBoundary } from './error-boundary';
@@ -16,6 +17,11 @@ export interface DynamicRendererProps {
   onDeleteNode?: (id: string) => void;
   onDuplicateNode?: (id: string) => void;
   onMoveNode?: (id: string, direction: 'up' | 'down') => void;
+  onReparentNode?: (
+    sourceId: string,
+    targetId: string,
+    position: 'before' | 'after' | 'inside'
+  ) => void;
 }
 
 export function DynamicRenderer({
@@ -28,8 +34,11 @@ export function DynamicRenderer({
   onDeleteNode,
   onDuplicateNode,
   onMoveNode,
+  onReparentNode,
 }: DynamicRendererProps): React.ReactElement | null {
-  if (node.isHidden && mode !== 'builder') {
+  const [dropPos, setDropPos] = React.useState<'before' | 'after' | 'inside' | null>(null);
+
+  if (node.isHidden) {
     return null;
   }
 
@@ -56,6 +65,7 @@ export function DynamicRenderer({
           onDeleteNode={onDeleteNode}
           onDuplicateNode={onDuplicateNode}
           onMoveNode={onMoveNode}
+          onReparentNode={onReparentNode}
         />
       ))
     : undefined;
@@ -79,6 +89,8 @@ export function DynamicRenderer({
           onHoverNode={onHoverNode}
           onDeleteNode={onDeleteNode}
           onDuplicateNode={onDuplicateNode}
+          onMoveNode={onMoveNode}
+          onReparentNode={onReparentNode}
         />
       ));
     });
@@ -108,9 +120,60 @@ export function DynamicRenderer({
     return content;
   }
 
-  // Builder mode: Wrap in interactive selection bounds
+  // Builder mode: Wrap in interactive selection bounds & drag-and-drop
+  const canDrag = node.parent !== null && !node.isLocked;
+
   return (
     <div
+      draggable={canDrag}
+      onDragStart={(e) => {
+        if (!canDrag) return;
+        e.stopPropagation();
+        e.dataTransfer.setData('application/nirmaanify-node-id', node.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragOver={(e) => {
+        const types = Array.from(e.dataTransfer.types);
+        const isDraggingNode =
+          types.includes('application/nirmaanify-node-id') ||
+          types.includes('application/nirmaanify-layer-id');
+
+        if (!isDraggingNode) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const offsetY = e.clientY - rect.top;
+        const height = rect.height;
+        const isContainer = ['container', 'section', 'grid', 'form'].includes(node.type);
+
+        if (isContainer) {
+          if (offsetY < height * 0.25) setDropPos('before');
+          else if (offsetY > height * 0.75) setDropPos('after');
+          else if (!node.isLocked) setDropPos('inside');
+          else setDropPos(null);
+        } else {
+          setDropPos(offsetY < height * 0.5 ? 'before' : 'after');
+        }
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setDropPos(null);
+      }}
+      onDrop={(e) => {
+        const sourceId =
+          e.dataTransfer.getData('application/nirmaanify-node-id') ||
+          e.dataTransfer.getData('application/nirmaanify-layer-id');
+
+        if (sourceId && sourceId !== node.id && dropPos) {
+          e.preventDefault();
+          e.stopPropagation();
+          onReparentNode?.(sourceId, node.id, dropPos);
+        }
+        setDropPos(null);
+      }}
       onClick={(e) => {
         e.stopPropagation();
         onSelectNode?.(node.id, e);
@@ -123,7 +186,9 @@ export function DynamicRenderer({
         e.stopPropagation();
         onHoverNode?.(null);
       }}
-      className={`relative group/node transition-all ${
+      className={`relative group/node transition-all min-w-0 max-w-full ${
+        canDrag ? 'cursor-pointer' : ''
+      } ${
         isSelected
           ? 'ring-2 ring-[#635BFF] ring-offset-2 dark:ring-offset-[#0E121E] z-20'
           : isHovered
@@ -131,6 +196,29 @@ export function DynamicRenderer({
           : ''
       }`}
     >
+      {/* Locked badge */}
+      {node.isLocked && isSelected && (
+        <div className="absolute top-2 right-2 z-40 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center gap-1 shadow-md pointer-events-none">
+          <Lock className="w-2.5 h-2.5" />
+          <span>Locked</span>
+        </div>
+      )}
+
+      {/* Drop indicator: Before */}
+      {dropPos === 'before' && (
+        <div className="absolute -top-1 left-0 right-0 h-1 bg-[#635BFF] z-40 rounded-full shadow-md shadow-[#635BFF]/50 pointer-events-none" />
+      )}
+
+      {/* Drop indicator: After */}
+      {dropPos === 'after' && (
+        <div className="absolute -bottom-1 left-0 right-0 h-1 bg-[#635BFF] z-40 rounded-full shadow-md shadow-[#635BFF]/50 pointer-events-none" />
+      )}
+
+      {/* Drop indicator: Inside */}
+      {dropPos === 'inside' && (
+        <div className="absolute inset-0 z-30 border-2 border-dashed border-[#635BFF] bg-[#635BFF]/10 rounded-xl pointer-events-none animate-pulse" />
+      )}
+
       {content}
     </div>
   );
