@@ -7,6 +7,7 @@ import { resolveComponent } from './component-resolver';
 import { ComponentErrorBoundary } from './error-boundary';
 import { MissingComponentFallback } from './missing-component-fallback';
 import { useViewport } from './viewport-context';
+import { computeNodeStyle } from './style-computer';
 
 export interface DynamicRendererProps {
   node: ComponentNode;
@@ -113,7 +114,7 @@ export function DynamicRenderer({
         hoveredNodeId={hoveredNodeId}
         onSelectNode={onSelectNode}
         onHoverNode={onHoverNode}
-        style={node.style}
+        style={computeNodeStyle(node.style)}
         {...node.props}
         slots={Object.keys(renderedSlots).length > 0 ? renderedSlots : undefined}
       >

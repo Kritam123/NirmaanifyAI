@@ -21,6 +21,7 @@ import {
   moveNodeToTarget,
   findNode,
   findParentNode,
+  getComponentDefinition,
 } from '@nirmaanify/component-registry';
 import { StudioTopbar } from './studio-topbar';
 import { AiCommandBar } from './ai-command-bar';
@@ -748,6 +749,48 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     toast({ title: 'Duplicated', description: 'Cloned component node', type: 'info' });
   };
 
+  // Reset Node changes (Props & Styles)
+  const handleResetNode = (nodeId: string, options?: { stylesOnly?: boolean; propsOnly?: boolean }) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (!targetNode) return;
+    if (targetNode.isLocked) {
+      toast({ title: 'Component Locked', description: 'Unlock this container in the Layers panel to reset.', type: 'warning' });
+      return;
+    }
+
+    const def = getComponentDefinition(targetNode.type);
+    const defaultProps = def?.defaultProps ? { ...def.defaultProps } : {};
+
+    updateActivePageRootNode((root) => {
+      const update = (curr: ComponentNode): ComponentNode => {
+        if (curr.id === nodeId) {
+          if (options?.stylesOnly) {
+            return { ...curr, style: {} };
+          }
+          if (options?.propsOnly) {
+            return { ...curr, props: defaultProps };
+          }
+          return {
+            ...curr,
+            props: defaultProps,
+            style: {},
+          };
+        }
+        if (curr.children) {
+          return { ...curr, children: curr.children.map(update) };
+        }
+        return curr;
+      };
+      return update(root);
+    });
+
+    toast({
+      title: 'Container Reset',
+      description: `Reset ${options?.stylesOnly ? 'styles' : options?.propsOnly ? 'properties' : 'all changes'} for ${targetNode.name || targetNode.type}. (Ctrl+Z to Undo)`,
+      type: 'success',
+    });
+  };
+
   // Toggle Lock
   const handleToggleLockNode = (nodeId: string) => {
     updateActivePageRootNode((root) => {
@@ -1029,6 +1072,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           onHoverNode={setHoveredNodeId}
           onDeleteNode={handleDeleteNode}
           onDuplicateNode={handleDuplicateNode}
+          onResetNode={handleResetNode}
           onMoveNode={handleMoveNode}
           onReparentNode={handleReparentNode}
           onDropComponent={handleDropComponent}
@@ -1046,6 +1090,7 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
               onUpdateProps={handleUpdateProps}
               onUpdateStyle={handleUpdateStyle}
               onUpdateName={handleUpdateName}
+              onResetNode={handleResetNode}
               viewport={viewport}
               onChangeViewport={setViewport}
               onCollapse={() => setRightCollapsed(true)}

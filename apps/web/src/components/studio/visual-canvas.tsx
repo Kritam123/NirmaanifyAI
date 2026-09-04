@@ -23,6 +23,7 @@ import {
   Sparkles,
   MousePointer2,
   Square,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@nirmaanify/ui';
 
@@ -37,6 +38,7 @@ interface VisualCanvasProps {
   onHoverNode: (id: string | null) => void;
   onDeleteNode: (id: string) => void;
   onDuplicateNode: (id: string) => void;
+  onResetNode?: (id: string) => void;
   onMoveNode: (id: string, direction: 'up' | 'down') => void;
   onReparentNode?: (
     sourceId: string,
@@ -58,6 +60,7 @@ export function VisualCanvas({
   onHoverNode,
   onDeleteNode,
   onDuplicateNode,
+  onResetNode,
   onMoveNode,
   onReparentNode,
   onDropComponent,
@@ -318,6 +321,21 @@ export function VisualCanvas({
                 )}
               </div>
 
+              <button
+                disabled={isSelectedLocked}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isSelectedLocked && onResetNode) onResetNode(selectedNodeId);
+                }}
+                title={isSelectedLocked ? 'Element or container is locked' : 'Reset all changes for this container (Ctrl+Z to Undo)'}
+                className={`h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors ${
+                  isSelectedLocked
+                    ? 'opacity-30 cursor-not-allowed text-slate-400'
+                    : 'hover:bg-slate-100 dark:hover:bg-[#141724] text-slate-600 dark:text-slate-300 hover:text-amber-500 cursor-pointer'
+                }`}
+              >
+                <RotateCcw className="h-3 w-3" />
+              </button>
               <button
                 disabled={isSelectedLocked}
                 onClick={(e) => {

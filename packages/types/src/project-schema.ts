@@ -33,6 +33,38 @@ export interface ComponentNodeStyle {
   gridTemplateColumns?: string;
   opacity?: number;
   overflow?: 'visible' | 'hidden' | 'scroll' | 'auto';
+  overflowX?: 'visible' | 'hidden' | 'scroll' | 'auto';
+  overflowY?: 'visible' | 'hidden' | 'scroll' | 'auto';
+  // Gradients
+  backgroundImage?: string;
+  gradientType?: 'none' | 'linear' | 'radial';
+  gradientFrom?: string;
+  gradientVia?: string;
+  gradientTo?: string;
+  gradientAngle?: string;
+  // Positioning
+  position?: 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky';
+  top?: string;
+  right?: string;
+  bottom?: string;
+  left?: string;
+  zIndex?: number | string;
+  // Animation & Transitions
+  transition?: string;
+  transitionProperty?: string;
+  transitionDuration?: string;
+  transitionTimingFunction?: string;
+  animation?: string;
+  animationType?: 'none' | 'pulse' | 'bounce' | 'spin' | 'ping' | 'float' | 'glow';
+  animationDuration?: string;
+  // Transforms & Effects
+  transform?: string;
+  scale?: number | string;
+  rotate?: string;
+  filter?: string;
+  backdropFilter?: string;
+  cursor?: 'default' | 'pointer' | 'not-allowed' | 'grab' | 'text';
+  // Developer Custom CSS
   customCss?: string;
   // Multi-device responsive controls
   hideOnDesktop?: boolean;

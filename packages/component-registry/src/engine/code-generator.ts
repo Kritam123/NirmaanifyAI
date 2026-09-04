@@ -1,4 +1,5 @@
 import { ComponentNode, PageSchema, ProjectSchema } from '@nirmaanify/types';
+import { computeNodeStyle } from '../renderer/style-computer';
 
 export class ReactCodeGenerator {
   static generatePageComponent(page: PageSchema): string {
@@ -102,18 +103,13 @@ ${jsxBody}
           : 'flex-col';
         const gap = node.style?.gap || node.props.gap || '16px';
 
-        const styleEntries: string[] = [];
-        if (node.style?.width) styleEntries.push(`width: '${node.style.width}'`);
-        if (node.style?.minWidth) styleEntries.push(`minWidth: '${node.style.minWidth}'`);
-        styleEntries.push(`maxWidth: '${maxW}'`);
-        if (node.style?.height) styleEntries.push(`height: '${node.style.height}'`);
-        if (node.style?.minHeight) styleEntries.push(`minHeight: '${node.style.minHeight}'`);
-        if (node.style?.maxHeight) styleEntries.push(`maxHeight: '${node.style.maxHeight}'`);
-        if (node.style?.overflow) styleEntries.push(`overflow: '${node.style.overflow}'`);
-        styleEntries.push(`padding: '${p}'`);
-        styleEntries.push(`gap: '${gap}'`);
+        const styleAttr = this.serializeNodeStyles(node, {
+          maxWidth: maxW,
+          padding: p,
+          gap: gap,
+        });
 
-        return `${indent}<div className="w-full flex ${dir} mx-auto transition-all${visClass}" style={{ ${styleEntries.join(', ')} }}>${childrenJsx}</div>`;
+        return `${indent}<div className="w-full flex ${dir} mx-auto transition-all${visClass}"${styleAttr}>${childrenJsx}</div>`;
       }
 
       case 'grid': {
@@ -121,14 +117,22 @@ ${jsxBody}
         const mobileCols = node.style?.mobileColumns ?? 1;
         const tabletCols = node.style?.tabletColumns ?? Math.min(cols, 2);
         const gap = node.props.gap || '24px';
-        return `${indent}<div className="w-full grid grid-cols-${mobileCols} sm:grid-cols-${tabletCols} md:grid-cols-${cols} transition-all${visClass}" style={{ gap: '${gap}' }}>${childrenJsx}</div>`;
+        const styleAttr = this.serializeNodeStyles(node, { gap: gap });
+        return `${indent}<div className="w-full grid grid-cols-${mobileCols} sm:grid-cols-${tabletCols} md:grid-cols-${cols} transition-all${visClass}"${styleAttr}>${childrenJsx}</div>`;
       }
 
       case 'section': {
         const bg = node.props.backgroundColor || 'transparent';
         const py = node.props.paddingY || '64px';
         const px = node.props.paddingX || '24px';
-        return `${indent}<section className="w-full transition-all${visClass}" style={{ backgroundColor: '${bg}', paddingTop: '${py}', paddingBottom: '${py}', paddingLeft: '${px}', paddingRight: '${px}' }}>${childrenJsx}</section>`;
+        const styleAttr = this.serializeNodeStyles(node, {
+          backgroundColor: node.style?.backgroundColor || bg,
+          paddingTop: py,
+          paddingBottom: py,
+          paddingLeft: px,
+          paddingRight: px,
+        });
+        return `${indent}<section className="w-full transition-all${visClass}"${styleAttr}>${childrenJsx}</section>`;
       }
 
       case 'heading': {
@@ -388,9 +392,23 @@ ${indent}</form>`;
       }
 
       default: {
-        return `${indent}<div className="p-4 border rounded-xl${visClass}" data-type="${node.type}">${childrenJsx}</div>`;
+        const styleAttr = this.serializeNodeStyles(node);
+        return `${indent}<div className="p-4 border rounded-xl${visClass}" data-type="${node.type}"${styleAttr}>${childrenJsx}</div>`;
       }
     }
+  }
+
+  private static serializeNodeStyles(node: ComponentNode, overrides?: Record<string, any>): string {
+    const computed = computeNodeStyle(node.style);
+    const merged = { ...computed, ...overrides };
+    const entries: string[] = [];
+    for (const [key, val] of Object.entries(merged)) {
+      if (val !== undefined && val !== null && val !== '') {
+        const valStr = typeof val === 'number' ? `${val}` : `'${String(val).replace(/'/g, "\\'")}'`;
+        entries.push(`${key}: ${valStr}`);
+      }
+    }
+    return entries.length > 0 ? ` style={{ ${entries.join(', ')} }}` : '';
   }
 
   private static getVisibilityClasses(node: ComponentNode): string {
