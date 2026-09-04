@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ProjectDto,
   ProjectSchema,
@@ -13,17 +14,24 @@ import {
   ProjectValidator,
   createDefaultProjectSchema,
   createComponentNode,
+  ReactCodeGenerator,
   rewireParentPointers,
   normalizeParentPointers,
+  jumpNode,
+  moveNodeToTarget,
+  findNode,
+  findParentNode,
+  getComponentDefinition,
 } from '@nirmaanify/component-registry';
 import { StudioTopbar } from './studio-topbar';
+import { AiCommandBar } from './ai-command-bar';
 import { ComponentPalette } from './component-palette';
 import { LayersPanel } from './layers-panel';
 import { PropertyInspector } from './property-inspector';
 import { VisualCanvas } from './visual-canvas';
-import { Dialog, Button, Input, useToast } from '@nirmaanify/ui';
+import { Button, Dialog, Input, useToast } from '@nirmaanify/ui';
 import { useAuth } from '../../context/auth-context';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, FileCode, Code2, Save, Sparkles, Layers, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 interface VisualStudioModalProps {
   project: ProjectDto | null;
@@ -72,7 +80,6 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
       return project.projectSchema as ProjectSchema;
     }
 
-    // Generate starter schema for this project architecture
     return createDefaultProjectSchema(project.name, project.type);
   }, [project]);
 
@@ -96,7 +103,41 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const [activeLeftTab, setActiveLeftTab] = useState<'palette' | 'layers'>('palette');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [mode, setMode] = useState<'builder' | 'preview'>('builder');
+  const [zoom, setZoom] = useState<number>(1);
+
+  // Manual save state
   const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const lastSavedRef = useRef<string>(JSON.stringify(initialSchema));
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+
+  // Collapsible sidebars (persisted in localStorage)
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      const l = localStorage.getItem('nirmaanify_studio_left_collapsed');
+      const r = localStorage.getItem('nirmaanify_studio_right_collapsed');
+      if (l !== null) setLeftCollapsed(l === 'true');
+      if (r !== null) setRightCollapsed(r === 'true');
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('nirmaanify_studio_left_collapsed', String(leftCollapsed));
+    } catch {}
+  }, [leftCollapsed]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('nirmaanify_studio_right_collapsed', String(rightCollapsed));
+    } catch {}
+  }, [rightCollapsed]);
+
+  // SSR safety for createPortal
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Wrap the selection/page setters so the history engine can replay them
   // on undo/redo without the studio dropping its cursor context.
@@ -119,37 +160,131 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const [schemaModalOpen, setSchemaModalOpen] = useState(false);
   const [copiedSchema, setCopiedSchema] = useState(false);
 
-  // Sync initial schema when project changes
+  // Live React Code Preview Modal
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  // Sync initial schema ONLY when the project identity changes (i.e. the
+// user navigated to a different project). We deliberately do NOT depend
+// on the `project` object reference here — after a save, `updateProject`
+// replaces the project in the context's projects list, which would
+// otherwise re-fire this effect and bounce the user back to the first
+// page even though they stayed on the same project.
   useEffect(() => {
-    if (project) {
-      const s =
-        project.projectSchema &&
-        project.projectSchema.pages &&
-        Array.isArray(project.projectSchema.pages) &&
-        typeof project.projectSchema.pages[0] === 'object'
-          ? (project.projectSchema as ProjectSchema)
-          : createDefaultProjectSchema(project.name, project.type);
+    if (!project) return;
+    const s =
+      project.projectSchema &&
+      project.projectSchema.pages &&
+      Array.isArray(project.projectSchema.pages) &&
+      typeof project.projectSchema.pages[0] === 'object'
+        ? (project.projectSchema as ProjectSchema)
+        : createDefaultProjectSchema(project.name, project.type);
 
-      // Normalize parent pointers in case the persisted schema is from an older
-      // version of the engine that didn't maintain them.
-      s.pages?.forEach((p) => p?.rootNode && normalizeParentPointers(p.rootNode, null));
+    s.pages?.forEach((p) => p?.rootNode && normalizeParentPointers(p.rootNode, null));
 
-      const initialMeta = s.pages && s.pages.length > 0
-        ? { selectedNodeId: s.pages[0].rootNode.id, activePageId: s.pages[0].id }
-        : {};
-      reset(s, initialMeta);
-      if (s.pages && s.pages.length > 0) {
-        setActivePageId(s.pages[0].id);
-        setSelectedNodeId(s.pages[0].rootNode.id);
-      }
+    const initialMeta = s.pages && s.pages.length > 0
+      ? { selectedNodeId: s.pages[0].rootNode.id, activePageId: s.pages[0].id }
+      : {};
+    reset(s, initialMeta);
+    if (s.pages && s.pages.length > 0) {
+      setActivePageId(s.pages[0].id);
+      setSelectedNodeId(s.pages[0].rootNode.id);
     }
-  }, [project, reset]);
+
+    const snapshot = JSON.stringify(s);
+    lastSavedRef.current = snapshot;
+    setIsDirty(false);
+    setSavedAt(new Date());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
+
+  // Track dirty state: compare current schema against the last saved snapshot.
+  useEffect(() => {
+    const snapshot = JSON.stringify(projectSchema);
+    if (snapshot !== lastSavedRef.current) {
+      setIsDirty(true);
+    }
+  }, [projectSchema]);
+
+  // Manual save handler — also reused by the 30s auto-save loop. We keep an
+  // `isSavingRef` alongside `isSaving` state so the auto-save interval can
+  // read the latest value without racing on a stale React closure.
+  const isSavingRef = useRef(false);
+  const isDirtyRef = useRef(false);
+  const handleSaveRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    isSavingRef.current = isSaving;
+  }, [isSaving]);
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  const handleSave = useCallback(async () => {
+    if (!project || isSavingRef.current) return;
+    isSavingRef.current = true;
+    setIsSaving(true);
+    try {
+      await updateProject(project.id, { projectSchema: projectSchema as any });
+      const snapshot = JSON.stringify(projectSchema);
+      lastSavedRef.current = snapshot;
+      setIsDirty(false);
+      isDirtyRef.current = false;
+      setSavedAt(new Date());
+      toast({
+        title: 'Project saved',
+        description: `${projectSchema.pages.length} page${projectSchema.pages.length === 1 ? '' : 's'} synced to cloud.`,
+        type: 'success',
+      });
+    } catch (err) {
+      console.error('Save error:', err);
+      toast({
+        title: 'Save failed',
+        description: 'Could not persist your changes. Please try again.',
+        type: 'error',
+      });
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
+    }
+  }, [project, projectSchema, updateProject, toast]);
+
+  // Keep `handleSaveRef` pointing at the latest handleSave so the
+  // auto-save interval below can call it without capturing a stale closure.
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  }, [handleSave]);
+
+  // Auto-save: every 30 seconds, if the schema has diverged from the last
+  // saved snapshot. We compare via `isDirtyRef.current` (kept in sync with
+  // `isDirty` state above) so the interval doesn't need to re-render on
+  // every keystroke. The interval cleans up when the modal closes, when
+  // the project changes, or when the component unmounts.
+  const AUTO_SAVE_INTERVAL_MS = 30_000;
+  useEffect(() => {
+    if (!isOpen || !project) return;
+    const intervalId = window.setInterval(() => {
+      if (isDirtyRef.current && !isSavingRef.current) {
+        handleSaveRef.current();
+      }
+    }, AUTO_SAVE_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [isOpen, project?.id]);
+
+  // Warn before closing if there are unsaved changes
+  const handleClose = useCallback(() => {
+    if (isDirty) {
+      const ok = typeof window !== 'undefined'
+        ? window.confirm('You have unsaved changes. Discard them and close the studio?')
+        : true;
+      if (!ok) return;
+    }
+    onClose();
+  }, [isDirty, onClose]);
 
   // Active page resolution
   const activePage: PageSchema = useMemo(() => {
     if (!projectSchema.pages || projectSchema.pages.length === 0) {
-      const defaultPage = createDefaultProjectSchema(project?.name || 'App').pages[0];
-      return defaultPage;
+      return createDefaultProjectSchema(project?.name || 'App').pages[0];
     }
     return (
       projectSchema.pages.find((p) => p.id === activePageId) ||
@@ -180,30 +315,42 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     return findNode(activePage.rootNode);
   }, [selectedNodeId, activePage?.rootNode]);
 
-  // Auto-save debounce effect
-  useEffect(() => {
-    if (!project) return;
-    setIsSaving(true);
+  // Generated React TSX Code
+  const generatedReactCode = useMemo(() => {
+    if (!activePage) return '';
+    return ReactCodeGenerator.generatePageComponent(activePage);
+  }, [activePage]);
 
-    const timer = setTimeout(async () => {
-      try {
-        await updateProject(project.id, {
-          projectSchema: projectSchema as any,
-        });
-      } catch (err) {
-        console.error('Auto-save error:', err);
-      } finally {
-        setIsSaving(false);
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [projectSchema, project, updateProject]);
-
-  // Keyboard shortcuts (Ctrl+Z, Ctrl+Y, Escape)
+  // Keyboard shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+S, Ctrl+[, Ctrl+], Escape)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+
+      // Toggle left sidebar: Ctrl/Cmd + [
+      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        e.preventDefault();
+        setLeftCollapsed((prev) => !prev);
+        return;
+      }
+      // Toggle right sidebar: Ctrl/Cmd + ]
+      if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+        e.preventDefault();
+        setRightCollapsed((prev) => !prev);
+        return;
+      }
+
+      // Move / Jump selected node: Alt + ArrowUp / Alt + ArrowDown
+      if (selectedNodeId && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        handleMoveNode(selectedNodeId, e.key === 'ArrowUp' ? 'up' : 'down');
+        return;
+      }
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -215,13 +362,17 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         e.preventDefault();
         redo();
       } else if (e.key === 'Escape') {
-        setSelectedNodeId(null);
+        if (isDirty) {
+          handleClose();
+        } else {
+          setSelectedNodeId(null);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, undo, redo]);
+  }, [isOpen, undo, redo, handleSave, isDirty, handleClose]);
 
   // Restore selection + active page after undo/redo. We only apply metadata
   // when the target id still exists in the current schema; otherwise we
@@ -275,13 +426,14 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   // Add Component handler
   const handleAddComponent = (type: string) => {
     const parentId = selectedNodeId || activePage.rootNode.id;
-    // createComponentNode already sets `parent` on the new node; we still run
-    // rewireParentPointers below as a defensive normalization in case the
-    // (id, parent) pair was supplied by the user from the layer panel.
+    const parentNode = findNode(activePage.rootNode, parentId);
+    if (parentNode?.isLocked) {
+      toast({ title: 'Container Locked', description: 'Cannot insert components into a locked container. Unlock it first.', type: 'warning' });
+      return;
+    }
     const newNode = createComponentNode(type, {}, parentId);
 
     updateActivePageRootNode((root) => {
-      // If a container is selected, add as child; otherwise append to root.
       const insertNode = (parent: ComponentNode): ComponentNode => {
         if (parent.id === parentId) {
           return rewireParentPointers({
@@ -305,8 +457,164 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     toast({ title: 'Component Added', description: `Inserted ${newNode.name}`, type: 'info' });
   };
 
+  // Drag-and-Drop component dropped into canvas
+  const handleDropComponent = (type: string, targetParentId?: string) => {
+    const parentId = targetParentId || activePage.rootNode.id;
+    const parentNode = findNode(activePage.rootNode, parentId);
+    if (parentNode?.isLocked) {
+      toast({ title: 'Container Locked', description: 'Cannot drop components into a locked container. Unlock it first.', type: 'warning' });
+      return;
+    }
+    const newNode = createComponentNode(type, {}, parentId);
+
+    updateActivePageRootNode((root) => {
+      const insert = (curr: ComponentNode): ComponentNode => {
+        if (curr.id === parentId) {
+          return {
+            ...curr,
+            children: [...(curr.children || []), newNode],
+          };
+        }
+        if (curr.children) {
+          return {
+            ...curr,
+            children: curr.children.map(insert),
+          };
+        }
+        return curr;
+      };
+      return insert(root);
+    });
+
+    setSelectedNodeId(newNode.id);
+    toast({ title: 'Dropped Component', description: `Added ${newNode.name} to canvas`, type: 'success' });
+  };
+
+  // Move / Jump Node Up / Down across siblings and layout sections
+  const handleMoveNode = (nodeId: string, direction: 'up' | 'down') => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({
+        title: 'Component Locked',
+        description: 'Cannot move or jump a locked component. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    const parentNode = findParentNode(activePage.rootNode, nodeId);
+    if (parentNode?.isLocked) {
+      toast({
+        title: 'Container Locked',
+        description: 'Cannot move components inside a locked container. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    updateActivePageRootNode((root) => {
+      const updated = jumpNode(root, nodeId, direction);
+      if (!updated) {
+        toast({
+          title: direction === 'up' ? 'Top Boundary' : 'Bottom Boundary',
+          description: `Cannot move ${direction} further.`,
+          type: 'info',
+        });
+        return root;
+      }
+      return updated;
+    });
+  };
+
+  // Reparent / Drag and Drop Move Node across layouts
+  const handleReparentNode = (
+    sourceId: string,
+    targetId: string,
+    position: 'before' | 'after' | 'inside'
+  ) => {
+    const sourceNode = findNode(activePage.rootNode, sourceId);
+    if (sourceNode?.isLocked) {
+      toast({
+        title: 'Component Locked',
+        description: 'Cannot move a locked component. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    const sourceParent = findParentNode(activePage.rootNode, sourceId);
+    if (sourceParent?.isLocked) {
+      toast({
+        title: 'Container Locked',
+        description: 'Cannot move components out of a locked container. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    const targetNode = findNode(activePage.rootNode, targetId);
+    if (position === 'inside' && targetNode?.isLocked) {
+      toast({
+        title: 'Container Locked',
+        description: 'Cannot move components into a locked container. Unlock it first.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (position === 'before' || position === 'after') {
+      const targetParent = findParentNode(activePage.rootNode, targetId);
+      if (targetParent?.isLocked) {
+        toast({
+          title: 'Container Locked',
+          description: 'Cannot insert components into a locked container. Unlock it first.',
+          type: 'warning',
+        });
+        return;
+      }
+    }
+
+    updateActivePageRootNode((root) => {
+      const updated = moveNodeToTarget(root, sourceId, targetId, position);
+      if (!updated) {
+        toast({
+          title: 'Cannot Move Component',
+          description: 'Cannot move a locked component or place into a locked container.',
+          type: 'error',
+        });
+        return root;
+      }
+      toast({
+        title: 'Component Moved',
+        description: `Reparented component ${position} target layout.`,
+        type: 'success',
+      });
+      return updated;
+    });
+    setSelectedNodeId(sourceId);
+  };
+
+  // Insert AI generated node tree
+  const handleInsertGeneratedNodes = (nodes: ComponentNode[]) => {
+    updateActivePageRootNode((root) => {
+      return {
+        ...root,
+        children: [...(root.children || []), ...nodes],
+      };
+    });
+    if (nodes[0]) {
+      setSelectedNodeId(nodes[0].id);
+    }
+  };
+
   // Update Props
   const handleUpdateProps = (nodeId: string, newProps: Record<string, any>) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Unlock this component to edit its properties.', type: 'warning' });
+      return;
+    }
+
     updateActivePageRootNode((root) => {
       const update = (curr: ComponentNode): ComponentNode => {
         if (curr.id === nodeId) {
@@ -323,6 +631,12 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Update Styles
   const handleUpdateStyle = (nodeId: string, newStyle: ComponentNodeStyle) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Unlock this component to edit styles.', type: 'warning' });
+      return;
+    }
+
     updateActivePageRootNode((root) => {
       const update = (curr: ComponentNode): ComponentNode => {
         if (curr.id === nodeId) {
@@ -339,6 +653,12 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Update Node Name
   const handleUpdateName = (nodeId: string, newName: string) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Unlock this component to rename it.', type: 'warning' });
+      return;
+    }
+
     updateActivePageRootNode((root) => {
       const update = (curr: ComponentNode): ComponentNode => {
         if (curr.id === nodeId) {
@@ -357,6 +677,18 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const handleDeleteNode = (nodeId: string) => {
     if (nodeId === activePage.rootNode.id) {
       toast({ title: 'Protected Node', description: 'Cannot delete the page root container.', type: 'error' });
+      return;
+    }
+
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Cannot delete a locked component. Unlock it first.', type: 'warning' });
+      return;
+    }
+
+    const parentNode = findParentNode(activePage.rootNode, nodeId);
+    if (parentNode?.isLocked) {
+      toast({ title: 'Container Locked', description: 'Cannot delete components inside a locked container. Unlock it first.', type: 'warning' });
       return;
     }
 
@@ -380,6 +712,18 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
 
   // Duplicate Node
   const handleDuplicateNode = (nodeId: string) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (targetNode?.isLocked) {
+      toast({ title: 'Component Locked', description: 'Cannot duplicate a locked component.', type: 'warning' });
+      return;
+    }
+
+    const parentNode = findParentNode(activePage.rootNode, nodeId);
+    if (parentNode?.isLocked) {
+      toast({ title: 'Container Locked', description: 'Cannot duplicate components inside a locked container. Unlock it first.', type: 'warning' });
+      return;
+    }
+
     updateActivePageRootNode((root) => {
       const duplicate = (curr: ComponentNode): ComponentNode => {
         if (curr.children) {
@@ -390,8 +734,6 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
             clonedRaw.id = `node-${clonedRaw.type}-${Date.now().toString(36)}`;
             clonedRaw.name = `${clonedRaw.name || clonedRaw.type} (Copy)`;
 
-            // Rewire the entire subtree so the cloned node and its descendants
-            // point at the new parent's id (curr.id).
             const cloned = rewireParentPointers(clonedRaw, curr.id);
 
             const newChildren = [...curr.children];
@@ -407,6 +749,48 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     toast({ title: 'Duplicated', description: 'Cloned component node', type: 'info' });
   };
 
+  // Reset Node changes (Props & Styles)
+  const handleResetNode = (nodeId: string, options?: { stylesOnly?: boolean; propsOnly?: boolean }) => {
+    const targetNode = findNode(activePage.rootNode, nodeId);
+    if (!targetNode) return;
+    if (targetNode.isLocked) {
+      toast({ title: 'Component Locked', description: 'Unlock this container in the Layers panel to reset.', type: 'warning' });
+      return;
+    }
+
+    const def = getComponentDefinition(targetNode.type);
+    const defaultProps = def?.defaultProps ? { ...def.defaultProps } : {};
+
+    updateActivePageRootNode((root) => {
+      const update = (curr: ComponentNode): ComponentNode => {
+        if (curr.id === nodeId) {
+          if (options?.stylesOnly) {
+            return { ...curr, style: {} };
+          }
+          if (options?.propsOnly) {
+            return { ...curr, props: defaultProps };
+          }
+          return {
+            ...curr,
+            props: defaultProps,
+            style: {},
+          };
+        }
+        if (curr.children) {
+          return { ...curr, children: curr.children.map(update) };
+        }
+        return curr;
+      };
+      return update(root);
+    });
+
+    toast({
+      title: 'Container Reset',
+      description: `Reset ${options?.stylesOnly ? 'styles' : options?.propsOnly ? 'properties' : 'all changes'} for ${targetNode.name || targetNode.type}. (Ctrl+Z to Undo)`,
+      type: 'success',
+    });
+  };
+
   // Toggle Lock
   const handleToggleLockNode = (nodeId: string) => {
     updateActivePageRootNode((root) => {
@@ -417,21 +801,64 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         if (curr.children) {
           return { ...curr, children: curr.children.map(update) };
         }
+        if (curr.slots && typeof curr.slots === 'object') {
+          const updatedSlots = Object.fromEntries(
+            Object.entries(curr.slots).map(([k, list]) => [
+              k,
+              Array.isArray(list) ? list.map(update) : list,
+            ])
+          );
+          return { ...curr, slots: updatedSlots };
+        }
         return curr;
       };
       return update(root);
     });
   };
 
-  // Toggle Hide
+  // Toggle Hide (cascades to all sub-children and slots)
   const handleToggleHideNode = (nodeId: string) => {
     updateActivePageRootNode((root) => {
+      // Helper to recursively set isHidden on a node and all its descendants
+      const setHiddenDeep = (node: ComponentNode, hidden: boolean): ComponentNode => {
+        const updatedChildren = Array.isArray(node.children)
+          ? node.children.map((child) => setHiddenDeep(child, hidden))
+          : node.children;
+
+        let updatedSlots = node.slots;
+        if (node.slots && typeof node.slots === 'object') {
+          updatedSlots = Object.fromEntries(
+            Object.entries(node.slots).map(([k, list]) => [
+              k,
+              Array.isArray(list) ? list.map((c) => setHiddenDeep(c, hidden)) : list,
+            ])
+          );
+        }
+
+        return {
+          ...node,
+          isHidden: hidden,
+          children: updatedChildren,
+          slots: updatedSlots,
+        };
+      };
+
       const update = (curr: ComponentNode): ComponentNode => {
         if (curr.id === nodeId) {
-          return { ...curr, isHidden: !curr.isHidden };
+          const nextHidden = !curr.isHidden;
+          return setHiddenDeep(curr, nextHidden);
         }
         if (curr.children) {
           return { ...curr, children: curr.children.map(update) };
+        }
+        if (curr.slots && typeof curr.slots === 'object') {
+          const updatedSlots = Object.fromEntries(
+            Object.entries(curr.slots).map(([k, list]) => [
+              k,
+              Array.isArray(list) ? list.map(update) : list,
+            ])
+          );
+          return { ...curr, slots: updatedSlots };
         }
         return curr;
       };
@@ -482,21 +909,44 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     toast({ title: 'Copied to Clipboard', description: 'Full Project JSON Schema copied', type: 'info' });
   };
 
-  if (!isOpen || !project) return null;
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(generatedReactCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+    toast({ title: 'Copied Code', description: 'React TSX component copied to clipboard', type: 'success' });
+  };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[#0E121E] text-slate-100 flex flex-col overflow-hidden animate-in fade-in duration-200">
+  const lastSavedLabel = savedAt
+    ? savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '—';
+
+  if (!isOpen || !project || !mounted) return null;
+
+  const studioContent = (
+    <div className="fixed inset-0 z-[100] bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden animate-in fade-in duration-200 font-sans">
+      {/* Brand gradient accent strip across the top */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] shrink-0 z-40" />
+
       {/* Top Bar */}
       <StudioTopbar
         project={projectSchema}
         activePage={activePage}
         viewport={viewport}
         mode={mode}
+        zoom={zoom}
         canUndo={canUndo}
         canRedo={canRedo}
         isSaving={isSaving}
+        isDirty={isDirty}
         isValid={validationResult.isValid}
         errorsCount={validationResult.errors.length}
+        lastSavedLabel={lastSavedLabel}
+        autoSaveEnabled={isOpen && !!project}
+        autoSaveIntervalLabel={`${AUTO_SAVE_INTERVAL_MS / 1000}s`}
+        leftCollapsed={leftCollapsed}
+        rightCollapsed={rightCollapsed}
+        onToggleLeft={() => setLeftCollapsed((v) => !v)}
+        onToggleRight={() => setRightCollapsed((v) => !v)}
         onSelectPage={(id) => {
           setActivePageId(id);
           setSelectedNodeId(null);
@@ -504,56 +954,108 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         onAddPage={() => setAddPageModalOpen(true)}
         onChangeViewport={setViewport}
         onChangeMode={setMode}
+        onChangeZoom={setZoom}
         onUndo={undo}
         onRedo={redo}
         onViewSchema={() => setSchemaModalOpen(true)}
-        onCloseStudio={onClose}
+        onViewCode={() => setCodeModalOpen(true)}
+        onSave={handleSave}
+        onCloseStudio={handleClose}
       />
+
+      {/* In-Studio AI Command Bar */}
+      {mode === 'builder' && (
+        <AiCommandBar
+          onInsertGeneratedNodes={handleInsertGeneratedNodes}
+          selectedNodeId={selectedNodeId}
+        />
+      )}
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (Palette & Layers Switcher) in Builder Mode */}
+        {/* Left Sidebar in Builder Mode */}
         {mode === 'builder' && (
           <div className="flex">
-            {/* Narrow Icon Switcher */}
-            <div className="w-12 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0E121E] flex flex-col items-center py-3 gap-2 shrink-0 select-none">
+            {/* Narrow Icon Switcher (always visible in builder mode) */}
+            <div className="w-11 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col items-center py-2.5 gap-1 shrink-0 select-none">
+              {/* Collapse / Expand Toggle Button at Top */}
               <button
-                onClick={() => setActiveLeftTab('palette')}
-                title="Component Library Palette"
-                className={`p-2 rounded-xl transition-colors ${
-                  activeLeftTab === 'palette'
-                    ? 'bg-[#635BFF] text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#161926]'
+                onClick={() => setLeftCollapsed((v) => !v)}
+                title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
+                aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] border border-slate-200 dark:border-[#24293D] transition-all mb-1 shadow-xs"
+              >
+                {leftCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" />
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (leftCollapsed) setLeftCollapsed(false);
+                  setActiveLeftTab('palette');
+                }}
+                title="Component Palette"
+                aria-label="Switch to Component Palette"
+                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
+                  !leftCollapsed && activeLeftTab === 'palette'
+                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
+                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
                 }`}
               >
-                <div className="h-4 w-4 font-bold text-xs flex items-center justify-center">+</div>
+                <Sparkles className="h-3.5 w-3.5" />
               </button>
               <button
-                onClick={() => setActiveLeftTab('layers')}
-                title="Layers Tree Navigator"
-                className={`p-2 rounded-xl transition-colors ${
-                  activeLeftTab === 'layers'
-                    ? 'bg-[#635BFF] text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#161926]'
+                onClick={() => {
+                  if (leftCollapsed) setLeftCollapsed(false);
+                  setActiveLeftTab('layers');
+                }}
+                title="Layers Tree"
+                aria-label="Switch to Layers Tree"
+                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
+                  !leftCollapsed && activeLeftTab === 'layers'
+                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
+                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
                 }`}
               >
-                <div className="h-4 w-4 flex items-center justify-center font-mono text-[10px]">☰</div>
+                <Layers className="h-3.5 w-3.5" />
+              </button>
+              <div className="flex-1" />
+              <button
+                onClick={() => setLeftCollapsed((v) => !v)}
+                title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
+                aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] transition-colors"
+              >
+                {leftCollapsed ? (
+                  <PanelLeftOpen className="h-3.5 w-3.5" />
+                ) : (
+                  <PanelLeftClose className="h-3.5 w-3.5" />
+                )}
               </button>
             </div>
 
-            {/* Left Panel Content */}
-            {activeLeftTab === 'palette' ? (
-              <ComponentPalette onAddComponent={handleAddComponent} />
-            ) : (
-              <LayersPanel
-                rootNode={activePage.rootNode}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
-                onDeleteNode={handleDeleteNode}
-                onDuplicateNode={handleDuplicateNode}
-                onToggleLockNode={handleToggleLockNode}
-                onToggleHideNode={handleToggleHideNode}
-              />
+            {/* Left Panel Content (only when not collapsed) */}
+            {!leftCollapsed && (
+              <div className="animate-in slide-in-from-left-2 duration-200">
+                {activeLeftTab === 'palette' ? (
+                  <ComponentPalette onAddComponent={handleAddComponent} />
+                ) : (
+                  <LayersPanel
+                    rootNode={activePage.rootNode}
+                    selectedNodeId={selectedNodeId}
+                    onSelectNode={setSelectedNodeId}
+                    onDeleteNode={handleDeleteNode}
+                    onDuplicateNode={handleDuplicateNode}
+                    onToggleLockNode={handleToggleLockNode}
+                    onToggleHideNode={handleToggleHideNode}
+                    onMoveNode={handleMoveNode}
+                    onReparentNode={handleReparentNode}
+                  />
+                )}
+              </div>
             )}
           </div>
         )}
@@ -563,25 +1065,83 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
           page={activePage}
           mode={mode}
           viewport={viewport}
+          zoom={zoom}
           selectedNodeId={selectedNodeId}
           hoveredNodeId={hoveredNodeId}
           onSelectNode={setSelectedNodeId}
           onHoverNode={setHoveredNodeId}
           onDeleteNode={handleDeleteNode}
           onDuplicateNode={handleDuplicateNode}
-          onOpenAddModal={() => setActiveLeftTab('palette')}
+          onResetNode={handleResetNode}
+          onMoveNode={handleMoveNode}
+          onReparentNode={handleReparentNode}
+          onDropComponent={handleDropComponent}
+          onOpenAddModal={() => {
+            setLeftCollapsed(false);
+            setActiveLeftTab('palette');
+          }}
         />
 
         {/* Right Property Inspector in Builder Mode */}
-        {mode === 'builder' && (
-          <PropertyInspector
-            selectedNode={selectedNode}
-            onUpdateProps={handleUpdateProps}
-            onUpdateStyle={handleUpdateStyle}
-            onUpdateName={handleUpdateName}
-          />
+        {mode === 'builder' && !rightCollapsed && (
+          <div className="h-full flex animate-in slide-in-from-right-2 duration-200">
+            <PropertyInspector
+              selectedNode={selectedNode}
+              onUpdateProps={handleUpdateProps}
+              onUpdateStyle={handleUpdateStyle}
+              onUpdateName={handleUpdateName}
+              onResetNode={handleResetNode}
+              viewport={viewport}
+              onChangeViewport={setViewport}
+              onCollapse={() => setRightCollapsed(true)}
+            />
+          </div>
+        )}
+
+        {/* Floating chevron to re-open right inspector when collapsed */}
+        {mode === 'builder' && rightCollapsed && (
+          <button
+            onClick={() => setRightCollapsed(false)}
+            title="Open inspector (Ctrl+])"
+            aria-label="Open inspector"
+            className="absolute right-3 top-20 z-30 h-8 w-8 inline-flex items-center justify-center rounded-full bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-500 hover:text-[#635BFF] hover:border-[#635BFF]/40 hover:shadow-md hover:shadow-[#635BFF]/20 transition-all"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 5l-7 7 7 7" />
+            </svg>
+          </button>
         )}
       </div>
+
+      {/* LIVE REACT CODE PREVIEW MODAL */}
+      <Dialog
+        isOpen={codeModalOpen}
+        onClose={() => setCodeModalOpen(false)}
+        title="Live React JSX & Tailwind Code Preview"
+        description="Generated in real-time from the declarative project component tree."
+        className="max-w-4xl"
+        footer={
+          <div className="w-full flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              onClick={handleCopyCode}
+            >
+              {copiedCode ? 'Copied Code!' : 'Copy TSX Component'}
+            </Button>
+            <Button variant="default" size="sm" onClick={() => setCodeModalOpen(false)}>
+              Close Code Preview
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-2">
+          <pre className="p-4 rounded-xl bg-slate-950 dark:bg-[#06080F] text-[#22D3EE] font-mono text-[11px] overflow-auto max-h-[500px] border border-slate-200 dark:border-[#24293D]">
+            {generatedReactCode}
+          </pre>
+        </div>
+      </Dialog>
 
       {/* ADD PAGE MODAL */}
       <Dialog
@@ -642,11 +1202,13 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         }
       >
         <div className="space-y-2">
-          <pre className="p-4 rounded-xl bg-slate-950 text-emerald-400 font-mono text-[11px] overflow-auto max-h-[500px]">
+          <pre className="p-4 rounded-xl bg-slate-950 dark:bg-[#06080F] text-emerald-400 font-mono text-[11px] overflow-auto max-h-[500px] border border-slate-200 dark:border-[#24293D]">
             {JSON.stringify(projectSchema, null, 2)}
           </pre>
         </div>
       </Dialog>
     </div>
   );
+
+  return createPortal(studioContent, document.body);
 }

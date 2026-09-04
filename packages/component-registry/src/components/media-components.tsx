@@ -118,17 +118,17 @@ export const CardDefinition: ComponentDefinition<{
     const mediaSlot = slots?.media;
 
     return (
-      <Card hoverable={hoverable} style={style} className="w-full">
-        {mediaSlot && <div className="overflow-hidden">{mediaSlot}</div>}
+      <Card hoverable={hoverable} style={style} className="w-full min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere]">
+        {mediaSlot && <div className="overflow-hidden min-w-0">{mediaSlot}</div>}
         {(title || description || headerSlot) && (
-          <CardHeader>
+          <CardHeader className="min-w-0 overflow-hidden break-words [overflow-wrap:anywhere]">
             {headerSlot}
-            {title && <CardTitle className="text-base">{title}</CardTitle>}
-            {description && <CardDescription>{description}</CardDescription>}
+            {title && <CardTitle className="text-base break-words [overflow-wrap:anywhere]">{title}</CardTitle>}
+            {description && <CardDescription className="break-words [overflow-wrap:anywhere]">{description}</CardDescription>}
           </CardHeader>
         )}
-        <CardContent className="space-y-3">{bodyContent}</CardContent>
-        {footerSlot && <div className="px-6 pb-6 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">{footerSlot}</div>}
+        <CardContent className="space-y-3 min-w-0 overflow-hidden break-words [overflow-wrap:anywhere]">{bodyContent}</CardContent>
+        {footerSlot && <div className="px-6 pb-6 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 min-w-0 overflow-hidden break-words [overflow-wrap:anywhere]">{footerSlot}</div>}
       </Card>
     );
   },

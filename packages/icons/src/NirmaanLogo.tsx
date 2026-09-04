@@ -37,7 +37,7 @@ export const NirmaanLogo: React.FC<NirmaanLogoProps> = ({
       <div className="flex flex-col">
         <div className={`font-bold tracking-tight leading-none ${textSizes[size]} ${isLight ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
           <span>Nirmaanify</span>
-          <span className="ml-1 bg-gradient-to-r from-[#635BFF] to-[#22D3EE] bg-clip-text text-transparent">AI</span>
+          <span className={`ml-1 ${isLight ? 'text-[#22D3EE]' : 'text-[#635BFF] dark:text-[#A5AEFD]'}`}>AI</span>
         </div>
         {showTagline && (
           <span className={`font-medium tracking-wide uppercase mt-1 ${taglineSizes[size]} text-slate-500 dark:text-slate-400`}>

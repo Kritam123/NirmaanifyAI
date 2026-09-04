@@ -2,6 +2,7 @@ import React from 'react';
 import { z } from 'zod';
 import { ComponentDefinition } from '../types';
 import { Button, Badge, Separator } from '@nirmaanify/ui';
+import { useViewport } from '../renderer/viewport-context';
 
 // ==========================================
 // 1. HEADING
@@ -55,27 +56,50 @@ export const HeadingDefinition: ComponentDefinition<{
     { name: 'gradient', label: 'Brand Gradient Glow', type: 'switch', group: 'style', defaultValue: false },
   ],
   component: ({ text, level = 'h1', align = 'left', gradient, style }) => {
+    const { isMobile, isTablet } = useViewport();
     const Tag = (level || 'h1') as React.ElementType;
-    const sizeClasses = {
-      h1: 'text-3xl sm:text-5xl font-black tracking-tight',
-      h2: 'text-2xl sm:text-4xl font-extrabold tracking-tight',
-      h3: 'text-xl sm:text-2xl font-bold',
-      h4: 'text-lg sm:text-xl font-bold',
-      h5: 'text-base font-semibold',
-      h6: 'text-sm font-semibold',
-    }[level];
+
+    // Responsive scaling: Headings automatically scale down on mobile & tablet
+    const sizeClasses = isMobile
+      ? {
+          h1: 'text-2xl sm:text-3xl font-black tracking-tight leading-tight',
+          h2: 'text-xl sm:text-2xl font-extrabold tracking-tight leading-snug',
+          h3: 'text-lg font-bold leading-snug',
+          h4: 'text-base font-bold',
+          h5: 'text-sm font-semibold',
+          h6: 'text-xs font-semibold',
+        }[level]
+      : isTablet
+      ? {
+          h1: 'text-3xl sm:text-4xl font-black tracking-tight',
+          h2: 'text-2xl sm:text-3xl font-extrabold tracking-tight',
+          h3: 'text-xl font-bold',
+          h4: 'text-lg font-bold',
+          h5: 'text-base font-semibold',
+          h6: 'text-sm font-semibold',
+        }[level]
+      : {
+          h1: 'text-3xl sm:text-5xl font-black tracking-tight',
+          h2: 'text-2xl sm:text-4xl font-extrabold tracking-tight',
+          h3: 'text-xl sm:text-2xl font-bold',
+          h4: 'text-lg sm:text-xl font-bold',
+          h5: 'text-base font-semibold',
+          h6: 'text-sm font-semibold',
+        }[level];
+
+    const effectiveAlign = isMobile && style?.mobileAlign ? style.mobileAlign : align;
 
     return (
       <Tag
         style={{
-          textAlign: align,
+          textAlign: effectiveAlign,
           ...style,
         }}
         className={`${sizeClasses} ${
           gradient
             ? 'bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] bg-clip-text text-transparent'
             : 'text-slate-900 dark:text-white'
-        } transition-all`}
+        } break-words [overflow-wrap:anywhere] transition-all`}
       >
         {text}
       </Tag>
@@ -128,6 +152,7 @@ export const TextDefinition: ComponentDefinition<{
     { name: 'align', label: 'Alignment', type: 'alignment', group: 'style', defaultValue: 'left' },
   ],
   component: ({ content, size = 'base', align = 'left', color = 'muted', style }) => {
+    const { isMobile } = useViewport();
     const sizeClass = {
       sm: 'text-xs leading-relaxed',
       base: 'text-sm leading-relaxed',
@@ -141,13 +166,15 @@ export const TextDefinition: ComponentDefinition<{
       subtle: 'text-slate-400 dark:text-slate-500',
     }[color];
 
+    const effectiveAlign = isMobile && style?.mobileAlign ? style.mobileAlign : align;
+
     return (
       <p
         style={{
-          textAlign: align,
+          textAlign: effectiveAlign,
           ...style,
         }}
-        className={`${sizeClass} ${colorClass} transition-all`}
+        className={`${sizeClass} ${colorClass} break-words [overflow-wrap:anywhere] transition-all`}
       >
         {content}
       </p>
@@ -167,7 +194,7 @@ export const ButtonDefinition: ComponentDefinition<{
   id: 'button',
   name: 'Button',
   category: 'basic',
-  description: 'Interactive button component with diverse variants and sizes.',
+  description: 'Interactive button with multiple style variants, sizes, and states.',
   icon: 'SquareMousePointer',
   allowedChildren: false,
   defaultProps: {
@@ -214,11 +241,14 @@ export const ButtonDefinition: ComponentDefinition<{
     { name: 'fullWidth', label: 'Full Width', type: 'switch', group: 'layout', defaultValue: false },
   ],
   component: ({ label, variant = 'default', size = 'md', fullWidth = false, style }) => {
+    const { isMobile } = useViewport();
+    const isEffectiveFullWidth = fullWidth || (isMobile && Boolean(style?.mobileFullWidth));
+
     return (
       <Button
         variant={variant as any}
         size={size as any}
-        className={fullWidth ? 'w-full' : ''}
+        className={isEffectiveFullWidth ? 'w-full' : ''}
         style={style}
       >
         {label}

@@ -28,14 +28,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       className={cn(
-        'shrink-0 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col h-screen select-none transition-all duration-300 ease-in-out',
+        'shrink-0 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col h-screen select-none sticky top-0 overflow-hidden transition-all duration-300 ease-in-out',
         isCollapsed ? 'w-20' : 'w-64',
         className
       )}
     >
       <div
         className={cn(
-          'h-16 flex items-center border-b border-slate-200 dark:border-[#24293D]',
+          'h-16 flex items-center border-b border-slate-200 dark:border-[#24293D] shrink-0',
           isCollapsed ? 'justify-center px-2' : 'justify-between px-6'
         )}
       >
@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {footer && (
-        <div className={cn('border-t border-slate-200 dark:border-[#24293D]', isCollapsed ? 'p-2' : 'p-3')}>
+        <div className={cn('border-t border-slate-200 dark:border-[#24293D] shrink-0', isCollapsed ? 'p-2' : 'p-4')}>
           {footer}
         </div>
       )}
