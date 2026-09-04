@@ -24,6 +24,7 @@ import {
   Settings,
   Trash2,
   Layout,
+  Database,
 } from 'lucide-react';
 import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
@@ -345,6 +346,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             <span className="font-semibold text-slate-700 dark:text-slate-200">
               {project.isBackendEnabled ? 'NestJS + PostgreSQL' : 'Static export'}
             </span>
+          </div>
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <Database className="h-3 w-3" /> Storage
+            </span>
+            <Badge variant={project.storageDriver === 's3' ? 'indigo' : project.storageDriver === 'vercel-blob' ? 'cyan' : 'secondary'} size="sm">
+              {(project.storageDriver || 'local').toUpperCase()}
+            </Badge>
           </div>
           {routeCount > 0 && (
             <div className="flex items-center justify-between text-slate-400">

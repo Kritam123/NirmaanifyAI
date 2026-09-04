@@ -108,6 +108,8 @@ export class ProjectsService {
       status: p.status,
       projectSchema: p.projectSchema as any,
       aiPlan: p.aiPlan as any,
+      storageDriver: (p.storageDriver as any) || 'local',
+      storageConfig: ((p as any).storageConfig as any) || undefined,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     }));
@@ -156,6 +158,8 @@ export class ProjectsService {
       status: p.status,
       projectSchema: p.projectSchema as any,
       aiPlan: p.aiPlan as any,
+      storageDriver: (p.storageDriver as any) || 'local',
+      storageConfig: ((p as any).storageConfig as any) || undefined,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     };
@@ -209,21 +213,25 @@ export class ProjectsService {
     const baseSlug = data.slug || (data.name || 'untitled').toLowerCase().replace(/[^a-z0-9]/g, '-');
     const slug = `${baseSlug}-${Date.now().toString(36)}`;
 
-    const p = await this.prisma.project.create({
-      data: {
-        name: data.name || 'Untitled Project',
-        slug,
-        description: data.description || '',
-        type: (data.type as any) || 'WEBSITE',
-        workspaceId,
-        framework: data.framework || 'Next.js 15 App Router',
-        uiLibrary: data.uiLibrary || 'shadcn/ui',
-        isBackendEnabled: Boolean(data.isBackendEnabled),
-        isArchived: Boolean(data.isArchived),
-        status: data.status || 'ACTIVE',
-        projectSchema: (data.projectSchema as any) || { pages: ['/'] },
-        aiPlan: (data.aiPlan as any) || undefined,
-      },
+    const createData: any = {
+      name: data.name || 'Untitled Project',
+      slug,
+      description: data.description || '',
+      type: (data.type as any) || 'WEBSITE',
+      workspaceId,
+      framework: data.framework || 'Next.js 15 App Router',
+      uiLibrary: data.uiLibrary || 'shadcn/ui',
+      isBackendEnabled: Boolean(data.isBackendEnabled),
+      isArchived: Boolean(data.isArchived),
+      status: data.status || 'ACTIVE',
+      projectSchema: (data.projectSchema as any) || { pages: ['/'] },
+      aiPlan: (data.aiPlan as any) || undefined,
+      storageDriver: data.storageDriver || 'local',
+      storageConfig: (data.storageConfig as any) || undefined,
+    };
+
+    const p: any = await (this.prisma.project as any).create({
+      data: createData,
     });
 
     this.logger.log(`✓ Project created in DB: ${p.name} (${p.id}) in workspace ${p.workspaceId}`);
@@ -242,6 +250,8 @@ export class ProjectsService {
       status: p.status,
       projectSchema: p.projectSchema as any,
       aiPlan: p.aiPlan as any,
+      storageDriver: (p.storageDriver as any) || 'local',
+      storageConfig: ((p as any).storageConfig as any) || undefined,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     };
@@ -265,8 +275,10 @@ export class ProjectsService {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.projectSchema !== undefined) updateData.projectSchema = data.projectSchema;
     if (data.aiPlan !== undefined) updateData.aiPlan = data.aiPlan;
+    if (data.storageDriver !== undefined) updateData.storageDriver = data.storageDriver;
+    if (data.storageConfig !== undefined) updateData.storageConfig = data.storageConfig;
 
-    const p = await this.prisma.project.update({
+    const p: any = await (this.prisma.project as any).update({
       where: { id },
       data: updateData,
     });
@@ -287,6 +299,8 @@ export class ProjectsService {
       status: p.status,
       projectSchema: p.projectSchema as any,
       aiPlan: p.aiPlan as any,
+      storageDriver: (p.storageDriver as any) || 'local',
+      storageConfig: ((p as any).storageConfig as any) || undefined,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     };
@@ -320,6 +334,8 @@ export class ProjectsService {
         status: 'ACTIVE',
         projectSchema: source.projectSchema,
         aiPlan: source.aiPlan,
+        storageDriver: source.storageDriver || 'local',
+        storageConfig: source.storageConfig,
       },
       userId,
     );

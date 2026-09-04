@@ -3,12 +3,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { Card } from '@nirmaanify/ui';
-import { Boxes, Globe, Users, HardDrive, ArrowUpRight } from 'lucide-react';
+import { Boxes, Globe, Users, Building2, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { ROUTES } from '../../lib/routes';
 
 export const QuickMetrics: React.FC = () => {
-  const { projects, activeWorkspace } = useAuth();
+  const { projects, activeWorkspace, workspaces } = useAuth();
 
   const activeBackends = projects.filter((p) => p.isBackendEnabled).length;
   const memberCount = activeWorkspace?.isPersonal
@@ -38,11 +38,11 @@ export const QuickMetrics: React.FC = () => {
       href: ROUTES.DASHBOARD.WORKSPACES,
     },
     {
-      label: 'Storage Driver',
-      val: 'MULTI-DRIVER',
-      icon: <HardDrive className="h-5 w-5 text-emerald-400" />,
-      sub: 'Local, S3 & Vercel Blob Ready',
-      href: ROUTES.DASHBOARD.STORAGE,
+      label: 'Workspaces',
+      val: workspaces.length,
+      icon: <Building2 className="h-5 w-5 text-emerald-400" />,
+      sub: `${workspaces.length} workspace${workspaces.length === 1 ? '' : 's'} available`,
+      href: ROUTES.DASHBOARD.WORKSPACES,
     },
   ];
 

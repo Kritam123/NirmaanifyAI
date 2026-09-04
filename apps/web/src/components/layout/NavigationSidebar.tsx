@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Boxes,
   Users,
-  HardDrive,
   Plus,
   Building2,
   LogOut,
@@ -63,14 +62,6 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
       href: ROUTES.DASHBOARD.WORKSPACES,
       icon: <Users className="h-4 w-4 shrink-0" />,
       active: pathname.startsWith(ROUTES.DASHBOARD.WORKSPACES),
-    },
-    {
-      id: 'storage',
-      label: 'Storage Engine',
-      href: ROUTES.DASHBOARD.STORAGE,
-      icon: <HardDrive className="h-4 w-4 shrink-0" />,
-      badge: 'Multi-Driver',
-      active: pathname.startsWith(ROUTES.DASHBOARD.STORAGE),
     },
   ];
 

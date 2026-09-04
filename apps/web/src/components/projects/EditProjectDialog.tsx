@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Dialog, Button, Input, Select, Textarea, useToast } from '@nirmaanify/ui';
-import { ProjectDto, ProjectType } from '@nirmaanify/types';
+import { ProjectDto, ProjectType, StorageDriverType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
 
 interface EditProjectDialogProps {
@@ -32,6 +32,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
   const [type, setType] = useState<ProjectType>('SAAS');
   const [framework, setFramework] = useState('');
   const [uiLibrary, setUiLibrary] = useState('');
+  const [storageDriver, setStorageDriver] = useState<StorageDriverType>('local');
   const [isBackendEnabled, setIsBackendEnabled] = useState(true);
   const [slugTouched, setSlugTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +45,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
       setType(project.type);
       setFramework(project.framework);
       setUiLibrary(project.uiLibrary);
+      setStorageDriver((project.storageDriver as StorageDriverType) || 'local');
       setIsBackendEnabled(project.isBackendEnabled);
       setSlugTouched(true);
     }
@@ -63,6 +65,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
         framework,
         uiLibrary,
         isBackendEnabled,
+        storageDriver,
       });
       onClose();
       toast({
@@ -169,6 +172,17 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
             ]}
           />
         </div>
+
+        <Select
+          label="Individual Storage Engine"
+          value={storageDriver}
+          onChange={(e) => setStorageDriver(e.target.value as StorageDriverType)}
+          options={[
+            { label: 'Local Filesystem — Development & local testing', value: 'local' },
+            { label: 'AWS S3 / MinIO — Production object storage', value: 's3' },
+            { label: 'Vercel Blob Storage — Global edge media CDN', value: 'vercel-blob' },
+          ]}
+        />
 
         <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#24293D] bg-slate-50 dark:bg-[#141724] cursor-pointer">
           <input

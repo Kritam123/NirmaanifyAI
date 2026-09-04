@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Dialog, Input, Select, Button, Textarea, useToast } from '@nirmaanify/ui';
 import { useAuth } from '../../context/auth-context';
-import { ProjectType } from '@nirmaanify/types';
+import { ProjectType, StorageDriverType } from '@nirmaanify/types';
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
   const [type, setType] = useState<ProjectType>('SAAS');
   const [framework, setFramework] = useState('Next.js 15 App Router');
   const [uiLibrary, setUiLibrary] = useState('shadcn/ui + Tailwind CSS');
+  const [storageDriver, setStorageDriver] = useState<StorageDriverType>('local');
   const [isBackendEnabled, setIsBackendEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -35,6 +36,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
         framework,
         uiLibrary,
         isBackendEnabled,
+        storageDriver,
         projectSchema: {
           pages: ['/', '/dashboard', '/settings'],
           authEnabled: true,
@@ -150,6 +152,17 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
             ]}
           />
         </div>
+
+        <Select
+          label="Individual Storage Engine"
+          value={storageDriver}
+          onChange={(e) => setStorageDriver(e.target.value as StorageDriverType)}
+          options={[
+            { label: 'Local Filesystem — Development & local testing', value: 'local' },
+            { label: 'AWS S3 / MinIO — Production object storage', value: 's3' },
+            { label: 'Vercel Blob Storage — Global edge media CDN', value: 'vercel-blob' },
+          ]}
+        />
       </form>
     </Dialog>
   );

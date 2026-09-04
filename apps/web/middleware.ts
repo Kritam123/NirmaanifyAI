@@ -27,14 +27,9 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin));
   }
 
-  // 3. RBAC Route Checks
+  // 3. Storage is managed per-project; redirect legacy global route to projects
   if (isAuthenticated && pathname.startsWith('/storage')) {
-    const isAllowed = hasAnyRole(userRole, ['OWNER', 'ADMIN', 'DEVELOPER', 'EDITOR', 'MEMBER', 'VIEWER']);
-    if (!isAllowed) {
-      const unauthorizedUrl = new URL('/dashboard', req.nextUrl.origin);
-      unauthorizedUrl.searchParams.set('denied', 'storage');
-      return NextResponse.redirect(unauthorizedUrl);
-    }
+    return NextResponse.redirect(new URL('/projects', req.nextUrl.origin));
   }
 
   return NextResponse.next();

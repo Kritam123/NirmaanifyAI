@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import { Dialog, Button, Card, Badge, useToast } from '@nirmaanify/ui';
-import { Settings, Layers, AlertTriangle, Copy, Archive, ArchiveRestore } from 'lucide-react';
-import { ProjectDto } from '@nirmaanify/types';
+import { Settings, Layers, AlertTriangle, Copy, Archive, ArchiveRestore, Database } from 'lucide-react';
+import { ProjectDto, StorageDriverType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
+import { useStorage } from '../../hooks/use-storage';
+import { StorageSettingsCard } from '../storage/StorageSettingsCard';
 
 interface ProjectSettingsDialogProps {
   project: ProjectDto | null;
@@ -13,7 +15,7 @@ interface ProjectSettingsDialogProps {
   onEdit: () => void;
 }
 
-type TabId = 'general' | 'schema' | 'danger';
+type TabId = 'general' | 'storage' | 'schema' | 'danger';
 
 export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
   project,
@@ -22,8 +24,17 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
   onEdit,
 }) => {
   const { toast } = useToast();
-  const { duplicateProject, archiveProject, unarchiveProject } = useAuth();
+  const { duplicateProject, archiveProject, unarchiveProject, updateProject } = useAuth();
   const [tab, setTab] = useState<TabId>('general');
+
+  const {
+    activeDriver: projectStorageDriver,
+    config: projectStorageConfig,
+    isSavingConfig,
+    isTestingConnection,
+    updateStorageConfig,
+    testConnection,
+  } = useStorage(project?.id);
 
   if (!project) return null;
 
@@ -81,6 +92,7 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
           {(
             [
               { id: 'general', label: 'General', icon: <Settings className="h-3.5 w-3.5" /> },
+              { id: 'storage', label: 'Storage Engine', icon: <Database className="h-3.5 w-3.5" /> },
               { id: 'schema', label: 'Schema inspector', icon: <Layers className="h-3.5 w-3.5" /> },
               { id: 'danger', label: 'Danger zone', icon: <AlertTriangle className="h-3.5 w-3.5 text-rose-500" /> },
             ] as { id: TabId; label: string; icon: React.ReactNode }[]
@@ -162,6 +174,14 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
                     {project.isBackendEnabled ? 'PostgreSQL 16' : 'None (client-side)'}
                   </p>
                 </div>
+                <div>
+                  <span className="text-slate-400">Storage Engine</span>
+                  <div className="pt-0.5">
+                    <Badge variant={project.storageDriver === 's3' ? 'indigo' : project.storageDriver === 'vercel-blob' ? 'cyan' : 'secondary'} size="sm">
+                      {(project.storageDriver || 'local').toUpperCase()}
+                    </Badge>
+                  </div>
+                </div>
               </div>
             </Card>
 
@@ -171,6 +191,22 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
               <p className="mt-2 font-semibold text-slate-700 dark:text-slate-200">Last updated</p>
               <p className="mt-0.5">{new Date(project.updatedAt as any).toLocaleString()}</p>
             </Card>
+          </div>
+        )}
+
+        {/* Storage engine tab */}
+        {tab === 'storage' && (
+          <div className="space-y-4 text-xs">
+            <StorageSettingsCard
+              projectId={project.id}
+              projectName={project.name}
+              activeDriver={(projectStorageDriver || project.storageDriver || 'local') as StorageDriverType}
+              initialConfig={projectStorageConfig || (project.storageConfig as any)}
+              onSave={(cfg, drv) => updateStorageConfig(cfg, drv)}
+              onTest={(drv, cfg) => testConnection(drv, cfg)}
+              isSaving={isSavingConfig}
+              isTesting={isTestingConnection}
+            />
           </div>
         )}
 

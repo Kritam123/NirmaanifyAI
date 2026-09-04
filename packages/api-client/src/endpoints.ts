@@ -49,6 +49,8 @@ export const API_ENDPOINTS = {
     BASE: `${API_PREFIX}/storage`,
     STATUS: `${API_PREFIX}/storage/status`,
     SWITCH: `${API_PREFIX}/storage/switch`,
+    CONFIG: `${API_PREFIX}/storage/config`,
+    TEST_CONNECTION: `${API_PREFIX}/storage/test-connection`,
     FILES: `${API_PREFIX}/storage/files`,
     UPLOAD: `${API_PREFIX}/storage/upload`,
     FILE: (key: string) => `${API_PREFIX}/storage/files/${encodeURIComponent(key)}`,
