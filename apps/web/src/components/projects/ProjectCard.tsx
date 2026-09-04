@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Card,
   CardHeader,
@@ -57,25 +58,92 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   const { toast } = useToast();
   const { duplicateProject, archiveProject, unarchiveProject } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [menuCoords, setMenuCoords] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updateMenuPosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+
+    // Close menu if trigger button is scrolled out of viewport
+    if (rect.bottom < 0 || rect.top > window.innerHeight) {
+      setMenuOpen(false);
+      return;
+    }
+
+    const menuWidth = 208; // w-52 = 13rem = 208px
+    const estimatedHeight = 220;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placeAbove = spaceBelow < estimatedHeight && rect.top > estimatedHeight;
+
+    let left = rect.right - menuWidth;
+    if (left < 8) left = 8;
+    if (left + menuWidth > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - menuWidth - 8);
+    }
+
+    if (placeAbove) {
+      setMenuCoords({
+        bottom: window.innerHeight - rect.top + 4,
+        left,
+      });
+    } else {
+      setMenuCoords({
+        top: rect.bottom + 4,
+        left,
+      });
+    }
+  }, []);
+
+  const handleToggleMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!menuOpen) {
+      updateMenuPosition();
+      setMenuOpen(true);
+    } else {
+      setMenuOpen(false);
+    }
+  };
+
+  useEffect(() => {
     if (!menuOpen) return;
+
+    updateMenuPosition();
+
     const onDocClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
         setMenuOpen(false);
       }
     };
+
     const onEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMenuOpen(false);
     };
+
+    window.addEventListener('scroll', updateMenuPosition, true);
+    window.addEventListener('resize', updateMenuPosition);
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onEsc);
+
     return () => {
+      window.removeEventListener('scroll', updateMenuPosition, true);
+      window.removeEventListener('resize', updateMenuPosition);
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onEsc);
     };
-  }, [menuOpen]);
+  }, [menuOpen, updateMenuPosition]);
 
   const badge = TYPE_BADGE[project.type];
 
@@ -139,7 +207,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         project.isArchived ? 'opacity-70' : ''
       }`}
     >
-      <CardHeader className="p-5 pb-3">
+      <CardHeader className="p-5 pb-3 overflow-visible">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -165,13 +233,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
               <FolderDot className="h-4 w-4" />
             </span>
 
-            <div className="relative" ref={menuRef}>
+            <div>
               <button
+                ref={buttonRef}
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen((v) => !v);
-                }}
+                onClick={handleToggleMenu}
                 aria-label="Project actions"
                 aria-expanded={menuOpen}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#161926] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#635BFF]"
@@ -179,11 +245,20 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 <MoreVertical className="h-4 w-4" />
               </button>
 
-              {menuOpen && (
+              {menuOpen && mounted && menuCoords && createPortal(
                 <div
+                  ref={menuRef}
                   role="menu"
+                  aria-label={`${project.name} actions`}
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-9 z-30 w-52 rounded-xl border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] shadow-xl py-1 text-xs"
+                  style={{
+                    position: 'fixed',
+                    top: menuCoords.top !== undefined ? `${menuCoords.top}px` : undefined,
+                    bottom: menuCoords.bottom !== undefined ? `${menuCoords.bottom}px` : undefined,
+                    left: `${menuCoords.left}px`,
+                    zIndex: 1000,
+                  }}
+                  className="w-52 rounded-xl border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] shadow-xl py-1 text-xs"
                 >
                   <div className="py-1">
                     <button
@@ -244,7 +319,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                       <Trash2 className="h-3.5 w-3.5" /> Delete project
                     </button>
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
           </div>
