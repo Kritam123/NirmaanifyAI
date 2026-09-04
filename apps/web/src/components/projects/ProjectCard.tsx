@@ -202,8 +202,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   return (
     <Card
       hoverable
-      onClick={handleCardOpen}
-      className={`relative flex flex-col justify-between overflow-visible cursor-pointer ${
+      className={`relative flex flex-col justify-between overflow-visible  ${
         project.isArchived ? 'opacity-70' : ''
       }`}
     >
@@ -360,14 +359,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
       <CardFooter className="px-5 py-3 border-t border-slate-100 dark:border-[#1E2337] flex items-center justify-between">
         <Button
-          variant="ghost"
+          variant="default"
           size="sm"
           onClick={handleOpenStudio}
         >
           Open studio
         </Button>
         <Button
-          variant="subtle"
+          variant="outline"
           size="sm"
           rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
           onClick={(e) => {
