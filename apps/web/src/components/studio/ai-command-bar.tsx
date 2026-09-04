@@ -190,6 +190,29 @@ export function AiCommandBar({
           ],
         };
         generatedNodes.push(formContainer);
+      } else if (p.includes('blog') || p.includes('cms') || p.includes('article') || p.includes('feed') || p.includes('post')) {
+        const cmsFeedNode: ComponentNode = {
+          id: `node-cms-feed-${Date.now()}`,
+          type: 'cms-collection-list',
+          name: 'Dynamic Blog Posts Feed',
+          props: {
+            collectionSlug: 'posts',
+            collectionName: 'Latest Articles & Insights',
+            layout: 'grid',
+            columns: 3,
+            itemsLimit: 6,
+            showImages: true,
+            showBadges: true,
+            showDates: true,
+            showAuthors: true,
+            buttonText: 'Read Article',
+          },
+          cmsBinding: {
+            collectionSlug: 'posts',
+            limit: 6,
+          },
+        };
+        generatedNodes.push(cmsFeedNode);
       } else {
         const heroNode: ComponentNode = {
           id: `node-ai-hero-${Date.now()}`,
@@ -273,6 +296,7 @@ export function AiCommandBar({
         </span>
         {[
           { label: '3-Tier Pricing', prompt: 'Add a 3-tier pricing section with features and CTA' },
+          { label: 'CMS Blog Feed', prompt: 'Add dynamic blog posts CMS collection feed' },
           { label: 'Store Catalog', prompt: 'Add an e-commerce product grid with 3 items' },
           { label: 'KPI Analytics', prompt: 'Add a 3-metric KPI analytics row' },
           { label: 'Contact Form', prompt: 'Add a contact inquiry form with name, email and message' },

@@ -50,6 +50,21 @@ export class ReactCodeGenerator {
           componentImports.add('Card');
           iconImports.add('Star');
           break;
+        case 'cms-collection-list':
+          componentImports.add('Card');
+          componentImports.add('Badge');
+          componentImports.add('Button');
+          iconImports.add('Database');
+          iconImports.add('ArrowRight');
+          iconImports.add('Calendar');
+          iconImports.add('ShoppingBag');
+          break;
+        case 'cms-item-detail':
+          componentImports.add('Badge');
+          break;
+        case 'cms-author-badge':
+          componentImports.add('Card');
+          break;
         case 'image':
           break;
       }
@@ -389,6 +404,71 @@ ${indent}</form>`;
         const placeholder = node.props.placeholder || '';
         const rows = node.props.rows || 3;
         return `${indent}<Textarea label="${label}" placeholder="${placeholder}" rows={${rows}} />`;
+      }
+
+      case 'cms-collection-list': {
+        const colSlug = node.props.collectionSlug || 'posts';
+        const colName = node.props.collectionName || 'Dynamic Collection';
+        const btnText = node.props.buttonText || 'View Details';
+        const cols = node.props.columns || 3;
+        return `${indent}<div className="w-full py-8 max-w-7xl mx-auto space-y-6${visClass}">
+${childIndent}<div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+${childIndent}  <div>
+${childIndent}    <div className="flex items-center gap-2 text-xs font-semibold text-[#635BFF] uppercase">
+${childIndent}      <Database className="h-3.5 w-3.5" />
+${childIndent}      <span>CMS Collection: ${colSlug}</span>
+${childIndent}    </div>
+${childIndent}    <h2 className="text-2xl sm:text-3xl font-bold mt-1 text-slate-900 dark:text-white">${colName}</h2>
+${childIndent}  </div>
+${childIndent}  <Badge variant="secondary">Dynamic Feed</Badge>
+${childIndent}</div>
+${childIndent}<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${cols} gap-6">
+${childIndent}  {/* Dynamic CMS collection items rendered in real-time */}
+${childIndent}  <Card className="p-6 border border-slate-200 dark:border-slate-800 space-y-3">
+${childIndent}    <Badge variant="indigo" size="sm">${colSlug}</Badge>
+${childIndent}    <h3 className="font-bold text-base text-slate-900 dark:text-white">Sample ${colSlug} entry</h3>
+${childIndent}    <p className="text-xs text-slate-500 line-clamp-2">Dynamically queried and populated from the Nirmaanify CMS engine.</p>
+${childIndent}    <Button size="xs" variant="default" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>${btnText}</Button>
+${childIndent}  </Card>
+${childIndent}</div>
+${indent}</div>`;
+      }
+
+      case 'cms-item-detail': {
+        const title = node.props.title || 'Dynamic CMS Article';
+        const excerpt = node.props.excerpt || 'Article summary excerpt.';
+        const author = node.props.authorName || 'Author';
+        const cat = node.props.category || 'General';
+        return `${indent}<article className="w-full max-w-4xl mx-auto py-10 px-4 sm:px-6 space-y-8${visClass}">
+${childIndent}<div className="text-center space-y-4">
+${childIndent}  <Badge variant="indigo" size="md" className="mx-auto">${cat}</Badge>
+${childIndent}  <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">${title}</h1>
+${childIndent}  <p className="text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">${excerpt}</p>
+${childIndent}  <p className="text-xs text-slate-400">Published by {${JSON.stringify(author)}}</p>
+${childIndent}</div>
+${indent}</article>`;
+      }
+
+      case 'cms-rich-text': {
+        const field = node.props.fieldKey || 'content';
+        return `${indent}<div className="prose dark:prose-invert max-w-none py-4${visClass}" data-cms-field="${field}">
+${childIndent}{/* Dynamic CMS Rich Text HTML */}
+${childIndent}<p className="text-slate-700 dark:text-slate-300 leading-relaxed">Dynamic rich content bound to CMS field "{field}".</p>
+${indent}</div>`;
+      }
+
+      case 'cms-author-badge': {
+        const name = node.props.name || 'Author Name';
+        const role = node.props.role || 'Contributor';
+        return `${indent}<Card className="p-6 max-w-xl flex items-center gap-4 border border-slate-200 dark:border-slate-800${visClass}">
+${childIndent}<div className="h-12 w-12 rounded-full bg-[#635BFF]/10 text-[#635BFF] flex items-center justify-center font-bold">
+${childIndent}  ${name.charAt(0)}
+${childIndent}</div>
+${childIndent}<div>
+${childIndent}  <h4 className="text-base font-bold">${name}</h4>
+${childIndent}  <p className="text-xs text-[#635BFF] font-semibold">${role}</p>
+${childIndent}</div>
+${indent}</Card>`;
       }
 
       default: {

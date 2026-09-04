@@ -203,6 +203,8 @@ model Project {
   workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members          ProjectMember[]
   aiPlans          AIProjectPlan[]
+  cmsCollections   CmsCollection[]
+  cmsContentItems  CmsContentItem[]
 
   @@unique([workspaceId, slug])
   @@map("projects")
@@ -258,4 +260,100 @@ model AuditLog {
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
+}
+
+// ==========================================
+// CMS & CONTENT MANAGEMENT MODELS
+// ==========================================
+
+enum CmsCollectionType {
+  POSTS
+  PRODUCTS
+  CATEGORIES
+  AUTHORS
+  CUSTOM
+}
+
+enum CmsFieldType {
+  TEXT
+  RICH_TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  IMAGE
+  FILE
+  SELECT
+  RELATION
+  JSON
+}
+
+enum CmsContentStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ARCHIVED
+}
+
+model CmsCollection {
+  id          String            @id @default(uuid())
+  projectId   String
+  name        String
+  slug        String
+  description String?           @db.Text
+  type        CmsCollectionType @default(CUSTOM)
+  isSystem    Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fields      CmsField[]
+  items       CmsContentItem[]
+
+  @@unique([projectId, slug])
+  @@index([projectId])
+  @@map("cms_collections")
+}
+
+model CmsField {
+  id           String        @id @default(uuid())
+  collectionId String
+  name         String
+  key          String
+  type         CmsFieldType  @default(TEXT)
+  required     Boolean       @default(false)
+  defaultValue Json?
+  validation   Json?         @default("{}")
+  options      Json?         @default("[]")
+  order        Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  collection   CmsCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, key])
+  @@index([collectionId])
+  @@map("cms_fields")
+}
+
+model CmsContentItem {
+  id           String           @id @default(uuid())
+  collectionId String
+  projectId    String
+  slug         String?
+  data         Json             @default("{}")
+  status       CmsContentStatus @default(DRAFT)
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+  authorId     String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  collection   CmsCollection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId])
+  @@index([projectId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("cms_content_items")
 }

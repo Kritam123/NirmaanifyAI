@@ -30,6 +30,7 @@ import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/routes';
+import { getProjectServerType, SERVER_ARCHITECTURES } from '../../lib/server-architecture';
 
 interface ProjectCardProps {
   project: ProjectDto;
@@ -343,9 +344,9 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           </div>
           <div className="flex items-center justify-between text-slate-400">
             <span className="flex items-center gap-1.5">Server</span>
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {project.isBackendEnabled ? 'NestJS + PostgreSQL' : 'Static export'}
-            </span>
+            <Badge variant={SERVER_ARCHITECTURES[getProjectServerType(project)].badgeVariant} size="sm">
+              {SERVER_ARCHITECTURES[getProjectServerType(project)].label}
+            </Badge>
           </div>
           <div className="flex items-center justify-between text-slate-400">
             <span className="flex items-center gap-1.5">

@@ -13,3 +13,4 @@ export * from './engine/parent-utils';
 export * from './engine/tree-utils';
 export * from './renderer/viewport-context';
 export * from './renderer/style-computer';
+export * from './components/cms-components';

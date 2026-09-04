@@ -45,6 +45,7 @@ import {
   ArrowUpRight,
   Trash2,
   RotateCcw,
+  Database,
 } from 'lucide-react';
 import { Badge, Button, useToast } from '@nirmaanify/ui';
 
@@ -70,7 +71,7 @@ export function PropertyInspector({
   onChangeViewport,
 }: PropertyInspectorProps) {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'content' | 'style' | 'layout' | 'responsive' | 'interactions' | 'css' | 'schema'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'cms' | 'style' | 'layout' | 'responsive' | 'interactions' | 'css' | 'schema'>('content');
   const [copiedSchema, setCopiedSchema] = useState(false);
   const [isConfirmingReset, setIsConfirmingReset] = useState(false);
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -334,6 +335,7 @@ export function PropertyInspector({
             <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-[#141724] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D] min-w-max">
               {[
                 { id: 'content' as const, label: 'Content' },
+                { id: 'cms' as const, label: 'CMS Data' },
                 { id: 'style' as const, label: 'Style' },
                 { id: 'layout' as const, label: 'Layout' },
                 { id: 'responsive' as const, label: 'Responsive' },
@@ -603,6 +605,119 @@ export function PropertyInspector({
                 );
               })
             )}
+          </div>
+        )}
+
+        {/* CMS DATA BINDING TAB */}
+        {activeTab === 'cms' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-[#24293D]/60">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#635BFF] dark:text-[#A5AEFD] flex items-center gap-1">
+                <Database className="h-3 w-3" />
+                CMS Data Source Binding
+              </span>
+              <Badge variant="indigo" size="sm">Live Feed</Badge>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] space-y-3">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Connect this visual component to any CMS collection (Blog Posts, Products, Categories, Authors, or Custom Collections) to populate live data dynamically.
+              </p>
+
+              <Field label="Target CMS Collection">
+                <select
+                  className="w-full h-8 rounded-lg border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] px-2 text-xs text-slate-800 dark:text-slate-200"
+                  value={selectedNode.cmsBinding?.collectionSlug || selectedNode.props.collectionSlug || 'posts'}
+                  onChange={(e) => {
+                    const slug = e.target.value;
+                    onUpdateProps(selectedNode.id, {
+                      ...selectedNode.props,
+                      collectionSlug: slug,
+                      collectionName:
+                        slug === 'posts'
+                          ? 'Latest Blog Posts'
+                          : slug === 'products'
+                          ? 'Product Catalog'
+                          : slug === 'categories'
+                          ? 'Explore Categories'
+                          : slug === 'authors'
+                          ? 'Featured Authors'
+                          : slug.toUpperCase(),
+                    });
+                  }}
+                >
+                  <option value="posts">Blog Posts (/posts)</option>
+                  <option value="products">Products Catalog (/products)</option>
+                  <option value="categories">Categories (/categories)</option>
+                  <option value="authors">Authors (/authors)</option>
+                  <option value="custom">Custom Collection Feed</option>
+                </select>
+              </Field>
+
+              <Field label="Maximum Items to Query">
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={selectedNode.props.itemsLimit || selectedNode.cmsBinding?.limit || 6}
+                  onChange={(e) => {
+                    const limit = Number(e.target.value) || 6;
+                    onUpdateProps(selectedNode.id, {
+                      ...selectedNode.props,
+                      itemsLimit: limit,
+                    });
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-[12px] bg-white dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-900 dark:text-slate-100"
+                />
+              </Field>
+
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                <span className="text-[10px] font-bold uppercase text-slate-400">Schema Field Mappings</span>
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Title / Name Field</span>
+                    <input
+                      type="text"
+                      className="w-32 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F111A] text-xs font-mono text-slate-800 dark:text-slate-200"
+                      value={selectedNode.props.titleField || 'title'}
+                      onChange={(e) =>
+                        onUpdateProps(selectedNode.id, { ...selectedNode.props, titleField: e.target.value })
+                      }
+                      placeholder="title"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Summary / Excerpt Field</span>
+                    <input
+                      type="text"
+                      className="w-32 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F111A] text-xs font-mono text-slate-800 dark:text-slate-200"
+                      value={selectedNode.props.descriptionField || 'excerpt'}
+                      onChange={(e) =>
+                        onUpdateProps(selectedNode.id, { ...selectedNode.props, descriptionField: e.target.value })
+                      }
+                      placeholder="excerpt"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Cover Image Field</span>
+                    <input
+                      type="text"
+                      className="w-32 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F111A] text-xs font-mono text-slate-800 dark:text-slate-200"
+                      value={selectedNode.props.imageField || 'coverImage'}
+                      onChange={(e) =>
+                        onUpdateProps(selectedNode.id, { ...selectedNode.props, imageField: e.target.value })
+                      }
+                      placeholder="coverImage"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Connected to dynamic CMS query pipeline</span>
+              </div>
+            </div>
           </div>
         )}
 

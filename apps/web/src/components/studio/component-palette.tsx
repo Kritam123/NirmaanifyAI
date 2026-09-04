@@ -18,6 +18,7 @@ import {
   ShoppingBag,
   FormInput,
   BarChart3,
+  Database,
   X,
 } from 'lucide-react';
 import { Badge } from '@nirmaanify/ui';
@@ -36,6 +37,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   ecommerce: <ShoppingBag className="h-3 w-3" />,
   forms: <FormInput className="h-3 w-3" />,
   dashboard: <BarChart3 className="h-3 w-3" />,
+  cms: <Database className="h-3 w-3" />,
 };
 
 export function ComponentPalette({ onAddComponent }: ComponentPaletteProps) {

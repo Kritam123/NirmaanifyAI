@@ -196,6 +196,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@nirmaanify/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@nirmaanify/types':
         specifier: workspace:*
         version: link:../../packages/types

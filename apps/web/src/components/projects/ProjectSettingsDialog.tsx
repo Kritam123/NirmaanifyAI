@@ -7,6 +7,7 @@ import { ProjectDto, StorageDriverType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
 import { useStorage } from '../../hooks/use-storage';
 import { StorageSettingsCard } from '../storage/StorageSettingsCard';
+import { getProjectServerType, SERVER_ARCHITECTURES } from '../../lib/server-architecture';
 
 interface ProjectSettingsDialogProps {
   project: ProjectDto | null;
@@ -163,15 +164,19 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
                   <p className="font-semibold text-slate-800 dark:text-slate-100">{project.uiLibrary}</p>
                 </div>
                 <div>
-                  <span className="text-slate-400">Backend API</span>
-                  <p className="font-semibold text-slate-800 dark:text-slate-100">
-                    {project.isBackendEnabled ? 'NestJS 11 + Prisma ORM' : 'Static export'}
-                  </p>
+                  <span className="text-slate-400">Server Architecture</span>
+                  <div className="pt-0.5">
+                    <Badge variant={SERVER_ARCHITECTURES[getProjectServerType(project)].badgeVariant} size="sm">
+                      {SERVER_ARCHITECTURES[getProjectServerType(project)].label}
+                    </Badge>
+                  </div>
                 </div>
                 <div>
-                  <span className="text-slate-400">Database</span>
+                  <span className="text-slate-400">Database &amp; Store</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-100">
-                    {project.isBackendEnabled ? 'PostgreSQL 16' : 'None (client-side)'}
+                    {SERVER_ARCHITECTURES[getProjectServerType(project)].hasNestJs || SERVER_ARCHITECTURES[getProjectServerType(project)].hasCms
+                      ? 'PostgreSQL 16'
+                      : 'None (client-side)'}
                   </p>
                 </div>
                 <div>

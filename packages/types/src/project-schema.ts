@@ -80,6 +80,8 @@ export interface ComponentNodeStyle {
   [key: string]: any;
 }
 
+import { CmsBindingConfig } from './cms';
+
 export interface ComponentNode {
   id: string;
   type: string;
@@ -91,6 +93,7 @@ export interface ComponentNode {
   parent?: string | null;
   isLocked?: boolean;
   isHidden?: boolean;
+  cmsBinding?: CmsBindingConfig;
 }
 
 export const ComponentNodeStyleSchema = z.record(z.any());
@@ -107,6 +110,7 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode, any, any> = z.lazy(()
     parent: z.string().nullable().optional(),
     isLocked: z.boolean().optional(),
     isHidden: z.boolean().optional(),
+    cmsBinding: z.any().optional(),
   })
 );
 
@@ -247,11 +251,12 @@ export interface ProjectAsset {
 export interface ProjectDataSource {
   id: string;
   name: string;
-  type: 'rest' | 'graphql' | 'static' | 'mock';
+  type: 'rest' | 'graphql' | 'static' | 'mock' | 'cms';
   endpoint?: string;
   method?: 'GET' | 'POST';
   headers?: Record<string, string>;
   data?: any;
+  cmsConfig?: CmsBindingConfig;
 }
 
 export interface ProjectPluginConfig {

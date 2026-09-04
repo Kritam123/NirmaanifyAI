@@ -17,6 +17,7 @@ import {
 import { FolderDot, ArrowRight, Sparkles, Plus, ExternalLink, Boxes } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { ROUTES } from '../../lib/routes';
+import { getProjectServerType, SERVER_ARCHITECTURES } from '../../lib/server-architecture';
 
 interface RecentProjectsGridProps {
   onOpenCreateModal: () => void;
@@ -104,10 +105,10 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({ onOpenCr
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-400">
-                  <span>Backend:</span>
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {proj.isBackendEnabled ? 'NestJS API + PostgreSQL' : 'Static Export'}
-                  </span>
+                  <span>Server:</span>
+                  <Badge variant={SERVER_ARCHITECTURES[getProjectServerType(proj)].badgeVariant} size="sm">
+                    {SERVER_ARCHITECTURES[getProjectServerType(proj)].label}
+                  </Badge>
                 </div>
               </div>
             </CardContent>

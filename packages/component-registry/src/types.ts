@@ -10,7 +10,8 @@ export type ComponentCategory =
   | 'marketing'
   | 'ecommerce'
   | 'forms'
-  | 'dashboard';
+  | 'dashboard'
+  | 'cms';
 
 export type InspectorControlType =
   | 'text'

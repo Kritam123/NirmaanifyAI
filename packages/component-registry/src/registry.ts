@@ -32,6 +32,12 @@ import {
 import { ProductCardDefinition } from './components/ecommerce-components';
 import { FormDefinition, InputDefinition, TextareaDefinition } from './components/form-components';
 import { MetricCardDefinition } from './components/dashboard-components';
+import {
+  CmsCollectionListDefinition,
+  CmsItemDetailDefinition,
+  CmsRichTextDefinition,
+  CmsAuthorBadgeDefinition,
+} from './components/cms-components';
 
 // ==========================================
 // MASTER COMPONENT REGISTRY MAP
@@ -71,6 +77,12 @@ export const COMPONENT_REGISTRY: Record<string, ComponentDefinition<any>> = {
 
   // Dashboard
   'metric-card': MetricCardDefinition,
+
+  // CMS & Dynamic Content
+  'cms-collection-list': CmsCollectionListDefinition,
+  'cms-item-detail': CmsItemDetailDefinition,
+  'cms-rich-text': CmsRichTextDefinition,
+  'cms-author-badge': CmsAuthorBadgeDefinition,
 };
 
 // ==========================================
@@ -120,4 +132,5 @@ export const COMPONENT_CATEGORIES = [
   { id: 'ecommerce', label: 'E-commerce', icon: 'ShoppingBag' },
   { id: 'forms', label: 'Forms & Inputs', icon: 'FormInput' },
   { id: 'dashboard', label: 'Dashboard & Metrics', icon: 'BarChart3' },
+  { id: 'cms', label: 'CMS & Content', icon: 'Database' },
 ] as const;

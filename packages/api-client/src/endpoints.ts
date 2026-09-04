@@ -59,6 +59,29 @@ export const API_ENDPOINTS = {
   HEALTH: {
     CHECK: `${API_PREFIX}/health`,
   },
+  CMS: {
+    COLLECTIONS: (projectId: string) => `${API_PREFIX}/cms/projects/${projectId}/collections`,
+    COLLECTION: (projectId: string, collectionIdOrSlug: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/${collectionIdOrSlug}`,
+    FIELDS: (projectId: string, collectionId: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/${collectionId}/fields`,
+    FIELD: (projectId: string, collectionId: string, fieldId: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/${collectionId}/fields/${fieldId}`,
+    CONTENT: (projectId: string, collectionIdOrSlug: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/${collectionIdOrSlug}/items`,
+    CONTENT_ITEM: (projectId: string, collectionIdOrSlug: string, itemId: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/${collectionIdOrSlug}/items/${itemId}`,
+    PUBLISH: (projectId: string, collectionIdOrSlug: string, itemId: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/${collectionIdOrSlug}/items/${itemId}/publish`,
+    UNPUBLISH: (projectId: string, collectionIdOrSlug: string, itemId: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/${collectionIdOrSlug}/items/${itemId}/unpublish`,
+    SCHEDULE: (projectId: string, collectionIdOrSlug: string, itemId: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/${collectionIdOrSlug}/items/${itemId}/schedule`,
+    SEED_PRESET: (projectId: string) =>
+      `${API_PREFIX}/cms/projects/${projectId}/collections/seed-preset`,
+    PUBLIC_CONTENT: (projectId: string, collectionSlug: string) =>
+      `${API_PREFIX}/cms/public/${projectId}/${collectionSlug}`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;
