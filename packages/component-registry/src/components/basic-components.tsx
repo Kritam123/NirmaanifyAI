@@ -55,37 +55,58 @@ export const HeadingDefinition: ComponentDefinition<{
     },
     { name: 'gradient', label: 'Brand Gradient Glow', type: 'switch', group: 'style', defaultValue: false },
   ],
-  component: ({ text, level = 'h1', align = 'left', gradient, style }) => {
+  component: ({ text, title, level = 'h1', align = 'left', gradient, style }: any) => {
     const { isMobile, isTablet } = useViewport();
-    const Tag = (level || 'h1') as React.ElementType;
+
+    // Safely normalize level to h1-h6 tag string, preventing React createElement(number) crash
+    const normalizeTag = (val: any): 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' => {
+      if (typeof val === 'number') {
+        const clamped = Math.min(Math.max(1, Math.round(val)), 6);
+        return `h${clamped}` as any;
+      }
+      if (typeof val === 'string') {
+        const clean = val.toLowerCase().trim();
+        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(clean)) {
+          return clean as any;
+        }
+        const match = clean.match(/[1-6]/);
+        if (match) {
+          return `h${match[0]}` as any;
+        }
+      }
+      return 'h1';
+    };
+
+    const safeTag = normalizeTag(level);
+    const Tag: React.ElementType = safeTag;
 
     // Responsive scaling: Headings automatically scale down on mobile & tablet
     const sizeClasses = isMobile
-      ? {
+      ? ({
           h1: 'text-2xl sm:text-3xl font-black tracking-tight leading-tight',
           h2: 'text-xl sm:text-2xl font-extrabold tracking-tight leading-snug',
           h3: 'text-lg font-bold leading-snug',
           h4: 'text-base font-bold',
           h5: 'text-sm font-semibold',
           h6: 'text-xs font-semibold',
-        }[level]
+        }[safeTag] || 'text-xl font-bold')
       : isTablet
-      ? {
+      ? ({
           h1: 'text-3xl sm:text-4xl font-black tracking-tight',
           h2: 'text-2xl sm:text-3xl font-extrabold tracking-tight',
           h3: 'text-xl font-bold',
           h4: 'text-lg font-bold',
           h5: 'text-base font-semibold',
           h6: 'text-sm font-semibold',
-        }[level]
-      : {
+        }[safeTag] || 'text-2xl font-bold')
+      : ({
           h1: 'text-3xl sm:text-5xl font-black tracking-tight',
           h2: 'text-2xl sm:text-4xl font-extrabold tracking-tight',
           h3: 'text-xl sm:text-2xl font-bold',
           h4: 'text-lg sm:text-xl font-bold',
           h5: 'text-base font-semibold',
           h6: 'text-sm font-semibold',
-        }[level];
+        }[safeTag] || 'text-3xl font-bold');
 
     const effectiveAlign = isMobile && style?.mobileAlign ? style.mobileAlign : align;
 
@@ -101,7 +122,7 @@ export const HeadingDefinition: ComponentDefinition<{
             : 'text-slate-900 dark:text-white'
         } break-words [overflow-wrap:anywhere] transition-all`}
       >
-        {text}
+        {text ?? title ?? ''}
       </Tag>
     );
   },
@@ -151,20 +172,20 @@ export const TextDefinition: ComponentDefinition<{
     },
     { name: 'align', label: 'Alignment', type: 'alignment', group: 'style', defaultValue: 'left' },
   ],
-  component: ({ content, size = 'base', align = 'left', color = 'muted', style }) => {
+  component: ({ content, text, size = 'base', align = 'left', color = 'muted', style }: any) => {
     const { isMobile } = useViewport();
-    const sizeClass = {
+    const sizeClass = ({
       sm: 'text-xs leading-relaxed',
       base: 'text-sm leading-relaxed',
       lg: 'text-base leading-relaxed',
       xl: 'text-lg leading-relaxed',
-    }[size];
+    } as any)[size] || 'text-sm leading-relaxed';
 
-    const colorClass = {
+    const colorClass = ({
       default: 'text-slate-900 dark:text-slate-100',
       muted: 'text-slate-600 dark:text-slate-400',
       subtle: 'text-slate-400 dark:text-slate-500',
-    }[color];
+    } as any)[color] || 'text-slate-600 dark:text-slate-400';
 
     const effectiveAlign = isMobile && style?.mobileAlign ? style.mobileAlign : align;
 
@@ -176,7 +197,7 @@ export const TextDefinition: ComponentDefinition<{
         }}
         className={`${sizeClass} ${colorClass} break-words [overflow-wrap:anywhere] transition-all`}
       >
-        {content}
+        {content ?? text ?? ''}
       </p>
     );
   },
@@ -240,7 +261,7 @@ export const ButtonDefinition: ComponentDefinition<{
     },
     { name: 'fullWidth', label: 'Full Width', type: 'switch', group: 'layout', defaultValue: false },
   ],
-  component: ({ label, variant = 'default', size = 'md', fullWidth = false, style }) => {
+  component: ({ label, text, variant = 'default', size = 'md', fullWidth = false, style }: any) => {
     const { isMobile } = useViewport();
     const isEffectiveFullWidth = fullWidth || (isMobile && Boolean(style?.mobileFullWidth));
 
@@ -251,7 +272,7 @@ export const ButtonDefinition: ComponentDefinition<{
         className={isEffectiveFullWidth ? 'w-full' : ''}
         style={style}
       >
-        {label}
+        {label ?? text ?? 'Button'}
       </Button>
     );
   },
@@ -297,10 +318,10 @@ export const BadgeDefinition: ComponentDefinition<{
       defaultValue: 'indigo',
     },
   ],
-  component: ({ text, variant = 'indigo', size = 'md', style }) => {
+  component: ({ text, label, variant = 'indigo', size = 'md', style }: any) => {
     return (
       <Badge variant={variant as any} size={size as any} style={style}>
-        {text}
+        {text ?? label ?? 'Badge'}
       </Badge>
     );
   },

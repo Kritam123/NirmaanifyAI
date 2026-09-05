@@ -20,6 +20,7 @@ import {
   AIProjectPlan,
 } from '@nirmaanify/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Projects & AI Planner')
@@ -47,12 +48,23 @@ export class ProjectsController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get project details with tenant access verification' })
   @ApiParam({ name: 'id' })
   async getProject(
     @Param('id') id: string,
-    @CurrentUser('id') userId: string,
+    @CurrentUser('id') userId?: string,
+  ) {
+    return this.projectsService.getProject(id, userId);
+  }
+
+  @Get(':id/preview')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Get project preview data and latest generated files' })
+  @ApiParam({ name: 'id' })
+  async getProjectPreview(
+    @Param('id') id: string,
+    @CurrentUser('id') userId?: string,
   ) {
     return this.projectsService.getProject(id, userId);
   }

@@ -151,12 +151,24 @@ ${jsxBody}
       }
 
       case 'heading': {
-        const Tag = node.props.level || 'h1';
+        const rawLevel = node.props.level;
+        let Tag = 'h1';
+        if (typeof rawLevel === 'number') {
+          Tag = `h${Math.min(Math.max(1, Math.round(rawLevel)), 6)}`;
+        } else if (typeof rawLevel === 'string') {
+          const clean = rawLevel.toLowerCase().trim();
+          if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(clean)) {
+            Tag = clean;
+          } else {
+            const num = clean.replace(/\D/g, '');
+            Tag = num ? `h${Math.min(Math.max(1, parseInt(num, 10)), 6)}` : 'h1';
+          }
+        }
         const align = node.props.align || 'left';
         const gradient = node.props.gradient
           ? 'bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] bg-clip-text text-transparent'
           : 'text-slate-900 dark:text-white';
-        const text = node.props.text || 'Heading';
+        const text = node.props.text || node.props.title || 'Heading';
         const alignClass = node.style?.mobileAlign
           ? `text-${node.style.mobileAlign} md:text-${align}`
           : `text-${align}`;
@@ -164,7 +176,7 @@ ${jsxBody}
       }
 
       case 'text': {
-        const content = node.props.content || 'Text content';
+        const content = node.props.content || node.props.text || 'Text content';
         const align = node.props.align || 'left';
         const alignClass = node.style?.mobileAlign
           ? `text-${node.style.mobileAlign} md:text-${align}`
@@ -173,7 +185,7 @@ ${jsxBody}
       }
 
       case 'button': {
-        const label = node.props.label || 'Click Action';
+        const label = node.props.label || node.props.text || 'Click Action';
         const variant = node.props.variant || 'default';
         const size = node.props.size || 'md';
         const widthClass = node.props.fullWidth
@@ -509,6 +521,166 @@ ${indent}</Card>`;
       classes.push('md:hidden');
     }
     return classes.length > 0 ? ` ${classes.join(' ')}` : '';
+  }
+
+  static generateProjectFiles(project: ProjectSchema): Record<string, string> {
+    const files: Record<string, string> = {};
+
+    // 1. Root page and subpages
+    const pages = project.pages || [];
+    const rootPage = pages.find((p) => p.path === '/' || p.path === '') || pages[0];
+
+    if (rootPage) {
+      files['app/page.tsx'] = this.generatePageComponent(rootPage);
+    }
+
+    for (const page of pages) {
+      if (page === rootPage) continue;
+      const cleanPath = page.path.replace(/^\//, '').replace(/\/$/, '') || page.id;
+      files[`app/${cleanPath}/page.tsx`] = this.generatePageComponent(page);
+    }
+
+    // 2. Root Layout
+    files['app/layout.tsx'] = `import type { Metadata } from 'next';
+import './globals.css';
+
+export const metadata: Metadata = {
+  title: '${project.settings?.name || 'Nirmaanify App'}',
+  description: 'Built with Nirmaanify AI Visual Studio & Autonomous Agent',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className="antialiased min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0A0D14] dark:text-slate-100">
+        {children}
+      </body>
+    </html>
+  );
+}
+`;
+
+    // 3. Globals CSS
+    files['app/globals.css'] = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #09090b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #09090b;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+`;
+
+    // 4. NestJS Backend files
+    files['src/main.ts'] = `import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.enableCors();
+  app.setGlobalPrefix('api');
+  const port = process.env.PORT || 4000;
+  await app.listen(port);
+  console.log(\`🚀 Backend running on http://localhost:\${port}/api\`);
+}
+bootstrap();
+`;
+
+    files['src/app.module.ts'] = `import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
+@Module({
+  imports: [],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}
+`;
+
+    files['src/app.controller.ts'] = `import { Controller, Get, Post, Body } from '@nestjs/common';
+import { AppService } from './app.service';
+
+@Controller()
+export class AppController {
+  constructor(private readonly appService: AppService) {}
+
+  @Get('health')
+  getHealth() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
+  @Get('data')
+  getData() {
+    return this.appService.getItems();
+  }
+
+  @Post('data')
+  createData(@Body() body: any) {
+    return this.appService.addItem(body);
+  }
+}
+`;
+
+    files['src/app.service.ts'] = `import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class AppService {
+  private items: any[] = [
+    { id: '1', title: 'First Item', createdAt: new Date().toISOString() },
+    { id: '2', title: 'Second Item', createdAt: new Date().toISOString() },
+  ];
+
+  getItems() {
+    return this.items;
+  }
+
+  addItem(item: any) {
+    const newItem = { id: String(Date.now()), ...item, createdAt: new Date().toISOString() };
+    this.items.push(newItem);
+    return newItem;
+  }
+}
+`;
+
+    // 5. Prisma Schema
+    files['prisma/schema.prisma'] = `datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Item {
+  id        String   @id @default(uuid())
+  title     String
+  content   String?
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+`;
+
+    return files;
   }
 
   private static toPascalCase(str: string): string {

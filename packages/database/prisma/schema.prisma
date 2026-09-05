@@ -209,6 +209,9 @@ model Project {
   aiPlans          AIProjectPlan[]
   cmsCollections   CmsCollection[]
   cmsContentItems  CmsContentItem[]
+  messages         ProjectMessage[]
+  fragments        ProjectFragment[]
+  sandbox          ProjectSandbox?
 
   @@unique([workspaceId, slug])
   @@map("projects")
@@ -405,5 +408,74 @@ model WebhookSubscription {
 
   @@index([workspaceId])
   @@map("webhook_subscriptions")
+}
+
+// ==========================================
+// AUTONOMOUS AI AGENT & SANDBOX MODELS
+// ==========================================
+
+enum SandboxProvider {
+  E2B_CLOUD
+  LOCAL_DOCKER
+  WEBCONTAINER
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model ProjectMessage {
+  id        String          @id @default(uuid())
+  projectId String
+  role      MessageRole     @default(USER)
+  content   String          @db.Text
+  thought   String?         @db.Text
+  toolCalls Json            @default("[]")
+  modelUsed String          @default("gemini-3.0-pro")
+  createdAt DateTime        @default(now())
+
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fragment  ProjectFragment?
+
+  @@index([projectId])
+  @@map("project_messages")
+}
+
+model ProjectFragment {
+  id            String         @id @default(uuid())
+  messageId     String         @unique
+  projectId     String?
+  sandboxUrl    String
+  apiSandboxUrl String?
+  title         String
+  files         Json           @default("{}")
+  diffs         Json?
+  createdAt     DateTime       @default(now())
+
+  message       ProjectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([projectId])
+  @@map("project_fragments")
+}
+
+model ProjectSandbox {
+  id           String          @id @default(uuid())
+  projectId    String          @unique
+  provider     SandboxProvider @default(E2B_CLOUD)
+  sandboxId    String
+  status       String          @default("INITIALIZING")
+  hostUrl      String
+  apiHostUrl   String?
+  lastActiveAt DateTime        @default(now())
+  metadata     Json?           @default("{}")
+
+  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_sandboxes")
 }
 

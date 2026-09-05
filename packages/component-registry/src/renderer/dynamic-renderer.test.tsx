@@ -22,6 +22,22 @@ describe('DynamicRenderer — basic behaviour', () => {
     expect(html).toContain('<h1');
   });
 
+  it('safely renders headings with numeric level without createElement(number) crash', () => {
+    const node: ComponentNode = {
+      id: 'h2-num',
+      type: 'heading',
+      name: 'H2',
+      props: { text: 'Subheading Title', level: 2 as any, align: 'left', gradient: false },
+      children: [],
+    };
+    const html = renderToStaticMarkup(
+      React.createElement(DynamicRenderer, { node, mode: 'live' })
+    );
+    expect(html).toContain('Subheading Title');
+    expect(html).toContain('<h2');
+    expect(html).not.toContain('Render Error in Component');
+  });
+
   it('renders a MissingComponentFallback for unknown types', () => {
     const node: ComponentNode = {
       id: 'x',

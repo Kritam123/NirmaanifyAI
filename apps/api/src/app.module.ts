@@ -10,6 +10,8 @@ import { ProjectsModule } from './projects/projects.module';
 import { MailModule } from './mail/mail.module';
 import { CmsModule } from './cms/cms.module';
 import { BaasModule } from './baas/baas.module';
+import { AgentModule } from './agent/agent.module';
+import { InngestModule } from './inngest/inngest.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -33,6 +35,8 @@ import { validateEnv } from './config/env.validation';
     ProjectsModule,
     CmsModule,
     BaasModule,
+    AgentModule,
+    InngestModule,
   ],
 })
 export class AppModule {}

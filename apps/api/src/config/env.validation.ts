@@ -23,6 +23,10 @@ export const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().default('"Nirmaanify AI" <noreply@nirmaanify.ai>'),
   APP_URL: z.string().default('http://localhost:3000'),
+  INNGEST_EVENT_KEY: z.string().optional(),
+  NEXT_PUBLIC_INNGEST_EVENT_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-3.8-flash'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

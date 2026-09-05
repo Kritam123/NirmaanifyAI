@@ -51,7 +51,7 @@ export function DynamicRenderer({
   }
 
   const def = resolveComponent(node.type);
-  if (!def) {
+  if (!def || (typeof def.component !== 'function' && typeof def.component !== 'string')) {
     return <MissingComponentFallback node={node} />;
   }
 

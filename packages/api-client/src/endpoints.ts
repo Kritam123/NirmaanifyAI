@@ -118,6 +118,13 @@ export const API_ENDPOINTS = {
     EXTERNAL_AUTH_VERIFY: `${API_PREFIX}/external/auth/verify`,
     EXTERNAL_STORAGE_PRESIGNED: `${API_PREFIX}/external/storage/presigned-url`,
   },
+  AGENT: {
+    MESSAGES: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/messages`,
+    SWITCH_SANDBOX: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/sandbox/switch`,
+    SANDBOX_STATUS: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/sandbox/status`,
+    ROLLBACK: (projectId: string, fragmentId: string) => `${API_PREFIX}/projects/${projectId}/agent/rollback/${fragmentId}`,
+    INNGEST_TRIGGER: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/inngest/trigger`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;

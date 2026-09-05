@@ -8,6 +8,9 @@ import {
   PageSchema,
   ComponentNode,
   ComponentNodeStyle,
+  StudioViewMode,
+  SandboxProvider,
+  ProjectMessageDto,
 } from '@nirmaanify/types';
 import {
   useProjectHistory,
@@ -15,6 +18,7 @@ import {
   createDefaultProjectSchema,
   createComponentNode,
   ReactCodeGenerator,
+  CodeToAstParser,
   rewireParentPointers,
   normalizeParentPointers,
   jumpNode,
@@ -31,6 +35,10 @@ import { PropertyInspector } from './property-inspector';
 import { VisualCanvas } from './visual-canvas';
 import { Button, Dialog, Input, useToast } from '@nirmaanify/ui';
 import { useAuth } from '../../context/auth-context';
+import { apiClient } from '../../lib/api';
+import { AgentChatPane } from '../agent/AgentChatPane';
+import { SandboxPreviewPane } from '../agent/SandboxPreviewPane';
+import { FileExplorerPane } from '../agent/FileExplorerPane';
 import { Copy, Check, FileCode, Code2, Save, Sparkles, Layers, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 interface VisualStudioModalProps {
@@ -110,6 +118,17 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
   const [isDirty, setIsDirty] = useState(false);
   const lastSavedRef = useRef<string>(JSON.stringify(initialSchema));
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+
+  // Unified Mode Switcher: 'canvas' | 'agent' | 'code'
+  const [viewMode, setViewMode] = useState<StudioViewMode>('canvas');
+  const [sandboxProvider, setSandboxProvider] = useState<SandboxProvider>('E2B_CLOUD');
+  const [sandboxStatus, setSandboxStatus] = useState<string>('READY');
+  const [sandboxUrl, setSandboxUrl] = useState<string>('');
+  const [agentMessages, setAgentMessages] = useState<ProjectMessageDto[]>([]);
+  const [isAgentLoading, setIsAgentLoading] = useState(false);
+  const [projectFiles, setProjectFiles] = useState<Record<string, string>>({});
+  const [fileDiffs, setFileDiffs] = useState<Record<string, any> | null>(null);
+  const [agentRightTab, setAgentRightTab] = useState<'preview' | 'code'>('preview');
 
   // Collapsible sidebars (persisted in localStorage)
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -197,6 +216,176 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     setSavedAt(new Date());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id]);
+
+  // Initialize files and fetch agent messages / sandbox state
+  useEffect(() => {
+    if (!project?.id) return;
+
+    try {
+      const initialFiles = ReactCodeGenerator.generateProjectFiles(projectSchema);
+      setProjectFiles(initialFiles);
+    } catch {}
+
+    apiClient.agent
+      .getMessages(project.id)
+      .then((msgs) => {
+        setAgentMessages(msgs);
+        const lastWithFragment = [...msgs].reverse().find((m) => m.fragment);
+        if (lastWithFragment?.fragment?.files) {
+          setProjectFiles(lastWithFragment.fragment.files);
+        }
+        if (lastWithFragment?.fragment?.sandboxUrl) {
+          setSandboxUrl(lastWithFragment.fragment.sandboxUrl);
+        }
+      })
+      .catch(() => {});
+
+    apiClient.agent
+      .getSandboxStatus(project.id)
+      .then((status) => {
+        setSandboxProvider(status.provider);
+        setSandboxStatus(status.status);
+        if (status.hostUrl) setSandboxUrl(status.hostUrl);
+      })
+      .catch(() => {});
+  }, [project?.id]);
+
+  const handleViewModeChange = (newMode: StudioViewMode) => {
+    if (newMode === viewMode) return;
+
+    if (viewMode === 'canvas' && (newMode === 'agent' || newMode === 'code')) {
+      try {
+        const updatedFiles = ReactCodeGenerator.generateProjectFiles(projectSchema);
+        setProjectFiles((prev) => ({ ...prev, ...updatedFiles }));
+      } catch {}
+    } else if ((viewMode === 'agent' || viewMode === 'code') && newMode === 'canvas') {
+      if (projectFiles['app/page.tsx'] && activePage) {
+        try {
+          const parsed = CodeToAstParser.parsePage(
+            projectFiles['app/page.tsx'],
+            activePage.name,
+            activePage.path
+          );
+          if (parsed.rootNode) {
+            normalizeParentPointers(parsed.rootNode, null);
+            updateActivePageRootNode(() => parsed.rootNode);
+            toast({
+              title: 'Visual Canvas Synced',
+              description: 'Updated canvas components from source code.',
+              type: 'info',
+            });
+          }
+        } catch (err) {
+          console.error('AST parse error on mode switch:', err);
+        }
+      }
+    }
+
+    setViewMode(newMode);
+  };
+
+  const handleSendAgentMessage = async (userPrompt: string, preferredModel: string = 'gemini-3.8-flash') => {
+    if (!project?.id) return;
+    setIsAgentLoading(true);
+
+    const tempUserMsg: ProjectMessageDto = {
+      id: `temp-${Date.now()}`,
+      projectId: project.id,
+      role: 'USER',
+      content: userPrompt,
+      toolCalls: [],
+      modelUsed: preferredModel,
+      createdAt: new Date().toISOString(),
+    };
+    setAgentMessages((prev) => [...prev, tempUserMsg]);
+
+    try {
+      const assistantMsg = await apiClient.agent.sendMessage(project.id, userPrompt, preferredModel);
+      setAgentMessages((prev) => [...prev.filter((m) => m.id !== tempUserMsg.id), tempUserMsg, assistantMsg]);
+
+      if (assistantMsg.fragment?.files) {
+        setProjectFiles(assistantMsg.fragment.files);
+        setFileDiffs(assistantMsg.fragment.diffs || null);
+
+        if (assistantMsg.fragment.files['app/page.tsx'] && activePage) {
+          try {
+            const parsed = CodeToAstParser.parsePage(
+              assistantMsg.fragment.files['app/page.tsx'],
+              activePage.name,
+              activePage.path
+            );
+            if (parsed.rootNode) {
+              normalizeParentPointers(parsed.rootNode, null);
+              updateActivePageRootNode(() => parsed.rootNode);
+            }
+          } catch {}
+        }
+      }
+
+      if (assistantMsg.fragment?.sandboxUrl) {
+        setSandboxUrl(assistantMsg.fragment.sandboxUrl);
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Agent Error',
+        description: err.message || 'Failed to process prompt',
+        type: 'error',
+      });
+    } finally {
+      setIsAgentLoading(false);
+    }
+  };
+
+  const handleSwitchSandboxProvider = async (provider: SandboxProvider) => {
+    if (!project?.id) return;
+    try {
+      const res = await apiClient.agent.switchSandbox(project.id, provider);
+      setSandboxProvider(provider);
+      setSandboxStatus(res.status);
+      if (res.hostUrl) setSandboxUrl(res.hostUrl);
+      toast({
+        title: 'Sandbox Switched',
+        description: provider === 'E2B_CLOUD' ? 'Running on Cloud Micro-VM (E2B)' : 'Running on Local Docker Runner',
+        type: 'success',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Switch Failed',
+        description: err.message || 'Could not switch sandbox',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleRollbackFragment = async (fragmentId: string) => {
+    if (!project?.id) return;
+    try {
+      const res = await apiClient.agent.rollback(project.id, fragmentId);
+      if (res.files) {
+        setProjectFiles(res.files);
+        if (res.files['app/page.tsx'] && activePage) {
+          const parsed = CodeToAstParser.parsePage(res.files['app/page.tsx'], activePage.name, activePage.path);
+          if (parsed.rootNode) {
+            normalizeParentPointers(parsed.rootNode, null);
+            updateActivePageRootNode(() => parsed.rootNode);
+          }
+        }
+      }
+      const msgs = await apiClient.agent.getMessages(project.id);
+      setAgentMessages(msgs);
+      toast({
+        title: 'Rollback Complete',
+        description: `Workspace restored to snapshot: "${res.title}"`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Rollback Error',
+        description: err.message || 'Could not rollback',
+        type: 'error',
+      });
+    }
+  };
 
   // Track dirty state: compare current schema against the last saved snapshot.
   useEffect(() => {
@@ -943,6 +1132,11 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         lastSavedLabel={lastSavedLabel}
         autoSaveEnabled={isOpen && !!project}
         autoSaveIntervalLabel={`${AUTO_SAVE_INTERVAL_MS / 1000}s`}
+        viewMode={viewMode}
+        onChangeViewMode={handleViewModeChange}
+        sandboxProvider={sandboxProvider}
+        onSwitchSandboxProvider={handleSwitchSandboxProvider}
+        sandboxStatus={sandboxStatus}
         leftCollapsed={leftCollapsed}
         rightCollapsed={rightCollapsed}
         onToggleLeft={() => setLeftCollapsed((v) => !v)}
@@ -963,155 +1157,217 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
         onCloseStudio={handleClose}
       />
 
-      {/* In-Studio AI Command Bar */}
-      {mode === 'builder' && (
+      {/* In-Studio AI Command Bar (Only in visual canvas builder mode) */}
+      {viewMode === 'canvas' && mode === 'builder' && (
         <AiCommandBar
           onInsertGeneratedNodes={handleInsertGeneratedNodes}
           selectedNodeId={selectedNodeId}
         />
       )}
 
-      {/* Main Workspace Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar in Builder Mode */}
-        {mode === 'builder' && (
-          <div className="flex">
-            {/* Narrow Icon Switcher (always visible in builder mode) */}
-            <div className="w-11 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col items-center py-2.5 gap-1 shrink-0 select-none">
-              {/* Collapse / Expand Toggle Button at Top */}
-              <button
-                onClick={() => setLeftCollapsed((v) => !v)}
-                title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
-                aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] border border-slate-200 dark:border-[#24293D] transition-all mb-1 shadow-xs"
-              >
-                {leftCollapsed ? (
-                  <PanelLeftOpen className="h-4 w-4" />
-                ) : (
-                  <PanelLeftClose className="h-4 w-4" />
-                )}
-              </button>
+      {/* Main Workspace Area: Switchable between Visual Canvas, AI Agent (Lovable), and Code Explorer */}
+      {viewMode === 'canvas' ? (
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Sidebar in Builder Mode */}
+          {mode === 'builder' && (
+            <div className="flex">
+              {/* Narrow Icon Switcher (always visible in builder mode) */}
+              <div className="w-11 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col items-center py-2.5 gap-1 shrink-0 select-none">
+                {/* Collapse / Expand Toggle Button at Top */}
+                <button
+                  onClick={() => setLeftCollapsed((v) => !v)}
+                  title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
+                  aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] border border-slate-200 dark:border-[#24293D] transition-all mb-1 shadow-xs"
+                >
+                  {leftCollapsed ? (
+                    <PanelLeftOpen className="h-4 w-4" />
+                  ) : (
+                    <PanelLeftClose className="h-4 w-4" />
+                  )}
+                </button>
 
-              <button
-                onClick={() => {
-                  if (leftCollapsed) setLeftCollapsed(false);
-                  setActiveLeftTab('palette');
-                }}
-                title="Component Palette"
-                aria-label="Switch to Component Palette"
-                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
-                  !leftCollapsed && activeLeftTab === 'palette'
-                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
-                }`}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => {
-                  if (leftCollapsed) setLeftCollapsed(false);
-                  setActiveLeftTab('layers');
-                }}
-                title="Layers Tree"
-                aria-label="Switch to Layers Tree"
-                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
-                  !leftCollapsed && activeLeftTab === 'layers'
-                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
-                }`}
-              >
-                <Layers className="h-3.5 w-3.5" />
-              </button>
-              <div className="flex-1" />
-              <button
-                onClick={() => setLeftCollapsed((v) => !v)}
-                title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
-                aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] transition-colors"
-              >
-                {leftCollapsed ? (
-                  <PanelLeftOpen className="h-3.5 w-3.5" />
-                ) : (
-                  <PanelLeftClose className="h-3.5 w-3.5" />
-                )}
-              </button>
+                <button
+                  onClick={() => {
+                    if (leftCollapsed) setLeftCollapsed(false);
+                    setActiveLeftTab('palette');
+                  }}
+                  title="Component Palette"
+                  aria-label="Switch to Component Palette"
+                  className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
+                    !leftCollapsed && activeLeftTab === 'palette'
+                      ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (leftCollapsed) setLeftCollapsed(false);
+                    setActiveLeftTab('layers');
+                  }}
+                  title="Layers Tree"
+                  aria-label="Switch to Layers Tree"
+                  className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
+                    !leftCollapsed && activeLeftTab === 'layers'
+                      ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                </button>
+                <div className="flex-1" />
+                <button
+                  onClick={() => setLeftCollapsed((v) => !v)}
+                  title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
+                  aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] transition-colors"
+                >
+                  {leftCollapsed ? (
+                    <PanelLeftOpen className="h-3.5 w-3.5" />
+                  ) : (
+                    <PanelLeftClose className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+
+              {/* Left Panel Content (only when not collapsed) */}
+              {!leftCollapsed && (
+                <div className="animate-in slide-in-from-left-2 duration-200">
+                  {activeLeftTab === 'palette' ? (
+                    <ComponentPalette onAddComponent={handleAddComponent} />
+                  ) : (
+                    <LayersPanel
+                      rootNode={activePage.rootNode}
+                      selectedNodeId={selectedNodeId}
+                      onSelectNode={setSelectedNodeId}
+                      onDeleteNode={handleDeleteNode}
+                      onDuplicateNode={handleDuplicateNode}
+                      onToggleLockNode={handleToggleLockNode}
+                      onToggleHideNode={handleToggleHideNode}
+                      onMoveNode={handleMoveNode}
+                      onReparentNode={handleReparentNode}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Center Visual Canvas */}
+          <VisualCanvas
+            page={activePage}
+            mode={mode}
+            viewport={viewport}
+            zoom={zoom}
+            selectedNodeId={selectedNodeId}
+            hoveredNodeId={hoveredNodeId}
+            onSelectNode={setSelectedNodeId}
+            onHoverNode={setHoveredNodeId}
+            onDeleteNode={handleDeleteNode}
+            onDuplicateNode={handleDuplicateNode}
+            onResetNode={handleResetNode}
+            onMoveNode={handleMoveNode}
+            onReparentNode={handleReparentNode}
+            onDropComponent={handleDropComponent}
+            onOpenAddModal={() => {
+              setLeftCollapsed(false);
+              setActiveLeftTab('palette');
+            }}
+          />
+
+          {/* Right Property Inspector in Builder Mode */}
+          {mode === 'builder' && !rightCollapsed && (
+            <div className="h-full flex animate-in slide-in-from-right-2 duration-200">
+              <PropertyInspector
+                selectedNode={selectedNode}
+                onUpdateProps={handleUpdateProps}
+                onUpdateStyle={handleUpdateStyle}
+                onUpdateName={handleUpdateName}
+                onResetNode={handleResetNode}
+                viewport={viewport}
+                onChangeViewport={setViewport}
+                onCollapse={() => setRightCollapsed(true)}
+              />
+            </div>
+          )}
+
+          {/* Floating chevron to re-open right inspector when collapsed */}
+          {mode === 'builder' && rightCollapsed && (
+            <button
+              onClick={() => setRightCollapsed(false)}
+              title="Open inspector (Ctrl+])"
+              aria-label="Open inspector"
+              className="absolute right-3 top-20 z-30 h-8 w-8 inline-flex items-center justify-center rounded-full bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-500 hover:text-[#635BFF] hover:border-[#635BFF]/40 hover:shadow-md hover:shadow-[#635BFF]/20 transition-all"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 5l-7 7 7 7" />
+              </svg>
+            </button>
+          )}
+        </div>
+      ) : viewMode === 'agent' ? (
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Conversational Chat Pane */}
+          <AgentChatPane
+            projectId={project?.id || 'demo'}
+            messages={agentMessages}
+            isLoading={isAgentLoading}
+            onSendMessage={handleSendAgentMessage}
+            onRollback={handleRollbackFragment}
+          />
+
+          {/* Right Sandbox & Code Stage */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
+            {/* View Switcher Tabs */}
+            <div className="h-10 px-3 bg-white dark:bg-[#0F111A] border-b border-slate-200 dark:border-[#24293D] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setAgentRightTab('preview')}
+                  className={`h-7 px-3 rounded-md text-xs font-semibold transition-all ${
+                    agentRightTab === 'preview'
+                      ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Live Sandbox Preview
+                </button>
+                <button
+                  onClick={() => setAgentRightTab('code')}
+                  className={`h-7 px-3 rounded-md text-xs font-semibold transition-all ${
+                    agentRightTab === 'code'
+                      ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Code Explorer ({Object.keys(projectFiles).length})
+                </button>
+              </div>
             </div>
 
-            {/* Left Panel Content (only when not collapsed) */}
-            {!leftCollapsed && (
-              <div className="animate-in slide-in-from-left-2 duration-200">
-                {activeLeftTab === 'palette' ? (
-                  <ComponentPalette onAddComponent={handleAddComponent} />
-                ) : (
-                  <LayersPanel
-                    rootNode={activePage.rootNode}
-                    selectedNodeId={selectedNodeId}
-                    onSelectNode={setSelectedNodeId}
-                    onDeleteNode={handleDeleteNode}
-                    onDuplicateNode={handleDuplicateNode}
-                    onToggleLockNode={handleToggleLockNode}
-                    onToggleHideNode={handleToggleHideNode}
-                    onMoveNode={handleMoveNode}
-                    onReparentNode={handleReparentNode}
-                  />
-                )}
-              </div>
-            )}
+            <div className="flex-1 overflow-hidden">
+              {agentRightTab === 'preview' ? (
+                <SandboxPreviewPane
+                  sandboxUrl={sandboxUrl}
+                  projectId={project?.id || 'demo'}
+                  files={projectFiles}
+                />
+              ) : (
+                <FileExplorerPane
+                  files={projectFiles}
+                  diffs={fileDiffs}
+                />
+              )}
+            </div>
           </div>
-        )}
-
-        {/* Center Visual Canvas */}
-        <VisualCanvas
-          page={activePage}
-          mode={mode}
-          viewport={viewport}
-          zoom={zoom}
-          selectedNodeId={selectedNodeId}
-          hoveredNodeId={hoveredNodeId}
-          onSelectNode={setSelectedNodeId}
-          onHoverNode={setHoveredNodeId}
-          onDeleteNode={handleDeleteNode}
-          onDuplicateNode={handleDuplicateNode}
-          onResetNode={handleResetNode}
-          onMoveNode={handleMoveNode}
-          onReparentNode={handleReparentNode}
-          onDropComponent={handleDropComponent}
-          onOpenAddModal={() => {
-            setLeftCollapsed(false);
-            setActiveLeftTab('palette');
-          }}
-        />
-
-        {/* Right Property Inspector in Builder Mode */}
-        {mode === 'builder' && !rightCollapsed && (
-          <div className="h-full flex animate-in slide-in-from-right-2 duration-200">
-            <PropertyInspector
-              selectedNode={selectedNode}
-              onUpdateProps={handleUpdateProps}
-              onUpdateStyle={handleUpdateStyle}
-              onUpdateName={handleUpdateName}
-              onResetNode={handleResetNode}
-              viewport={viewport}
-              onChangeViewport={setViewport}
-              onCollapse={() => setRightCollapsed(true)}
-            />
-          </div>
-        )}
-
-        {/* Floating chevron to re-open right inspector when collapsed */}
-        {mode === 'builder' && rightCollapsed && (
-          <button
-            onClick={() => setRightCollapsed(false)}
-            title="Open inspector (Ctrl+])"
-            aria-label="Open inspector"
-            className="absolute right-3 top-20 z-30 h-8 w-8 inline-flex items-center justify-center rounded-full bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-500 hover:text-[#635BFF] hover:border-[#635BFF]/40 hover:shadow-md hover:shadow-[#635BFF]/20 transition-all"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 5l-7 7 7 7" />
-            </svg>
-          </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        /* Full Code Explorer Mode */
+        <div className="flex-1 flex overflow-hidden">
+          <FileExplorerPane files={projectFiles} diffs={fileDiffs} />
+        </div>
+      )}
 
       {/* LIVE REACT CODE PREVIEW MODAL */}
       <Dialog

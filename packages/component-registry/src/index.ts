@@ -14,3 +14,4 @@ export * from './engine/tree-utils';
 export * from './renderer/viewport-context';
 export * from './renderer/style-computer';
 export * from './components/cms-components';
+export * from './engine/code-to-ast-parser';
