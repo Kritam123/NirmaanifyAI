@@ -41,8 +41,11 @@ import {
 } from 'lucide-react';
 
 interface CmsDashboardViewProps {
-  projectId: string;
-  projectName: string;
+  projectId?: string;
+  projectName?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+  workspaceSlug?: string;
 }
 
 const TEMPLATES: Array<{
@@ -115,8 +118,14 @@ const TEMPLATES: Array<{
 export const CmsDashboardView: React.FC<CmsDashboardViewProps> = ({
   projectId,
   projectName,
+  workspaceId,
+  workspaceName,
+  workspaceSlug,
 }) => {
   const { toast } = useToast();
+  const isWorkspaceMode = Boolean(workspaceId && !projectId);
+  const target = isWorkspaceMode ? { workspaceId } : (projectId || '');
+
   const {
     collections,
     activeCollection,
@@ -146,7 +155,7 @@ export const CmsDashboardView: React.FC<CmsDashboardViewProps> = ({
     publishItem,
     unpublishItem,
     schedulePublish,
-  } = useCms(projectId);
+  } = useCms(target);
 
   // Dialog states
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
@@ -173,7 +182,9 @@ export const CmsDashboardView: React.FC<CmsDashboardViewProps> = ({
 
   const handleCopyApiEndpoint = () => {
     if (typeof window !== 'undefined' && activeCollection) {
-      const url = `${window.location.origin}/api/v1/cms/delivery/${projectId}/${activeCollection.slug}`;
+      const url = isWorkspaceMode
+        ? `${window.location.origin}/api/v1/cms/delivery/workspaces/${workspaceSlug || workspaceId}/${activeCollection.slug}`
+        : `${window.location.origin}/api/v1/cms/delivery/${projectId}/${activeCollection.slug}`;
       navigator.clipboard.writeText(url);
       setIsApiCopied(true);
       toast({
@@ -254,11 +265,20 @@ export const CmsDashboardView: React.FC<CmsDashboardViewProps> = ({
             <Database className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              Content &amp; Collections
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                {isWorkspaceMode ? 'Headless CMS (Global)' : 'Content & Collections'}
+              </h3>
+              {isWorkspaceMode && (
+                <Badge variant="indigo" size="sm">
+                  {workspaceName || 'Standalone BaaS'}
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Create and manage dynamic content like blog articles, products, or team profiles for your website.
+              {isWorkspaceMode
+                ? 'Manage structured content schemas and access high-performance delivery APIs for external apps & websites.'
+                : 'Create and manage dynamic content like blog articles, products, or team profiles for your website.'}
             </p>
           </div>
         </div>

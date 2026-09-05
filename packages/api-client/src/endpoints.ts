@@ -81,6 +81,42 @@ export const API_ENDPOINTS = {
       `${API_PREFIX}/cms/projects/${projectId}/collections/seed-preset`,
     PUBLIC_CONTENT: (projectId: string, collectionSlug: string) =>
       `${API_PREFIX}/cms/public/${projectId}/${collectionSlug}`,
+
+    // Global Workspace-Scoped CMS Endpoints
+    WORKSPACE_COLLECTIONS: (workspaceId: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections`,
+    WORKSPACE_COLLECTION: (workspaceId: string, collectionIdOrSlug: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/${collectionIdOrSlug}`,
+    WORKSPACE_FIELDS: (workspaceId: string, collectionId: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/${collectionId}/fields`,
+    WORKSPACE_FIELD: (workspaceId: string, collectionId: string, fieldId: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/${collectionId}/fields/${fieldId}`,
+    WORKSPACE_CONTENT: (workspaceId: string, collectionIdOrSlug: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/${collectionIdOrSlug}/items`,
+    WORKSPACE_CONTENT_ITEM: (workspaceId: string, collectionIdOrSlug: string, itemId: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/${collectionIdOrSlug}/items/${itemId}`,
+    WORKSPACE_PUBLISH: (workspaceId: string, collectionIdOrSlug: string, itemId: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/${collectionIdOrSlug}/items/${itemId}/publish`,
+    WORKSPACE_UNPUBLISH: (workspaceId: string, collectionIdOrSlug: string, itemId: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/${collectionIdOrSlug}/items/${itemId}/unpublish`,
+    WORKSPACE_SCHEDULE: (workspaceId: string, collectionIdOrSlug: string, itemId: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/${collectionIdOrSlug}/items/${itemId}/schedule`,
+    WORKSPACE_SEED_PRESET: (workspaceId: string) =>
+      `${API_PREFIX}/cms/workspaces/${workspaceId}/collections/seed-preset`,
+    WORKSPACE_DELIVERY: (workspaceSlug: string, collectionSlug: string) =>
+      `${API_PREFIX}/cms/delivery/workspaces/${workspaceSlug}/${collectionSlug}`,
+  },
+  BAAS: {
+    STATUS: (workspaceId: string) => `${API_PREFIX}/workspaces/${workspaceId}/services/status`,
+    API_KEYS: (workspaceId: string) => `${API_PREFIX}/workspaces/${workspaceId}/api-keys`,
+    API_KEY: (workspaceId: string, keyId: string) => `${API_PREFIX}/workspaces/${workspaceId}/api-keys/${keyId}`,
+    WEBHOOKS: (workspaceId: string) => `${API_PREFIX}/workspaces/${workspaceId}/webhooks`,
+    WEBHOOK: (workspaceId: string, webhookId: string) => `${API_PREFIX}/workspaces/${workspaceId}/webhooks/${webhookId}`,
+    WEBHOOK_TEST: (workspaceId: string, webhookId: string) => `${API_PREFIX}/workspaces/${workspaceId}/webhooks/${webhookId}/test`,
+    EXTERNAL_AUTH_SIGNUP: `${API_PREFIX}/external/auth/signup`,
+    EXTERNAL_AUTH_LOGIN: `${API_PREFIX}/external/auth/login`,
+    EXTERNAL_AUTH_VERIFY: `${API_PREFIX}/external/auth/verify`,
+    EXTERNAL_STORAGE_PRESIGNED: `${API_PREFIX}/external/storage/presigned-url`,
   },
 } as const;
 

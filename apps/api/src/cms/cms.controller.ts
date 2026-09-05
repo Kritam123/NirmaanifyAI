@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   Query,
+  Headers,
   UseGuards,
   ParseIntPipe,
 } from '@nestjs/common';
@@ -316,5 +317,283 @@ export class CmsController {
   ) {
     const limitNum = limit ? parseInt(limit, 10) : 50;
     return this.cmsService.getPublicCollectionContent(projectId, collectionSlug, limitNum);
+  }
+
+  // ============================================================================
+  // WORKSPACE-SCOPED (GLOBAL HEADLESS CMS) ENDPOINTS
+  // ============================================================================
+
+  @Get('workspaces/:workspaceId/collections')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all CMS collections in a workspace (standalone)' })
+  @ApiParam({ name: 'workspaceId' })
+  async listWorkspaceCollections(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.listWorkspaceCollections(workspaceId, userId);
+  }
+
+  @Get('workspaces/:workspaceId/collections/:idOrSlug')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get workspace CMS collection by ID or slug' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'idOrSlug' })
+  async getWorkspaceCollection(
+    @Param('workspaceId') workspaceId: string,
+    @Param('idOrSlug') idOrSlug: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.getWorkspaceCollection(workspaceId, idOrSlug, userId);
+  }
+
+  @Post('workspaces/:workspaceId/collections')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create standalone CMS collection in workspace' })
+  @ApiParam({ name: 'workspaceId' })
+  async createWorkspaceCollection(
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: CreateCmsCollectionDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.createWorkspaceCollection(workspaceId, dto, userId);
+  }
+
+  @Patch('workspaces/:workspaceId/collections/:collectionId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update workspace CMS collection metadata' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionId' })
+  async updateWorkspaceCollection(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionId') collectionId: string,
+    @Body() dto: UpdateCmsCollectionDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.updateWorkspaceCollection(workspaceId, collectionId, dto, userId);
+  }
+
+  @Delete('workspaces/:workspaceId/collections/:collectionId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a workspace CMS collection and items' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionId' })
+  async deleteWorkspaceCollection(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionId') collectionId: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.deleteWorkspaceCollection(workspaceId, collectionId, userId);
+  }
+
+  @Post('workspaces/:workspaceId/collections/seed-preset')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Seed standard preset collection in workspace' })
+  @ApiParam({ name: 'workspaceId' })
+  async seedWorkspacePreset(
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: SeedPresetDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.seedWorkspacePresetCollection(workspaceId, dto.type, userId);
+  }
+
+  @Post('workspaces/:workspaceId/collections/:collectionId/fields')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Add a new schema field to workspace collection' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionId' })
+  async addWorkspaceField(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionId') collectionId: string,
+    @Body() dto: CreateCmsFieldDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.addWorkspaceField(workspaceId, collectionId, dto, userId);
+  }
+
+  @Patch('workspaces/:workspaceId/collections/:collectionId/fields/:fieldId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update field definition in workspace collection' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionId' })
+  @ApiParam({ name: 'fieldId' })
+  async updateWorkspaceField(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionId') collectionId: string,
+    @Param('fieldId') fieldId: string,
+    @Body() dto: UpdateCmsFieldDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.updateWorkspaceField(workspaceId, collectionId, fieldId, dto, userId);
+  }
+
+  @Delete('workspaces/:workspaceId/collections/:collectionId/fields/:fieldId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete field from workspace collection' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionId' })
+  @ApiParam({ name: 'fieldId' })
+  async deleteWorkspaceField(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionId') collectionId: string,
+    @Param('fieldId') fieldId: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.deleteWorkspaceField(workspaceId, collectionId, fieldId, userId);
+  }
+
+  @Get('workspaces/:workspaceId/collections/:collectionIdOrSlug/items')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List workspace content items with filters and pagination' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionIdOrSlug' })
+  async listWorkspaceContent(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionIdOrSlug') collectionIdOrSlug: string,
+    @Query() query: CmsFilterQueryDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.listWorkspaceContent(workspaceId, collectionIdOrSlug, query, userId);
+  }
+
+  @Get('workspaces/:workspaceId/collections/:collectionIdOrSlug/items/:itemId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get single workspace content item' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionIdOrSlug' })
+  @ApiParam({ name: 'itemId' })
+  async getWorkspaceContentItem(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionIdOrSlug') collectionIdOrSlug: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.getWorkspaceContentItem(workspaceId, collectionIdOrSlug, itemId, userId);
+  }
+
+  @Post('workspaces/:workspaceId/collections/:collectionIdOrSlug/items')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create new content item in workspace collection' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionIdOrSlug' })
+  async createWorkspaceContentItem(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionIdOrSlug') collectionIdOrSlug: string,
+    @Body() dto: CreateCmsContentItemDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.createWorkspaceContentItem(workspaceId, collectionIdOrSlug, dto, userId);
+  }
+
+  @Patch('workspaces/:workspaceId/collections/:collectionIdOrSlug/items/:itemId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update workspace content item' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionIdOrSlug' })
+  @ApiParam({ name: 'itemId' })
+  async updateWorkspaceContentItem(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionIdOrSlug') collectionIdOrSlug: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateCmsContentItemDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.updateWorkspaceContentItem(workspaceId, collectionIdOrSlug, itemId, dto, userId);
+  }
+
+  @Delete('workspaces/:workspaceId/collections/:collectionIdOrSlug/items/:itemId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete workspace content item' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionIdOrSlug' })
+  @ApiParam({ name: 'itemId' })
+  async deleteWorkspaceContentItem(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionIdOrSlug') collectionIdOrSlug: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.deleteWorkspaceContentItem(workspaceId, collectionIdOrSlug, itemId, userId);
+  }
+
+  @Post('workspaces/:workspaceId/collections/:collectionIdOrSlug/items/:itemId/publish')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Publish workspace content item immediately' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionIdOrSlug' })
+  @ApiParam({ name: 'itemId' })
+  async publishWorkspaceContentItem(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionIdOrSlug') collectionIdOrSlug: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.publishWorkspaceContentItem(workspaceId, collectionIdOrSlug, itemId, userId);
+  }
+
+  @Post('workspaces/:workspaceId/collections/:collectionIdOrSlug/items/:itemId/unpublish')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Unpublish workspace content item (revert to DRAFT)' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionIdOrSlug' })
+  @ApiParam({ name: 'itemId' })
+  async unpublishWorkspaceContentItem(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionIdOrSlug') collectionIdOrSlug: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.unpublishWorkspaceContentItem(workspaceId, collectionIdOrSlug, itemId, userId);
+  }
+
+  @Post('workspaces/:workspaceId/collections/:collectionIdOrSlug/items/:itemId/schedule')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Schedule workspace content publication' })
+  @ApiParam({ name: 'workspaceId' })
+  @ApiParam({ name: 'collectionIdOrSlug' })
+  @ApiParam({ name: 'itemId' })
+  async scheduleWorkspacePublish(
+    @Param('workspaceId') workspaceId: string,
+    @Param('collectionIdOrSlug') collectionIdOrSlug: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: SchedulePublishDto,
+    @CurrentUser('id') userId: string
+  ) {
+    return this.cmsService.scheduleWorkspacePublish(workspaceId, collectionIdOrSlug, itemId, dto.scheduledAt, userId);
+  }
+
+  // ============================================================================
+  // WORKSPACE DELIVERY API (External Apps / Websites / Mobile)
+  // ============================================================================
+
+  @Get('delivery/workspaces/:workspaceSlug/:collectionSlug')
+  @ApiOperation({ summary: 'External delivery API endpoint for external websites and mobile apps' })
+  @ApiParam({ name: 'workspaceSlug' })
+  @ApiParam({ name: 'collectionSlug' })
+  async getWorkspaceDelivery(
+    @Param('workspaceSlug') workspaceSlug: string,
+    @Param('collectionSlug') collectionSlug: string,
+    @Query() query: CmsFilterQueryDto,
+    @Headers('x-api-key') apiKey?: string
+  ) {
+    return this.cmsService.getWorkspaceDeliveryContent(workspaceSlug, collectionSlug, query, apiKey);
   }
 }

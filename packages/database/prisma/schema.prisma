@@ -115,10 +115,14 @@ model Workspace {
 
   owner          User                  @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   organization   Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  members        WorkspaceMember[]
-  invitations    WorkspaceInvitation[]
-  projects       Project[]
-  auditLogs      AuditLog[]
+  members              WorkspaceMember[]
+  invitations          WorkspaceInvitation[]
+  projects             Project[]
+  auditLogs            AuditLog[]
+  cmsCollections       CmsCollection[]
+  cmsContentItems      CmsContentItem[]
+  apiKeys              ApiKey[]
+  webhookSubscriptions WebhookSubscription[]
 
   @@map("workspaces")
 }
@@ -296,7 +300,8 @@ enum CmsContentStatus {
 
 model CmsCollection {
   id          String            @id @default(uuid())
-  projectId   String
+  workspaceId String
+  projectId   String?
   name        String
   slug        String
   description String?           @db.Text
@@ -305,11 +310,13 @@ model CmsCollection {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   fields      CmsField[]
   items       CmsContentItem[]
 
-  @@unique([projectId, slug])
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
   @@index([projectId])
   @@map("cms_collections")
 }
@@ -338,7 +345,8 @@ model CmsField {
 model CmsContentItem {
   id           String           @id @default(uuid())
   collectionId String
-  projectId    String
+  workspaceId  String
+  projectId    String?
   slug         String?
   data         Json             @default("{}")
   status       CmsContentStatus @default(DRAFT)
@@ -349,11 +357,53 @@ model CmsContentItem {
   updatedAt    DateTime         @updatedAt
 
   collection   CmsCollection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project      Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([collectionId])
+  @@index([workspaceId])
   @@index([projectId])
   @@index([status])
   @@index([scheduledAt])
   @@map("cms_content_items")
 }
+
+// ==========================================
+// API KEYS & EXTERNAL BAAS SERVICES
+// ==========================================
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  keyPrefix   String
+  keyHash     String    @unique
+  scopes      String[]  @default([])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("api_keys")
+}
+
+model WebhookSubscription {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  targetUrl   String
+  secret      String?
+  events      String[] @default([])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("webhook_subscriptions")
+}
+

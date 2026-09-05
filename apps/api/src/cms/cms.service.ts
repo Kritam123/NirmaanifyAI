@@ -27,11 +27,16 @@ import {
   CmsFilterQueryDto,
 } from './dto/cms.dto';
 
+import { WebhooksService } from '../baas/webhooks.service';
+
 @Injectable()
 export class CmsService {
   private readonly logger = new Logger(CmsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly webhooksService?: WebhooksService
+  ) {}
 
   /**
    * Ensure user has access to the project via workspace ownership or membership
@@ -63,6 +68,31 @@ export class CmsService {
     return project;
   }
 
+  /**
+   * Ensure user has access to the workspace via ownership or membership
+   */
+  async verifyWorkspaceAccess(workspaceId: string, userId?: string): Promise<any> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: { members: true },
+    });
+
+    if (!workspace) {
+      throw new NotFoundException(`Workspace with ID "${workspaceId}" not found`);
+    }
+
+    if (userId) {
+      const isOwner = workspace.ownerId === userId;
+      const isMember = workspace.members.some((m) => m.userId === userId);
+
+      if (!isOwner && !isMember) {
+        throw new ForbiddenException('Access denied: You do not have permission for this workspace');
+      }
+    }
+
+    return workspace;
+  }
+
   // ============================================================================
   // COLLECTIONS
   // ============================================================================
@@ -85,6 +115,7 @@ export class CmsService {
 
     return collections.map((col) => ({
       id: col.id,
+      workspaceId: col.workspaceId,
       projectId: col.projectId,
       name: col.name,
       slug: col.slug,
@@ -112,6 +143,7 @@ export class CmsService {
 
     return {
       id: collection.id,
+      workspaceId: collection.workspaceId,
       projectId: collection.projectId,
       name: collection.name,
       slug: collection.slug,
@@ -129,21 +161,22 @@ export class CmsService {
     dto: CreateCmsCollectionDto,
     userId: string
   ): Promise<CmsCollectionDto> {
-    await this.verifyProjectAccess(projectId, userId);
+    const project = await this.verifyProjectAccess(projectId, userId);
 
     const slug = dto.slug?.trim() || this.slugify(dto.name);
     const existing = await this.prisma.cmsCollection.findUnique({
       where: {
-        projectId_slug: { projectId, slug },
+        workspaceId_slug: { workspaceId: project.workspaceId, slug },
       },
     });
 
     if (existing) {
-      throw new ConflictException(`A collection with slug "${slug}" already exists in this project`);
+      throw new ConflictException(`A collection with slug "${slug}" already exists in this workspace`);
     }
 
     const collection = await this.prisma.cmsCollection.create({
       data: {
+        workspaceId: project.workspaceId,
         projectId,
         name: dto.name.trim(),
         slug,
@@ -173,6 +206,7 @@ export class CmsService {
 
     return {
       id: collection.id,
+      workspaceId: collection.workspaceId,
       projectId: collection.projectId,
       name: collection.name,
       slug: collection.slug,
@@ -206,7 +240,7 @@ export class CmsService {
     if (dto.slug && dto.slug !== existing.slug) {
       slug = this.slugify(dto.slug);
       const conflict = await this.prisma.cmsCollection.findUnique({
-        where: { projectId_slug: { projectId, slug } },
+        where: { workspaceId_slug: { workspaceId: existing.workspaceId, slug } },
       });
       if (conflict && conflict.id !== collectionId) {
         throw new ConflictException(`Slug "${slug}" is already used by another collection`);
@@ -229,6 +263,7 @@ export class CmsService {
 
     return {
       id: updated.id,
+      workspaceId: updated.workspaceId,
       projectId: updated.projectId,
       name: updated.name,
       slug: updated.slug,
@@ -506,6 +541,7 @@ export class CmsService {
 
     const item = await this.prisma.cmsContentItem.create({
       data: {
+        workspaceId: collection.workspaceId,
         projectId,
         collectionId: collection.id,
         slug: dto.slug?.trim() || this.extractSlugFromData(dto.data),
@@ -626,7 +662,12 @@ export class CmsService {
       },
     });
 
-    return this.mapContentItemToDto(updated);
+    const dto = this.mapContentItemToDto(updated);
+    if (this.webhooksService && updated.workspaceId) {
+      this.webhooksService.dispatch(updated.workspaceId, 'content.published', dto).catch(() => {});
+    }
+
+    return dto;
   }
 
   async unpublishContentItem(
@@ -699,7 +740,7 @@ export class CmsService {
     presetType: CmsCollectionType,
     userId: string
   ): Promise<CmsCollectionDto> {
-    await this.verifyProjectAccess(projectId, userId);
+    const project = await this.verifyProjectAccess(projectId, userId);
 
     if (presetType === 'CUSTOM') {
       throw new BadRequestException('Cannot seed CUSTOM preset');
@@ -711,8 +752,8 @@ export class CmsService {
     }
 
     // Check if collection already exists
-    let collection = await this.prisma.cmsCollection.findUnique({
-      where: { projectId_slug: { projectId, slug: preset.slug } },
+    let collection = await this.prisma.cmsCollection.findFirst({
+      where: { workspaceId: project.workspaceId, slug: preset.slug },
       include: { fields: true },
     });
 
@@ -720,6 +761,7 @@ export class CmsService {
       // Create collection with all preset fields
       collection = await this.prisma.cmsCollection.create({
         data: {
+          workspaceId: project.workspaceId,
           projectId,
           name: preset.name,
           slug: preset.slug,
@@ -752,6 +794,7 @@ export class CmsService {
       for (const itemData of sampleItems) {
         await this.prisma.cmsContentItem.create({
           data: {
+            workspaceId: project.workspaceId,
             projectId,
             collectionId: collection.id,
             slug: itemData.slug,
@@ -777,8 +820,8 @@ export class CmsService {
     collectionSlug: string,
     limit: number = 50
   ): Promise<CmsContentItemDto[]> {
-    const collection = await this.prisma.cmsCollection.findUnique({
-      where: { projectId_slug: { projectId, slug: collectionSlug } },
+    const collection = await this.prisma.cmsCollection.findFirst({
+      where: { projectId, slug: collectionSlug },
     });
 
     if (!collection) {
@@ -802,12 +845,783 @@ export class CmsService {
   }
 
   // ============================================================================
+  // WORKSPACE-SCOPED (GLOBAL HEADLESS CMS) METHODS
+  // ============================================================================
+
+  async listWorkspaceCollections(workspaceId: string, userId?: string): Promise<CmsCollectionDto[]> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collections = await this.prisma.cmsCollection.findMany({
+      where: { workspaceId },
+      include: {
+        fields: {
+          orderBy: { order: 'asc' },
+        },
+        _count: {
+          select: { items: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return collections.map((col) => ({
+      id: col.id,
+      workspaceId: col.workspaceId,
+      projectId: col.projectId,
+      name: col.name,
+      slug: col.slug,
+      description: col.description,
+      type: col.type as CmsCollectionType,
+      isSystem: col.isSystem,
+      fields: col.fields.map(this.mapFieldToDto),
+      itemCount: col._count.items,
+      createdAt: col.createdAt,
+      updatedAt: col.updatedAt,
+    }));
+  }
+
+  async getWorkspaceCollection(
+    workspaceId: string,
+    idOrSlug: string,
+    userId?: string
+  ): Promise<CmsCollectionDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, idOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${idOrSlug}" not found in workspace`);
+    }
+
+    return {
+      id: collection.id,
+      workspaceId: collection.workspaceId,
+      projectId: collection.projectId,
+      name: collection.name,
+      slug: collection.slug,
+      description: collection.description,
+      type: collection.type as CmsCollectionType,
+      isSystem: collection.isSystem,
+      fields: collection.fields.map(this.mapFieldToDto),
+      createdAt: collection.createdAt,
+      updatedAt: collection.updatedAt,
+    };
+  }
+
+  async createWorkspaceCollection(
+    workspaceId: string,
+    dto: CreateCmsCollectionDto,
+    userId: string
+  ): Promise<CmsCollectionDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const slug = dto.slug?.trim() || this.slugify(dto.name);
+    const existing = await this.prisma.cmsCollection.findUnique({
+      where: {
+        workspaceId_slug: { workspaceId, slug },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(`A collection with slug "${slug}" already exists in this workspace`);
+    }
+
+    const collection = await this.prisma.cmsCollection.create({
+      data: {
+        workspaceId,
+        projectId: null,
+        name: dto.name.trim(),
+        slug,
+        description: dto.description?.trim(),
+        type: (dto.type || 'CUSTOM') as any,
+        fields: dto.fields && dto.fields.length > 0
+          ? {
+              create: dto.fields.map((f, idx) => ({
+                name: f.name.trim(),
+                key: f.key?.trim() || this.keyify(f.name),
+                type: f.type as any,
+                required: f.required ?? false,
+                defaultValue: f.defaultValue ?? undefined,
+                validation: f.validation ? JSON.parse(JSON.stringify(f.validation)) : {},
+                options: f.options ? JSON.parse(JSON.stringify(f.options)) : [],
+                order: f.order ?? idx,
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        fields: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return {
+      id: collection.id,
+      workspaceId: collection.workspaceId,
+      projectId: collection.projectId,
+      name: collection.name,
+      slug: collection.slug,
+      description: collection.description,
+      type: collection.type as CmsCollectionType,
+      isSystem: collection.isSystem,
+      fields: collection.fields.map(this.mapFieldToDto),
+      itemCount: 0,
+      createdAt: collection.createdAt,
+      updatedAt: collection.updatedAt,
+    };
+  }
+
+  async updateWorkspaceCollection(
+    workspaceId: string,
+    collectionId: string,
+    dto: UpdateCmsCollectionDto,
+    userId: string
+  ): Promise<CmsCollectionDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const existing = await this.prisma.cmsCollection.findFirst({
+      where: { id: collectionId, workspaceId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Collection "${collectionId}" not found in workspace`);
+    }
+
+    let slug = existing.slug;
+    if (dto.slug && dto.slug !== existing.slug) {
+      slug = this.slugify(dto.slug);
+      const conflict = await this.prisma.cmsCollection.findUnique({
+        where: { workspaceId_slug: { workspaceId, slug } },
+      });
+      if (conflict && conflict.id !== collectionId) {
+        throw new ConflictException(`Slug "${slug}" is already used by another collection`);
+      }
+    }
+
+    const updated = await this.prisma.cmsCollection.update({
+      where: { id: collectionId },
+      data: {
+        name: dto.name?.trim() ?? existing.name,
+        slug,
+        description: dto.description !== undefined ? dto.description : existing.description,
+      },
+      include: {
+        fields: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return {
+      id: updated.id,
+      workspaceId: updated.workspaceId,
+      projectId: updated.projectId,
+      name: updated.name,
+      slug: updated.slug,
+      description: updated.description,
+      type: updated.type as CmsCollectionType,
+      isSystem: updated.isSystem,
+      fields: updated.fields.map(this.mapFieldToDto),
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    };
+  }
+
+  async deleteWorkspaceCollection(
+    workspaceId: string,
+    collectionId: string,
+    userId: string
+  ): Promise<{ success: boolean; id: string }> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const existing = await this.prisma.cmsCollection.findFirst({
+      where: { id: collectionId, workspaceId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Collection "${collectionId}" not found in workspace`);
+    }
+
+    await this.prisma.cmsCollection.delete({
+      where: { id: collectionId },
+    });
+
+    return { success: true, id: collectionId };
+  }
+
+  async seedWorkspacePresetCollection(
+    workspaceId: string,
+    presetType: CmsCollectionType,
+    userId: string
+  ): Promise<CmsCollectionDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    if (presetType === 'CUSTOM') {
+      throw new BadRequestException('Cannot seed CUSTOM preset');
+    }
+
+    const preset = CMS_COLLECTION_PRESETS[presetType as keyof typeof CMS_COLLECTION_PRESETS];
+    if (!preset) {
+      throw new NotFoundException(`Preset type "${presetType}" not recognized`);
+    }
+
+    let collection = await this.prisma.cmsCollection.findFirst({
+      where: { workspaceId, slug: preset.slug },
+      include: { fields: true },
+    });
+
+    if (!collection) {
+      collection = await this.prisma.cmsCollection.create({
+        data: {
+          workspaceId,
+          projectId: null,
+          name: preset.name,
+          slug: preset.slug,
+          description: preset.description,
+          type: preset.type as any,
+          fields: {
+            create: preset.fields.map((f: any) => ({
+              name: f.name,
+              key: f.key,
+              type: f.type as any,
+              required: f.required,
+              defaultValue: f.defaultValue ?? undefined,
+              validation: f.validation ? JSON.parse(JSON.stringify(f.validation)) : {},
+              options: [],
+              order: f.order,
+            })),
+          },
+        },
+        include: { fields: { orderBy: { order: 'asc' } } },
+      });
+    }
+
+    const currentCount = await this.prisma.cmsContentItem.count({
+      where: { collectionId: collection.id },
+    });
+
+    if (currentCount === 0) {
+      const sampleItems = this.getSampleItemsForPreset(presetType, '', collection.id);
+      for (const itemData of sampleItems) {
+        await this.prisma.cmsContentItem.create({
+          data: {
+            workspaceId,
+            projectId: null,
+            collectionId: collection.id,
+            slug: itemData.slug,
+            data: itemData.data,
+            status: itemData.status as any,
+            publishedAt: itemData.publishedAt,
+            scheduledAt: itemData.scheduledAt,
+            authorId: userId,
+          },
+        });
+      }
+    }
+
+    return this.getWorkspaceCollection(workspaceId, collection.id, userId);
+  }
+
+  async addWorkspaceField(
+    workspaceId: string,
+    collectionId: string,
+    dto: CreateCmsFieldDto,
+    userId: string
+  ): Promise<CmsFieldDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionId);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionId}" not found`);
+    }
+
+    const key = dto.key?.trim() || this.keyify(dto.name);
+    const existingField = collection.fields.find((f) => f.key === key);
+    if (existingField) {
+      throw new ConflictException(`A field with key "${key}" already exists in this collection`);
+    }
+
+    const maxOrder = collection.fields.reduce((max, f) => Math.max(max, f.order), -1);
+
+    const field = await this.prisma.cmsField.create({
+      data: {
+        collectionId: collection.id,
+        name: dto.name.trim(),
+        key,
+        type: dto.type as any,
+        required: dto.required ?? false,
+        defaultValue: dto.defaultValue ?? undefined,
+        validation: dto.validation ? JSON.parse(JSON.stringify(dto.validation)) : {},
+        options: dto.options ? JSON.parse(JSON.stringify(dto.options)) : [],
+        order: dto.order !== undefined ? dto.order : maxOrder + 1,
+      },
+    });
+
+    return this.mapFieldToDto(field);
+  }
+
+  async updateWorkspaceField(
+    workspaceId: string,
+    collectionId: string,
+    fieldId: string,
+    dto: UpdateCmsFieldDto,
+    userId: string
+  ): Promise<CmsFieldDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionId);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionId}" not found`);
+    }
+
+    const existingField = collection.fields.find((f) => f.id === fieldId);
+    if (!existingField) {
+      throw new NotFoundException(`Field "${fieldId}" not found in collection`);
+    }
+
+    let key = existingField.key;
+    if (dto.key && dto.key !== existingField.key) {
+      key = this.keyify(dto.key);
+      const conflict = collection.fields.find((f) => f.key === key && f.id !== fieldId);
+      if (conflict) {
+        throw new ConflictException(`Key "${key}" is already used by another field`);
+      }
+    }
+
+    const updated = await this.prisma.cmsField.update({
+      where: { id: fieldId },
+      data: {
+        name: dto.name?.trim() ?? existingField.name,
+        key,
+        type: (dto.type as any) ?? existingField.type,
+        required: dto.required !== undefined ? dto.required : existingField.required,
+        defaultValue: dto.defaultValue !== undefined ? dto.defaultValue : existingField.defaultValue,
+        validation: dto.validation !== undefined ? JSON.parse(JSON.stringify(dto.validation)) : undefined,
+        options: dto.options !== undefined ? JSON.parse(JSON.stringify(dto.options)) : undefined,
+        order: dto.order !== undefined ? dto.order : existingField.order,
+      },
+    });
+
+    return this.mapFieldToDto(updated);
+  }
+
+  async deleteWorkspaceField(
+    workspaceId: string,
+    collectionId: string,
+    fieldId: string,
+    userId: string
+  ): Promise<{ success: boolean; id: string }> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionId);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionId}" not found`);
+    }
+
+    const existingField = collection.fields.find((f) => f.id === fieldId);
+    if (!existingField) {
+      throw new NotFoundException(`Field "${fieldId}" not found`);
+    }
+
+    await this.prisma.cmsField.delete({
+      where: { id: fieldId },
+    });
+
+    return { success: true, id: fieldId };
+  }
+
+  async listWorkspaceContent(
+    workspaceId: string,
+    collectionIdOrSlug: string,
+    query: CmsFilterQueryDto,
+    userId?: string
+  ): Promise<CmsPaginatedResult<CmsContentItemDto>> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionIdOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionIdOrSlug}" not found`);
+    }
+
+    await this.publishOverdueScheduledItems(undefined, collection.id, workspaceId);
+
+    const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+    const limit = query.limit && Number(query.limit) > 0 ? Number(query.limit) : 20;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      workspaceId,
+      collectionId: collection.id,
+    };
+
+    if (query.status && query.status !== 'ALL') {
+      where.status = query.status;
+    }
+
+    if (query.search) {
+      where.OR = [
+        { slug: { contains: query.search, mode: 'insensitive' } },
+        { data: { path: ['title'], string_contains: query.search } },
+        { data: { path: ['name'], string_contains: query.search } },
+      ];
+    }
+
+    const sortBy = query.sortBy || 'createdAt';
+    const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
+
+    const [items, total] = await Promise.all([
+      this.prisma.cmsContentItem.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      this.prisma.cmsContentItem.count({ where }),
+    ]);
+
+    return {
+      items: items.map(this.mapContentItemToDto),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getWorkspaceContentItem(
+    workspaceId: string,
+    collectionIdOrSlug: string,
+    itemId: string,
+    userId?: string
+  ): Promise<CmsContentItemDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionIdOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionIdOrSlug}" not found`);
+    }
+
+    const item = await this.prisma.cmsContentItem.findFirst({
+      where: {
+        id: itemId,
+        workspaceId,
+        collectionId: collection.id,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(`Content item "${itemId}" not found`);
+    }
+
+    return this.mapContentItemToDto(item);
+  }
+
+  async createWorkspaceContentItem(
+    workspaceId: string,
+    collectionIdOrSlug: string,
+    dto: CreateCmsContentItemDto,
+    userId: string
+  ): Promise<CmsContentItemDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionIdOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionIdOrSlug}" not found`);
+    }
+
+    this.validateContentData(collection.fields, dto.data || {});
+
+    let status: CmsContentStatus = dto.status || 'DRAFT';
+    let publishedAt: Date | null = null;
+    let scheduledAt: Date | null = null;
+
+    if (status === 'PUBLISHED') {
+      publishedAt = new Date();
+    } else if (status === 'SCHEDULED') {
+      if (!dto.scheduledAt) {
+        throw new BadRequestException('Scheduled publication requires a valid scheduledAt date');
+      }
+      scheduledAt = new Date(dto.scheduledAt);
+      if (isNaN(scheduledAt.getTime())) {
+        throw new BadRequestException('Invalid scheduledAt date format');
+      }
+    }
+
+    const item = await this.prisma.cmsContentItem.create({
+      data: {
+        workspaceId,
+        projectId: null,
+        collectionId: collection.id,
+        slug: dto.slug?.trim() || this.extractSlugFromData(dto.data),
+        data: dto.data || {},
+        status: status as any,
+        publishedAt,
+        scheduledAt,
+        authorId: userId,
+      },
+    });
+
+    const result = this.mapContentItemToDto(item);
+    if (status === 'PUBLISHED' && this.webhooksService) {
+      this.webhooksService.dispatch(workspaceId, 'content.published', result).catch(() => {});
+    }
+
+    return result;
+  }
+
+  async updateWorkspaceContentItem(
+    workspaceId: string,
+    collectionIdOrSlug: string,
+    itemId: string,
+    dto: UpdateCmsContentItemDto,
+    userId: string
+  ): Promise<CmsContentItemDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionIdOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionIdOrSlug}" not found`);
+    }
+
+    const existing = await this.prisma.cmsContentItem.findFirst({
+      where: { id: itemId, workspaceId, collectionId: collection.id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Content item "${itemId}" not found`);
+    }
+
+    const mergedData = dto.data ? { ...(existing.data as any), ...dto.data } : (existing.data as any);
+    this.validateContentData(collection.fields, mergedData, false);
+
+    let status = dto.status || (existing.status as CmsContentStatus);
+    let publishedAt = existing.publishedAt;
+    let scheduledAt = existing.scheduledAt;
+
+    if (dto.status && dto.status !== existing.status) {
+      if (dto.status === 'PUBLISHED') {
+        publishedAt = new Date();
+        scheduledAt = null;
+      } else if (dto.status === 'SCHEDULED') {
+        if (!dto.scheduledAt) {
+          throw new BadRequestException('Scheduled publication requires a valid scheduledAt date');
+        }
+        scheduledAt = new Date(dto.scheduledAt);
+      } else if (dto.status === 'DRAFT') {
+        scheduledAt = null;
+      }
+    }
+
+    const updated = await this.prisma.cmsContentItem.update({
+      where: { id: itemId },
+      data: {
+        slug: dto.slug?.trim() ?? existing.slug,
+        data: mergedData,
+        status: status as any,
+        publishedAt,
+        scheduledAt,
+      },
+    });
+
+    const result = this.mapContentItemToDto(updated);
+    if (status === 'PUBLISHED' && existing.status !== 'PUBLISHED' && this.webhooksService) {
+      this.webhooksService.dispatch(workspaceId, 'content.published', result).catch(() => {});
+    }
+
+    return result;
+  }
+
+  async deleteWorkspaceContentItem(
+    workspaceId: string,
+    collectionIdOrSlug: string,
+    itemId: string,
+    userId: string
+  ): Promise<{ success: boolean; id: string }> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionIdOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionIdOrSlug}" not found`);
+    }
+
+    const existing = await this.prisma.cmsContentItem.findFirst({
+      where: { id: itemId, workspaceId, collectionId: collection.id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Content item "${itemId}" not found`);
+    }
+
+    await this.prisma.cmsContentItem.delete({
+      where: { id: itemId },
+    });
+
+    return { success: true, id: itemId };
+  }
+
+  async publishWorkspaceContentItem(
+    workspaceId: string,
+    collectionIdOrSlug: string,
+    itemId: string,
+    userId: string
+  ): Promise<CmsContentItemDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionIdOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionIdOrSlug}" not found`);
+    }
+
+    const updated = await this.prisma.cmsContentItem.update({
+      where: { id: itemId },
+      data: {
+        status: 'PUBLISHED',
+        publishedAt: new Date(),
+        scheduledAt: null,
+      },
+    });
+
+    const dto = this.mapContentItemToDto(updated);
+    if (this.webhooksService) {
+      this.webhooksService.dispatch(workspaceId, 'content.published', dto).catch(() => {});
+    }
+
+    return dto;
+  }
+
+  async unpublishWorkspaceContentItem(
+    workspaceId: string,
+    collectionIdOrSlug: string,
+    itemId: string,
+    userId: string
+  ): Promise<CmsContentItemDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionIdOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionIdOrSlug}" not found`);
+    }
+
+    const updated = await this.prisma.cmsContentItem.update({
+      where: { id: itemId },
+      data: {
+        status: 'DRAFT',
+        publishedAt: null,
+        scheduledAt: null,
+      },
+    });
+
+    return this.mapContentItemToDto(updated);
+  }
+
+  async scheduleWorkspacePublish(
+    workspaceId: string,
+    collectionIdOrSlug: string,
+    itemId: string,
+    scheduledAtIso: string,
+    userId: string
+  ): Promise<CmsContentItemDto> {
+    await this.verifyWorkspaceAccess(workspaceId, userId);
+
+    const collection = await this.findWorkspaceCollection(workspaceId, collectionIdOrSlug);
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionIdOrSlug}" not found`);
+    }
+
+    const scheduledDate = new Date(scheduledAtIso);
+    if (isNaN(scheduledDate.getTime())) {
+      throw new BadRequestException('Invalid scheduled date format');
+    }
+
+    if (scheduledDate.getTime() <= Date.now()) {
+      throw new BadRequestException('Scheduled date must be in the future');
+    }
+
+    const updated = await this.prisma.cmsContentItem.update({
+      where: { id: itemId },
+      data: {
+        status: 'SCHEDULED',
+        scheduledAt: scheduledDate,
+      },
+    });
+
+    return this.mapContentItemToDto(updated);
+  }
+
+  async getWorkspaceDeliveryContent(
+    workspaceSlug: string,
+    collectionSlug: string,
+    query: CmsFilterQueryDto,
+    apiKeyHeader?: string
+  ): Promise<{ items: CmsContentItemDto[]; total: number; page: number; limit: number }> {
+    const workspace = await this.prisma.workspace.findFirst({
+      where: {
+        OR: [{ slug: workspaceSlug }, { id: workspaceSlug }],
+      },
+    });
+
+    if (!workspace) {
+      throw new NotFoundException(`Workspace "${workspaceSlug}" not found`);
+    }
+
+    const collection = await this.prisma.cmsCollection.findUnique({
+      where: {
+        workspaceId_slug: { workspaceId: workspace.id, slug: collectionSlug },
+      },
+      include: { fields: true },
+    });
+
+    if (!collection) {
+      throw new NotFoundException(`Collection "${collectionSlug}" not found in workspace`);
+    }
+
+    // Auto-promote any overdue scheduled items in this collection
+    await this.publishOverdueScheduledItems(undefined, collection.id, workspace.id);
+
+    const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+    const limit = query.limit && Number(query.limit) > 0 ? Math.min(Number(query.limit), 100) : 20;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      workspaceId: workspace.id,
+      collectionId: collection.id,
+      status: 'PUBLISHED',
+    };
+
+    if (query.search) {
+      where.OR = [
+        { slug: { contains: query.search, mode: 'insensitive' } },
+        { data: { path: ['title'], string_contains: query.search } },
+        { data: { path: ['name'], string_contains: query.search } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.cmsContentItem.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { publishedAt: 'desc' },
+      }),
+      this.prisma.cmsContentItem.count({ where }),
+    ]);
+
+    return {
+      items: items.map(this.mapContentItemToDto),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  // ============================================================================
   // SCHEDULED PUBLISHING BACKGROUND EXECUTION
   // ============================================================================
 
   async publishOverdueScheduledItems(
     projectId?: string,
-    collectionId?: string
+    collectionId?: string,
+    workspaceId?: string
   ): Promise<number> {
     const now = new Date();
     const where: any = {
@@ -815,6 +1629,7 @@ export class CmsService {
       scheduledAt: { lte: now },
     };
 
+    if (workspaceId) where.workspaceId = workspaceId;
     if (projectId) where.projectId = projectId;
     if (collectionId) where.collectionId = collectionId;
 
@@ -847,6 +1662,18 @@ export class CmsService {
     return this.prisma.cmsCollection.findFirst({
       where: {
         projectId,
+        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
+      },
+      include: {
+        fields: { orderBy: { order: 'asc' } },
+      },
+    });
+  }
+
+  private async findWorkspaceCollection(workspaceId: string, idOrSlug: string) {
+    return this.prisma.cmsCollection.findFirst({
+      where: {
+        workspaceId,
         OR: [{ id: idOrSlug }, { slug: idOrSlug }],
       },
       include: {
@@ -927,6 +1754,7 @@ export class CmsService {
   private mapContentItemToDto(item: any): CmsContentItemDto {
     return {
       id: item.id,
+      workspaceId: item.workspaceId,
       collectionId: item.collectionId,
       projectId: item.projectId,
       slug: item.slug,

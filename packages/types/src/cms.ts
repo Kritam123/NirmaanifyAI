@@ -59,7 +59,8 @@ export interface CmsFieldDto {
 
 export interface CmsCollectionDto {
   id: string;
-  projectId: string;
+  workspaceId: string;
+  projectId?: string | null;
   name: string;
   slug: string;
   description?: string | null;
@@ -73,8 +74,9 @@ export interface CmsCollectionDto {
 
 export interface CmsContentItemDto {
   id: string;
+  workspaceId: string;
   collectionId: string;
-  projectId: string;
+  projectId?: string | null;
   slug?: string | null;
   data: Record<string, any>;
   status: CmsContentStatus;

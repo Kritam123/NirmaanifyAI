@@ -17,8 +17,17 @@ import {
 import { apiClient } from '../lib/api';
 import { useToast } from '@nirmaanify/ui';
 
-export function useCms(projectId: string) {
+export interface UseCmsOptions {
+  projectId?: string;
+  workspaceId?: string;
+}
+
+export function useCms(target: string | UseCmsOptions) {
   const { toast } = useToast();
+
+  const projectId = typeof target === 'string' ? target : target.projectId;
+  const workspaceId = typeof target === 'object' ? target.workspaceId : undefined;
+  const isWorkspaceMode = Boolean(workspaceId && !projectId);
 
   const [collections, setCollections] = useState<CmsCollectionDto[]>([]);
   const [activeCollectionSlug, setActiveCollectionSlug] = useState<string>('');
@@ -34,16 +43,23 @@ export function useCms(projectId: string) {
   const [isLoadingContent, setIsLoadingContent] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  const activeCollection = collections.find(
-    (c) => c.slug === activeCollectionSlug || c.id === activeCollectionSlug
-  ) || (collections.length > 0 ? collections[0] : null);
+  const activeCollection =
+    collections.find((c) => c.slug === activeCollectionSlug || c.id === activeCollectionSlug) ||
+    (collections.length > 0 ? collections[0] : null);
 
-  // 1. Fetch all collections for the project
+  // 1. Fetch all collections
   const fetchCollections = useCallback(async () => {
-    if (!projectId) return;
+    if (!projectId && !workspaceId) return;
     setIsLoadingCollections(true);
     try {
-      const res = await apiClient.cms.listCollections(projectId);
+      let res: CmsCollectionDto[];
+      if (isWorkspaceMode && workspaceId) {
+        res = await apiClient.cms.listWorkspaceCollections(workspaceId);
+      } else if (projectId) {
+        res = await apiClient.cms.listCollections(projectId);
+      } else {
+        res = [];
+      }
       setCollections(res || []);
       if (res && res.length > 0 && !activeCollectionSlug) {
         setActiveCollectionSlug(res[0].slug);
@@ -53,23 +69,33 @@ export function useCms(projectId: string) {
     } finally {
       setIsLoadingCollections(false);
     }
-  }, [projectId, activeCollectionSlug]);
+  }, [projectId, workspaceId, isWorkspaceMode, activeCollectionSlug]);
 
   // 2. Fetch content items for the currently selected collection
   const fetchContent = useCallback(async () => {
-    if (!projectId || !activeCollection) {
+    if ((!projectId && !workspaceId) || !activeCollection) {
       setContentItems([]);
       setTotalItems(0);
       return;
     }
     setIsLoadingContent(true);
     try {
-      const res = await apiClient.cms.listContent(projectId, activeCollection.slug, {
-        status: statusFilter,
-        search: searchQuery,
-        page,
-        limit,
-      });
+      let res;
+      if (isWorkspaceMode && workspaceId) {
+        res = await apiClient.cms.listWorkspaceContent(workspaceId, activeCollection.slug, {
+          status: statusFilter,
+          search: searchQuery,
+          page,
+          limit,
+        });
+      } else if (projectId) {
+        res = await apiClient.cms.listContent(projectId, activeCollection.slug, {
+          status: statusFilter,
+          search: searchQuery,
+          page,
+          limit,
+        });
+      }
       setContentItems(res?.items || []);
       setTotalItems(res?.total || 0);
       setTotalPages(res?.totalPages || 1);
@@ -78,7 +104,7 @@ export function useCms(projectId: string) {
     } finally {
       setIsLoadingContent(false);
     }
-  }, [projectId, activeCollection, statusFilter, searchQuery, page, limit]);
+  }, [projectId, workspaceId, isWorkspaceMode, activeCollection, statusFilter, searchQuery, page, limit]);
 
   useEffect(() => {
     fetchCollections();
@@ -94,7 +120,9 @@ export function useCms(projectId: string) {
   const createCollection = async (dto: CreateCmsCollectionDto): Promise<CmsCollectionDto | null> => {
     setIsSaving(true);
     try {
-      const col = await apiClient.cms.createCollection(projectId, dto);
+      const col = isWorkspaceMode && workspaceId
+        ? await apiClient.cms.createWorkspaceCollection(workspaceId, dto)
+        : await apiClient.cms.createCollection(projectId!, dto);
       toast({
         title: 'Collection Created',
         description: `CMS Collection "${col.name}" has been created successfully.`,
@@ -121,7 +149,9 @@ export function useCms(projectId: string) {
   ): Promise<CmsCollectionDto | null> => {
     setIsSaving(true);
     try {
-      const col = await apiClient.cms.updateCollection(projectId, collectionId, dto);
+      const col = isWorkspaceMode && workspaceId
+        ? await apiClient.cms.updateWorkspaceCollection(workspaceId, collectionId, dto)
+        : await apiClient.cms.updateCollection(projectId!, collectionId, dto);
       toast({
         title: 'Collection Updated',
         description: `Collection schema updated successfully.`,
@@ -144,7 +174,11 @@ export function useCms(projectId: string) {
   const deleteCollection = async (collectionId: string): Promise<boolean> => {
     setIsSaving(true);
     try {
-      await apiClient.cms.deleteCollection(projectId, collectionId);
+      if (isWorkspaceMode && workspaceId) {
+        await apiClient.cms.deleteWorkspaceCollection(workspaceId, collectionId);
+      } else {
+        await apiClient.cms.deleteCollection(projectId!, collectionId);
+      }
       toast({
         title: 'Collection Deleted',
         description: 'Collection and all associated items were removed.',
@@ -173,7 +207,9 @@ export function useCms(projectId: string) {
   const seedPreset = async (type: CmsCollectionType): Promise<CmsCollectionDto | null> => {
     setIsSaving(true);
     try {
-      const col = await apiClient.cms.seedPresetCollection(projectId, type);
+      const col = isWorkspaceMode && workspaceId
+        ? await apiClient.cms.seedWorkspacePresetCollection(workspaceId, type)
+        : await apiClient.cms.seedPresetCollection(projectId!, type);
       toast({
         title: `Seeded ${type} Collection`,
         description: `Created "${col.name}" with standard fields and sample entries.`,
@@ -201,7 +237,9 @@ export function useCms(projectId: string) {
   ): Promise<CmsFieldDto | null> => {
     setIsSaving(true);
     try {
-      const f = await apiClient.cms.addField(projectId, collectionId, dto);
+      const f = isWorkspaceMode && workspaceId
+        ? await apiClient.cms.addWorkspaceField(workspaceId, collectionId, dto)
+        : await apiClient.cms.addField(projectId!, collectionId, dto);
       toast({
         title: 'Field Added',
         description: `Added "${f.name}" to schema.`,
@@ -228,7 +266,9 @@ export function useCms(projectId: string) {
   ): Promise<CmsFieldDto | null> => {
     setIsSaving(true);
     try {
-      const f = await apiClient.cms.updateField(projectId, collectionId, fieldId, dto);
+      const f = isWorkspaceMode && workspaceId
+        ? await apiClient.cms.updateWorkspaceField(workspaceId, collectionId, fieldId, dto)
+        : await apiClient.cms.updateField(projectId!, collectionId, fieldId, dto);
       toast({
         title: 'Field Updated',
         description: `Field schema updated.`,
@@ -251,7 +291,11 @@ export function useCms(projectId: string) {
   const deleteField = async (collectionId: string, fieldId: string): Promise<boolean> => {
     setIsSaving(true);
     try {
-      await apiClient.cms.deleteField(projectId, collectionId, fieldId);
+      if (isWorkspaceMode && workspaceId) {
+        await apiClient.cms.deleteWorkspaceField(workspaceId, collectionId, fieldId);
+      } else {
+        await apiClient.cms.deleteField(projectId!, collectionId, fieldId);
+      }
       toast({
         title: 'Field Removed',
         description: 'Field deleted from schema.',
@@ -278,7 +322,9 @@ export function useCms(projectId: string) {
     if (!activeCollection) return null;
     setIsSaving(true);
     try {
-      const item = await apiClient.cms.createContentItem(projectId, activeCollection.slug, dto);
+      const item = isWorkspaceMode && workspaceId
+        ? await apiClient.cms.createWorkspaceContentItem(workspaceId, activeCollection.slug, dto)
+        : await apiClient.cms.createContentItem(projectId!, activeCollection.slug, dto);
       toast({
         title: 'Item Created',
         description: `Content item saved as ${dto.status || 'DRAFT'}.`,
@@ -305,12 +351,9 @@ export function useCms(projectId: string) {
     if (!activeCollection) return null;
     setIsSaving(true);
     try {
-      const item = await apiClient.cms.updateContentItem(
-        projectId,
-        activeCollection.slug,
-        itemId,
-        dto
-      );
+      const item = isWorkspaceMode && workspaceId
+        ? await apiClient.cms.updateWorkspaceContentItem(workspaceId, activeCollection.slug, itemId, dto)
+        : await apiClient.cms.updateContentItem(projectId!, activeCollection.slug, itemId, dto);
       toast({
         title: 'Item Updated',
         description: 'Content updates saved.',
@@ -334,7 +377,11 @@ export function useCms(projectId: string) {
     if (!activeCollection) return false;
     setIsSaving(true);
     try {
-      await apiClient.cms.deleteContentItem(projectId, activeCollection.slug, itemId);
+      if (isWorkspaceMode && workspaceId) {
+        await apiClient.cms.deleteWorkspaceContentItem(workspaceId, activeCollection.slug, itemId);
+      } else {
+        await apiClient.cms.deleteContentItem(projectId!, activeCollection.slug, itemId);
+      }
       toast({
         title: 'Item Deleted',
         description: 'Entry removed successfully.',
@@ -357,7 +404,11 @@ export function useCms(projectId: string) {
   const publishItem = async (itemId: string): Promise<boolean> => {
     if (!activeCollection) return false;
     try {
-      await apiClient.cms.publishContentItem(projectId, activeCollection.slug, itemId);
+      if (isWorkspaceMode && workspaceId) {
+        await apiClient.cms.publishWorkspaceContentItem(workspaceId, activeCollection.slug, itemId);
+      } else {
+        await apiClient.cms.publishContentItem(projectId!, activeCollection.slug, itemId);
+      }
       toast({
         title: 'Published',
         description: 'Content item is now live!',
@@ -378,7 +429,11 @@ export function useCms(projectId: string) {
   const unpublishItem = async (itemId: string): Promise<boolean> => {
     if (!activeCollection) return false;
     try {
-      await apiClient.cms.unpublishContentItem(projectId, activeCollection.slug, itemId);
+      if (isWorkspaceMode && workspaceId) {
+        await apiClient.cms.unpublishWorkspaceContentItem(workspaceId, activeCollection.slug, itemId);
+      } else {
+        await apiClient.cms.unpublishContentItem(projectId!, activeCollection.slug, itemId);
+      }
       toast({
         title: 'Unpublished',
         description: 'Entry reverted to draft.',
@@ -399,7 +454,11 @@ export function useCms(projectId: string) {
   const schedulePublish = async (itemId: string, scheduledAt: string): Promise<boolean> => {
     if (!activeCollection) return false;
     try {
-      await apiClient.cms.schedulePublish(projectId, activeCollection.slug, itemId, scheduledAt);
+      if (isWorkspaceMode && workspaceId) {
+        await apiClient.cms.scheduleWorkspacePublish(workspaceId, activeCollection.slug, itemId, scheduledAt);
+      } else {
+        await apiClient.cms.schedulePublish(projectId!, activeCollection.slug, itemId, scheduledAt);
+      }
       toast({
         title: 'Scheduled',
         description: `Publication scheduled for ${new Date(scheduledAt).toLocaleString()}.`,
