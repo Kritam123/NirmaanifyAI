@@ -5,6 +5,7 @@ import {
   GeneratePlanDto,
   ApprovePlanDto,
   AIProjectPlan,
+  ProjectBackendSchema,
 } from '@nirmaanify/types';
 
 export class ProjectsService {
@@ -85,5 +86,38 @@ export class ProjectsService {
    */
   async approveAiPlan(dto: ApprovePlanDto): Promise<ProjectDto> {
     return this.http.post<ProjectDto>(API_ENDPOINTS.PROJECTS.APPROVE_PLAN, dto);
+  }
+
+  /**
+   * Get project backend configuration and modules
+   */
+  async getBackendSchema(projectId: string): Promise<ProjectBackendSchema> {
+    return this.http.get<ProjectBackendSchema>(API_ENDPOINTS.PROJECTS.GET_BACKEND_SCHEMA(projectId));
+  }
+
+  /**
+   * Update backend configuration and synchronize API data sources
+   */
+  async updateBackendSchema(
+    projectId: string,
+    schema: ProjectBackendSchema
+  ): Promise<{ project: ProjectDto; schema: ProjectBackendSchema }> {
+    return this.http.put<{ project: ProjectDto; schema: ProjectBackendSchema }>(
+      API_ENDPOINTS.PROJECTS.UPDATE_BACKEND_SCHEMA(projectId),
+      schema
+    );
+  }
+
+  /**
+   * Toggle backend enabled state
+   */
+  async toggleBackend(
+    projectId: string,
+    enabled: boolean
+  ): Promise<{ project: ProjectDto; schema: ProjectBackendSchema }> {
+    return this.http.post<{ project: ProjectDto; schema: ProjectBackendSchema }>(
+      API_ENDPOINTS.PROJECTS.TOGGLE_BACKEND(projectId),
+      { enabled }
+    );
   }
 }

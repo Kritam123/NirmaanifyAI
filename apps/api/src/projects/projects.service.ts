@@ -11,6 +11,9 @@ import {
   AIProjectPlan,
   GeneratePlanDto,
   ApprovePlanDto,
+  ProjectBackendSchema,
+  createDefaultProjectBackendSchema,
+  ProjectDataSource,
 } from '@nirmaanify/types';
 import { PrismaService } from '../database/prisma.service';
 import { AiPlannerService } from './ai-planner.service';
@@ -413,5 +416,118 @@ export class ProjectsService {
 
     this.logger.log(`🚀 AI Project Plan Approved & Scaffolding Generated: "${project.name}" (${project.id})`);
     return project;
+  }
+
+  // --- Backend Builder & NestJS Schema Management (Phase 8) ---
+
+  /**
+   * Get backend project schema and module configurations
+   */
+  async getBackendSchema(projectId: string, userId?: string): Promise<ProjectBackendSchema> {
+    const project = await this.getProject(projectId, userId);
+    const existingSchema = (project.projectSchema as any)?.backendConfiguration?.schema as ProjectBackendSchema | undefined;
+
+    if (existingSchema) {
+      return {
+        ...existingSchema,
+        enabled: project.isBackendEnabled ?? existingSchema.enabled,
+      };
+    }
+
+    const defaultSchema = createDefaultProjectBackendSchema();
+    defaultSchema.enabled = project.isBackendEnabled ?? false;
+    return defaultSchema;
+  }
+
+  /**
+   * Update backend configuration and synchronize API data sources (Week 24 - 27)
+   */
+  async updateBackendSchema(
+    projectId: string,
+    schema: ProjectBackendSchema,
+    userId?: string,
+  ): Promise<{ project: ProjectDto; schema: ProjectBackendSchema }> {
+    const project = await this.getProject(projectId, userId);
+    const existingProjectSchema = (project.projectSchema as any) || {};
+
+    const enabledModulesList = Object.keys(schema.modules).filter(
+      (k) => (schema.modules as any)[k]?.enabled,
+    );
+
+    // Synchronize Project Data Sources for enabled backend routes (Week 27)
+    const existingDataSources = Array.isArray(existingProjectSchema.dataSources)
+      ? existingProjectSchema.dataSources.filter((ds: any) => !ds.id?.startsWith('ds-'))
+      : [];
+
+    const prefix = (schema.settings?.globalPrefix || 'api/v1').replace(/^\//, '');
+    const generatedDataSources: ProjectDataSource[] = [];
+
+    for (const mod of Object.values(schema.modules)) {
+      if (!mod.enabled) continue;
+      for (const ep of mod.endpoints) {
+        const fullEndpoint = `/${prefix}${ep.path.startsWith('/') ? ep.path : '/' + ep.path}`;
+        generatedDataSources.push({
+          id: `ds-${mod.id}-${ep.actionName}`,
+          name: `${mod.name}: ${ep.actionName}`,
+          type: 'rest',
+          endpoint: fullEndpoint,
+          method: ep.method as 'GET' | 'POST',
+          headers: ep.authRequired ? { Authorization: 'Bearer {{token}}' } : undefined,
+          data: ep.responseExample || { status: 'ok', module: mod.id },
+        });
+      }
+    }
+
+    const updatedDataSources = [...existingDataSources, ...generatedDataSources];
+
+    // Determine updated server architecture
+    let serverType = existingProjectSchema.serverType;
+    if (schema.enabled) {
+      serverType = serverType === 'cms' ? 'fullstack' : 'nestjs';
+    } else {
+      serverType = serverType === 'fullstack' ? 'cms' : 'static';
+    }
+
+    const updatedProjectSchema = {
+      ...existingProjectSchema,
+      serverType,
+      backendConfiguration: {
+        enabled: schema.enabled,
+        framework: schema.framework || 'NestJS 11',
+        modules: enabledModulesList,
+        databaseEngine: schema.settings?.databaseEngine || 'PostgreSQL 16',
+        schema,
+      },
+      dataSources: updatedDataSources,
+    };
+
+    const updated = await this.updateProject(
+      projectId,
+      {
+        isBackendEnabled: schema.enabled,
+        projectSchema: updatedProjectSchema,
+      },
+      userId,
+    );
+
+    this.logger.log(`✓ Project backend schema updated: "${project.name}" (${schema.enabled ? 'Enabled' : 'Disabled'}) with ${enabledModulesList.length} active modules`);
+
+    return {
+      project: updated,
+      schema,
+    };
+  }
+
+  /**
+   * Toggle backend enabled state directly
+   */
+  async toggleBackend(
+    projectId: string,
+    enabled: boolean,
+    userId?: string,
+  ): Promise<{ project: ProjectDto; schema: ProjectBackendSchema }> {
+    const currentSchema = await this.getBackendSchema(projectId, userId);
+    currentSchema.enabled = enabled;
+    return this.updateBackendSchema(projectId, currentSchema, userId);
   }
 }

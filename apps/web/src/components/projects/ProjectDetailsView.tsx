@@ -374,16 +374,17 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
           },
         ]
       : []),
-    ...(serverMeta.hasNestJs
-      ? [
-          {
-            id: 'backend',
-            label: 'NestJS Backend',
-            icon: <Server className="h-4 w-4" />,
-            content: <NestJsBackendView project={currentProject} />,
-          },
-        ]
-      : []),
+    {
+      id: 'backend',
+      label: currentProject.isBackendEnabled ? 'NestJS Backend' : 'Backend & API',
+      icon: <Server className="h-4 w-4" />,
+      content: (
+        <NestJsBackendView
+          project={currentProject}
+          onProjectUpdated={(updated) => setCurrentProject(updated)}
+        />
+      ),
+    },
     {
       id: 'deploy',
       label: 'Cloud deployment',

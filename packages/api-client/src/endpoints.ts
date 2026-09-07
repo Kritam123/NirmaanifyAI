@@ -44,6 +44,9 @@ export const API_ENDPOINTS = {
     GENERATE_PLAN: `${API_PREFIX}/projects/ai/plan`,
     MODIFY_PLAN: (planId: string) => `${API_PREFIX}/projects/ai/plan/${planId}`,
     APPROVE_PLAN: `${API_PREFIX}/projects/ai/approve`,
+    GET_BACKEND_SCHEMA: (id: string) => `${API_PREFIX}/projects/${id}/backend/schema`,
+    UPDATE_BACKEND_SCHEMA: (id: string) => `${API_PREFIX}/projects/${id}/backend/schema`,
+    TOGGLE_BACKEND: (id: string) => `${API_PREFIX}/projects/${id}/backend/toggle`,
   },
   STORAGE: {
     BASE: `${API_PREFIX}/storage`,

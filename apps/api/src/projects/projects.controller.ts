@@ -18,6 +18,7 @@ import {
   GeneratePlanDto,
   ApprovePlanDto,
   AIProjectPlan,
+  ProjectBackendSchema,
 } from '@nirmaanify/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -154,5 +155,42 @@ export class ProjectsController {
     @CurrentUser('id') userId: string,
   ) {
     return this.projectsService.approveAiPlan(dto, userId);
+  }
+
+  // --- Backend Builder & NestJS Management Endpoints (Phase 8) ---
+
+  @Get(':id/backend/schema')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get project backend configuration and module states' })
+  @ApiParam({ name: 'id' })
+  async getBackendSchema(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.projectsService.getBackendSchema(id, userId);
+  }
+
+  @Put(':id/backend/schema')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update backend configuration and synchronize API data sources' })
+  @ApiParam({ name: 'id' })
+  async updateBackendSchema(
+    @Param('id') id: string,
+    @Body() schema: ProjectBackendSchema,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.projectsService.updateBackendSchema(id, schema, userId);
+  }
+
+  @Post(':id/backend/toggle')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Toggle NestJS backend enabled state' })
+  @ApiParam({ name: 'id' })
+  async toggleBackend(
+    @Param('id') id: string,
+    @Body('enabled') enabled: boolean,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.projectsService.toggleBackend(id, Boolean(enabled), userId);
   }
 }

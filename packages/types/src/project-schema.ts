@@ -272,11 +272,14 @@ export interface ProjectPackageConfig {
   scope: 'dependencies' | 'devDependencies';
 }
 
+import { ProjectBackendSchema } from './backend';
+
 export interface ProjectBackendConfig {
   enabled: boolean;
   framework: string;
   modules: string[];
   databaseEngine: string;
+  schema?: ProjectBackendSchema;
 }
 
 // ==========================================
