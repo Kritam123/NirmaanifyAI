@@ -70,10 +70,6 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
         uiLibrary,
         isBackendEnabled: isBackend,
         storageDriver,
-        projectSchema: {
-          ...(project.projectSchema || {}),
-          serverType,
-        },
       });
       onClose();
       toast({

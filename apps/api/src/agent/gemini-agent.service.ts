@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { SandboxDriverFactory } from '@nirmaanify/sandbox-driver';
-import { ReactCodeGenerator } from '@nirmaanify/component-registry/dist/engine/code-generator.js';
+import { getStarterProjectFiles } from './starter-templates';
 import { inngest } from '../inngest/inngest.client';
 import { executeGeminiAgentLoop, deriveTitle } from './gemini-agent-engine';
 import {
@@ -74,9 +74,12 @@ export class GeminiAgentService {
     if (project.fragments && project.fragments.length > 0 && project.fragments[0].files) {
       currentFiles = project.fragments[0].files as Record<string, string>;
     } else {
-      // Bootstrap from projectSchema
-      const schema = (project.projectSchema || {}) as any;
-      currentFiles = ReactCodeGenerator.generateProjectFiles(schema);
+      // Bootstrap from clean Next.js starter template
+      currentFiles = getStarterProjectFiles({
+        name: project.name,
+        type: project.type,
+        description: project.description || undefined,
+      });
     }
     await driver.writeFiles(currentFiles);
 

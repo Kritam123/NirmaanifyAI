@@ -19,7 +19,6 @@
     "@nestjs/platform-express": "^11.0.10",
     "@nestjs/swagger": "^11.0.6",
     "@nestjs/terminus": "^11.0.0",
-    "@nirmaanify/component-registry": "workspace:*",
     "@nirmaanify/database": "workspace:*",
     "@nirmaanify/sandbox-driver": "workspace:*",
     "@nirmaanify/types": "workspace:*",

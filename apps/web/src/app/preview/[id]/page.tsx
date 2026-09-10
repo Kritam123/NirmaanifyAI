@@ -2,9 +2,8 @@
 
 import React, { useEffect, useState, use } from 'react';
 import { apiClient } from '@nirmaanify/api-client';
-import { Sparkles, RefreshCw, CheckCircle, Server } from 'lucide-react';
-import { DynamicRenderer, CodeToAstParser } from '@nirmaanify/component-registry';
-import { ProjectDto, ComponentNode } from '@nirmaanify/types';
+import { Sparkles, RefreshCw, CheckCircle, Server, ExternalLink, Code2 } from 'lucide-react';
+import { ProjectDto, ProjectSandboxDto } from '@nirmaanify/types';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -15,9 +14,10 @@ export default function SandboxPreviewPage({ params }: PageProps) {
   const projectId = resolvedParams.id;
 
   const [project, setProject] = useState<ProjectDto | null>(null);
+  const [sandbox, setSandbox] = useState<ProjectSandboxDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>('');
-  const [generatedNode, setGeneratedNode] = useState<ComponentNode | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
 
   const fetchProjectData = async () => {
     try {
@@ -29,33 +29,10 @@ export default function SandboxPreviewPage({ params }: PageProps) {
         setProject(proj);
       }
 
-      // 2. Fetch latest agent messages & code fragments
-      const messages = await apiClient.agent.getMessages(projectId).catch(() => []);
-      const lastWithFragment = [...messages].reverse().find((m) => m.fragment?.files);
-
-      if (lastWithFragment?.fragment?.files) {
-        const files = lastWithFragment.fragment.files as Record<string, string>;
-        const pageCode =
-          files['src/app/page.tsx'] ||
-          files['app/page.tsx'] ||
-          files['src/pages/index.tsx'] ||
-          files['pages/index.tsx'];
-
-        if (pageCode) {
-          try {
-            const parsed = CodeToAstParser.parsePage(pageCode, 'Page', '/');
-            if (parsed.rootNode) {
-              setGeneratedNode(parsed.rootNode);
-            }
-          } catch {
-            // AST parser fallback if complex custom JSX
-          }
-        }
-      } else if (proj?.projectSchema) {
-        const schema = proj.projectSchema as any;
-        if (schema?.pages?.[0]?.rootNode) {
-          setGeneratedNode(schema.pages[0].rootNode);
-        }
+      // 2. Fetch sandbox runtime status
+      const sb = await apiClient.agent.getSandboxStatus(projectId).catch(() => null);
+      if (sb) {
+        setSandbox(sb);
       }
 
       setLastUpdated(new Date().toLocaleTimeString());
@@ -68,61 +45,86 @@ export default function SandboxPreviewPage({ params }: PageProps) {
 
   useEffect(() => {
     fetchProjectData();
-    const interval = setInterval(fetchProjectData, 4000);
+    const interval = setInterval(fetchProjectData, 5000);
     return () => clearInterval(interval);
   }, [projectId]);
 
+  const handleRefresh = () => {
+    setIframeKey((k) => k + 1);
+    fetchProjectData();
+  };
+
+  const previewUrl = sandbox?.hostUrl && sandbox.hostUrl !== `/preview/${projectId}`
+    ? sandbox.hostUrl
+    : null;
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#07090F] text-slate-900 dark:text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Status Bar */}
-      <div className="sticky top-0 z-50 bg-white/90 dark:bg-[#0E101A]/90 backdrop-blur border-b border-slate-200 dark:border-[#24293D] px-4 py-2 flex items-center justify-between text-xs">
+      <div className="sticky top-0 z-50 bg-[#0E101A]/90 backdrop-blur border-b border-[#24293D] px-4 py-2 flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
           <span className="flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-            <Server className="h-3.5 w-3.5 text-indigo-500" />
-            Nirmaanify Preview · {project?.name || projectId.substring(0, 8)}
+          <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+            <Server className="h-3.5 w-3.5 text-indigo-400" />
+            Nirmaanify Sandbox Runtime · {project?.name || projectId.substring(0, 8)}
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-medium flex items-center gap-1">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium flex items-center gap-1">
             <CheckCircle className="h-3 w-3" />
-            Live Synced
+            {sandbox?.status || 'READY'}
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-slate-500">
+        <div className="flex items-center gap-3 text-slate-400">
           <span className="text-[11px] font-mono">Updated: {lastUpdated || 'Just now'}</span>
           <button
-            onClick={fetchProjectData}
-            title="Refresh Preview"
-            className="p-1 hover:text-slate-900 dark:hover:text-white transition-colors"
+            onClick={handleRefresh}
+            title="Refresh Sandbox Preview"
+            className="p-1 hover:text-white transition-colors"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-indigo-500' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
           </button>
+          {previewUrl && (
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1 hover:text-white transition-colors"
+              title="Open Sandbox in New Window"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
         </div>
       </div>
 
       {/* Main Preview Container */}
-      <div className="flex-1 w-full">
-        {generatedNode ? (
-          <DynamicRenderer
-            node={generatedNode}
-            mode="preview"
-            selectedNodeId={null}
-            hoveredNodeId={null}
+      <div className="flex-1 w-full flex flex-col items-center justify-center p-4">
+        {previewUrl ? (
+          <iframe
+            key={iframeKey}
+            src={previewUrl}
+            title="Live Sandbox Application"
+            className="w-full h-full min-h-[calc(100vh-60px)] rounded-xl border border-[#24293D] bg-white shadow-2xl"
+            allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; clipboard-read; clipboard-write;"
           />
         ) : (
-          <div className="max-w-2xl mx-auto py-24 px-6 text-center space-y-4">
-            <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto">
-              <Sparkles className="h-6 w-6" />
+          <div className="max-w-2xl mx-auto py-24 px-6 text-center space-y-5">
+            <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
+              <Sparkles className="h-7 w-7" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-              {project?.name || 'Project Workspace Initialized'}
+            <h2 className="text-2xl font-bold text-white tracking-tight">
+              {project?.name || 'Project Sandbox Runtime'}
             </h2>
-            <p className="text-slate-500 text-sm max-w-md mx-auto">
-              No UI components generated yet. Prompt the AI Agent in the Visual Studio to build your full-stack application.
+            <p className="text-slate-400 text-sm max-w-md mx-auto leading-relaxed">
+              Sandbox container is active and live synchronized. Prompt the Autonomous AI Agent in the AI Studio to generate and test full-stack features.
             </p>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-[#24293D] text-xs font-mono text-slate-300">
+              <Code2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Provider: {sandbox?.provider || 'E2B_CLOUD'} · Port 3000 Active</span>
+            </div>
           </div>
         )}
       </div>

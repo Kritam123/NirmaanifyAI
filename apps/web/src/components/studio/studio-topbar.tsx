@@ -1,368 +1,181 @@
 'use client';
 
 import React from 'react';
-import { ProjectSchema, PageSchema, SandboxProvider, StudioViewMode } from '@nirmaanify/types';
+import { SandboxProvider, StudioViewMode } from '@nirmaanify/types';
 import {
-  Undo2,
-  Redo2,
-  Monitor,
-  Tablet,
-  Smartphone,
-  Eye,
-  Edit3,
-  Code2,
-  FileCode,
-  Save,
-  X,
-  Plus,
-  ZoomIn,
   Sparkles,
-  LayoutGrid,
+  Code2,
+  Columns,
+  Monitor,
+  MessageSquare,
+  Download,
+  ExternalLink,
+  X,
 } from 'lucide-react';
 import { Button } from '@nirmaanify/ui';
 import { SandboxSwitcher } from './SandboxSwitcher';
 
 interface StudioTopbarProps {
-  project: ProjectSchema;
-  activePage: PageSchema;
-  viewport: 'desktop' | 'tablet' | 'mobile';
-  mode: 'builder' | 'preview';
-  zoom: number;
-  canUndo: boolean;
-  canRedo: boolean;
-  isSaving: boolean;
-  isDirty: boolean;
-  isValid: boolean;
-  errorsCount: number;
-  lastSavedLabel: string;
-  autoSaveEnabled: boolean;
-  autoSaveIntervalLabel: string;
-  viewMode?: StudioViewMode;
-  onChangeViewMode?: (viewMode: StudioViewMode) => void;
-  sandboxProvider?: SandboxProvider;
-  onSwitchSandboxProvider?: (provider: SandboxProvider) => void;
-  sandboxStatus?: string;
-  leftCollapsed?: boolean;
-  rightCollapsed?: boolean;
-  onToggleLeft?: () => void;
-  onToggleRight?: () => void;
-  onSelectPage: (pageId: string) => void;
-  onAddPage: () => void;
-  onChangeViewport: (viewport: 'desktop' | 'tablet' | 'mobile') => void;
-  onChangeMode: (mode: 'builder' | 'preview') => void;
-  onChangeZoom: (zoom: number) => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  onViewSchema: () => void;
-  onViewCode: () => void;
-  onSave: () => void;
+  projectId: string;
+  projectName: string;
+  projectType?: string;
+  framework?: string;
+  viewMode: StudioViewMode;
+  onChangeViewMode: (viewMode: StudioViewMode) => void;
+  sandboxProvider: SandboxProvider;
+  onSwitchSandboxProvider: (provider: SandboxProvider) => void;
+  sandboxStatus: string;
+  sandboxUrl?: string;
+  filesCount?: number;
+  onExportCodebase?: () => void;
   onCloseStudio: () => void;
 }
 
 export function StudioTopbar({
-  project,
-  activePage,
-  viewport,
-  mode,
-  zoom,
-  canUndo,
-  canRedo,
-  isSaving,
-  isDirty,
-  isValid,
-  errorsCount,
-  lastSavedLabel,
-  autoSaveEnabled,
-  autoSaveIntervalLabel,
-  viewMode = 'canvas',
+  projectId,
+  projectName,
+  projectType = 'WEBSITE',
+  framework = 'Next.js 15',
+  viewMode,
   onChangeViewMode,
-  sandboxProvider = 'E2B_CLOUD',
+  sandboxProvider,
   onSwitchSandboxProvider,
-  sandboxStatus = 'READY',
-  onSelectPage,
-  onAddPage,
-  onChangeViewport,
-  onChangeMode,
-  onChangeZoom,
-  onUndo,
-  onRedo,
-  onViewSchema,
-  onViewCode,
-  onSave,
+  sandboxStatus,
+  sandboxUrl,
+  filesCount = 0,
+  onExportCodebase,
   onCloseStudio,
 }: StudioTopbarProps) {
   return (
-    <header className="h-[48px] px-2.5 border-b border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex items-center justify-between shrink-0 select-none z-30 gap-2">
-      {/* Left cluster: exit, project, route */}
-      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+    <header className="h-[52px] px-3.5 border-b border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0E101A] flex items-center justify-between shrink-0 select-none z-30 gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+      {/* Left cluster: close, brand, project name & sandbox provider */}
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <button
           onClick={onCloseStudio}
           title="Exit Studio (Esc)"
-          aria-label="Exit studio"
-          className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 transition-all"
+          aria-label="Exit Studio"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A1E2E] transition-colors shrink-0"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-4 w-4" />
         </button>
 
-        {/* Project mark + name */}
-        <div className="flex items-center gap-1.5 pl-0.5 pr-1">
-          <div className="relative shrink-0">
-            <div className="h-7 w-7 rounded-md bg-gradient-to-br from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] flex items-center justify-center text-white font-bold text-[11px] shadow-sm shadow-[#635BFF]/25">
-              {project.settings.name.charAt(0).toUpperCase()}
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-[#0F111A]" />
+        <div className="h-4 w-px bg-slate-200 dark:bg-[#24293D]" />
+
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] flex items-center justify-center text-white shrink-0 shadow-sm shadow-[#635BFF]/20">
+            <Sparkles className="h-3.5 w-3.5" />
           </div>
-          <span
-            className="font-semibold text-[12.5px] text-slate-900 dark:text-white truncate max-w-[150px]"
-            title={project.settings.name}
-          >
-            {project.settings.name}
+          <span className="font-semibold text-xs text-slate-800 dark:text-slate-100 truncate max-w-[160px] sm:max-w-[240px]">
+            {projectName}
+          </span>
+          <span className="hidden md:inline-flex text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#1A1E2E] text-slate-500 dark:text-slate-400 font-mono">
+            {framework}
           </span>
         </div>
 
-        {/* Route switcher in canvas mode */}
-        {viewMode === 'canvas' && (
-          <div className="hidden sm:flex items-center gap-1 bg-slate-50 dark:bg-[#141724] pl-2 pr-1 py-0.5 rounded-md border border-slate-200 dark:border-[#24293D]">
-            <select
-              value={activePage?.id}
-              onChange={(e) => onSelectPage(e.target.value)}
-              aria-label="Active page route"
-              className="bg-transparent text-[11.5px] font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer pr-1 max-w-[140px]"
-            >
-              {project.pages?.map((p) => (
-                <option key={p.id} value={p.id} className="bg-white dark:bg-[#0F111A] text-slate-900 dark:text-white">
-                  {p.name} — {p.path}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={onAddPage}
-              title="Add new page route"
-              aria-label="Add page route"
-              className="h-5 w-5 inline-flex items-center justify-center rounded text-slate-400 hover:text-[#635BFF] hover:bg-[#635BFF]/10 transition-colors"
-            >
-              <Plus className="h-3 w-3" />
-            </button>
-          </div>
-        )}
-      </div>
+        <div className="h-4 w-px bg-slate-200 dark:bg-[#24293D] hidden sm:block" />
 
-      {/* Center cluster: Unified Mode Switcher & Sandbox Switcher */}
-      <div className="flex items-center gap-2 shrink-0">
-        {onChangeViewMode && (
-          <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-[#141724] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D]">
-            <button
-              onClick={() => onChangeViewMode('canvas')}
-              className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md text-[11px] font-semibold transition-all ${
-                viewMode === 'canvas'
-                  ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <LayoutGrid className="h-3 w-3" />
-              <span>Canvas</span>
-            </button>
-            <button
-              onClick={() => onChangeViewMode('agent')}
-              className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md text-[11px] font-semibold transition-all ${
-                viewMode === 'agent'
-                  ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Sparkles className="h-3 w-3 text-amber-300" />
-              <span>AI Agent (Lovable)</span>
-            </button>
-            <button
-              onClick={() => onChangeViewMode('code')}
-              className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md text-[11px] font-semibold transition-all ${
-                viewMode === 'code'
-                  ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <FileCode className="h-3 w-3" />
-              <span>Code</span>
-            </button>
-          </div>
-        )}
-
-        {/* Sandbox Switcher (Cloud E2B <-> Local Docker) */}
-        {onSwitchSandboxProvider && (
+        {/* Sandbox Runtime Switcher */}
+        <div className="hidden sm:flex items-center gap-2">
           <SandboxSwitcher
-            projectId={project.settings?.name || 'proj'}
+            projectId={projectId}
             currentProvider={sandboxProvider}
             onSwitchProvider={onSwitchSandboxProvider}
             status={sandboxStatus}
           />
-        )}
-
-        {/* Canvas controls (only in canvas mode) */}
-        {viewMode === 'canvas' && (
-          <>
-            {/* Undo / Redo */}
-            <div className="hidden xl:flex items-center gap-0.5 bg-slate-50 dark:bg-[#141724] p-0.5 rounded-md border border-slate-200 dark:border-[#24293D]">
-              <button
-                onClick={onUndo}
-                disabled={!canUndo}
-                title="Undo (Ctrl+Z)"
-                aria-label="Undo"
-                className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-white dark:hover:bg-[#0F111A] disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
-              >
-                <Undo2 className="h-3 w-3" />
-              </button>
-              <button
-                onClick={onRedo}
-                disabled={!canRedo}
-                title="Redo (Ctrl+Y)"
-                aria-label="Redo"
-                className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-white dark:hover:bg-[#0F111A] disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
-              >
-                <Redo2 className="h-3 w-3" />
-              </button>
-            </div>
-
-            {/* Viewport Modes */}
-            <div className="hidden md:flex items-center gap-0.5 bg-slate-50 dark:bg-[#141724] p-0.5 rounded-md border border-slate-200 dark:border-[#24293D]">
-              {[
-                { id: 'desktop' as const, label: 'Desktop · 1280px', icon: <Monitor className="h-3 w-3" /> },
-                { id: 'tablet' as const, label: 'Tablet · 768px', icon: <Tablet className="h-3 w-3" /> },
-                { id: 'mobile' as const, label: 'Mobile · 375px', icon: <Smartphone className="h-3 w-3" /> },
-              ].map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => onChangeViewport(v.id)}
-                  title={v.label}
-                  aria-label={v.label}
-                  className={`h-6 w-6 inline-flex items-center justify-center rounded transition-all duration-150 ${
-                    viewport === v.id
-                      ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {v.icon}
-                </button>
-              ))}
-            </div>
-
-            {/* Zoom */}
-            <div className="hidden 2xl:flex items-center gap-1 bg-slate-50 dark:bg-[#141724] px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-[#24293D]">
-              <ZoomIn className="h-3 w-3 text-slate-400" />
-              <select
-                value={zoom}
-                onChange={(e) => onChangeZoom(Number(e.target.value))}
-                aria-label="Canvas zoom"
-                className="bg-transparent text-[11px] font-semibold focus:outline-none cursor-pointer pr-0.5 text-slate-700 dark:text-slate-200"
-              >
-                <option value={0.67} className="bg-white dark:bg-[#0F111A] text-slate-900 dark:text-white">67%</option>
-                <option value={0.8} className="bg-white dark:bg-[#0F111A] text-slate-900 dark:text-white">80%</option>
-                <option value={1} className="bg-white dark:bg-[#0F111A] text-slate-900 dark:text-white">100%</option>
-                <option value={1.15} className="bg-white dark:bg-[#0F111A] text-slate-900 dark:text-white">115%</option>
-              </select>
-            </div>
-
-            {/* Builder / Preview Toggle */}
-            <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-[#141724] p-0.5 rounded-md border border-slate-200 dark:border-[#24293D]">
-              <button
-                onClick={() => onChangeMode('builder')}
-                title="Builder mode"
-                aria-label="Builder mode"
-                className={`h-6 w-6 inline-flex items-center justify-center rounded transition-all duration-200 ${
-                  mode === 'builder'
-                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Edit3 className="h-3 w-3" />
-              </button>
-              <button
-                onClick={() => onChangeMode('preview')}
-                title="Preview mode"
-                aria-label="Preview mode"
-                className={`h-6 w-6 inline-flex items-center justify-center rounded transition-all duration-200 ${
-                  mode === 'preview'
-                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-white shadow-[#635BFF]/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Eye className="h-3 w-3" />
-              </button>
-            </div>
-          </>
-        )}
+        </div>
       </div>
 
-      {/* Right cluster: save status + actions */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        {/* Compact save status pill (no inline AUTO text) */}
-        <div
-          className={`hidden md:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[10.5px] font-semibold whitespace-nowrap ${
-            isDirty
-              ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300'
-              : 'border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+      {/* Center cluster: Studio View Mode Switcher */}
+      <div className="flex items-center bg-slate-100/90 dark:bg-[#121522] p-1 rounded-xl border border-slate-200/90 dark:border-[#24293D] gap-1 shrink-0 shadow-inner">
+        <button
+          onClick={() => onChangeViewMode('split')}
+          title="Split View: AI Chat & Live Runtime"
+          className={`h-7 px-3 rounded-lg text-xs flex items-center gap-1.5 transition-all duration-150 ${
+            viewMode === 'split'
+              ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-sm font-semibold border border-slate-200/70 dark:border-[#2D334D]'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#1A1E2E] font-medium'
           }`}
-          title={
-            isDirty
-              ? 'Unsaved changes in this session'
-              : `Last saved at ${lastSavedLabel}` +
-                (autoSaveEnabled ? ` · Auto-save every ${autoSaveIntervalLabel}` : '')
-          }
         >
+          <Columns className={`h-3.5 w-3.5 ${viewMode === 'split' ? 'text-[#635BFF] dark:text-[#A5B4FC]' : 'text-slate-400'}`} />
+          <span className="hidden md:inline">Split View</span>
+        </button>
+
+        <button
+          onClick={() => onChangeViewMode('agent')}
+          title="Full Agent Chat"
+          className={`h-7 px-3 rounded-lg text-xs flex items-center gap-1.5 transition-all duration-150 ${
+            viewMode === 'agent'
+              ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-sm font-semibold border border-slate-200/70 dark:border-[#2D334D]'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#1A1E2E] font-medium'
+          }`}
+        >
+          <MessageSquare className={`h-3.5 w-3.5 ${viewMode === 'agent' ? 'text-[#635BFF] dark:text-[#A5B4FC]' : 'text-slate-400'}`} />
+          <span className="hidden md:inline">Agent Chat</span>
+        </button>
+
+        <button
+          onClick={() => onChangeViewMode('code')}
+          title="Full Code Explorer"
+          className={`h-7 px-3 rounded-lg text-xs flex items-center gap-1.5 transition-all duration-150 ${
+            viewMode === 'code'
+              ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-sm font-semibold border border-slate-200/70 dark:border-[#2D334D]'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#1A1E2E] font-medium'
+          }`}
+        >
+          <Code2 className={`h-3.5 w-3.5 ${viewMode === 'code' ? 'text-[#635BFF] dark:text-[#A5B4FC]' : 'text-slate-400'}`} />
+          <span className="hidden md:inline">Code</span>
           <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              isDirty ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono transition-colors ${
+              viewMode === 'code'
+                ? 'bg-[#635BFF]/10 text-[#635BFF] font-bold'
+                : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
             }`}
-          />
-          <span className="tabular-nums">
-            {isSaving ? 'Saving…' : isDirty ? 'Unsaved' : `Saved ${lastSavedLabel}`}
+          >
+            {filesCount}
           </span>
-        </div>
+        </button>
 
-        {/* Save button (primary action) */}
-        <Button
-          size="sm"
-          variant={isDirty ? 'default' : 'subtle'}
-          isLoading={isSaving}
-          onClick={onSave}
-          disabled={isSaving}
-          leftIcon={!isSaving ? <Save className="h-3.5 w-3.5" /> : undefined}
-          className={isDirty ? 'shadow-md shadow-[#635BFF]/30' : ''}
-          title="Save (Ctrl+S)"
+        <button
+          onClick={() => onChangeViewMode('preview')}
+          title="Full Sandbox Preview"
+          className={`h-7 px-3 rounded-lg text-xs flex items-center gap-1.5 transition-all duration-150 ${
+            viewMode === 'preview'
+              ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-sm font-semibold border border-slate-200/70 dark:border-[#2D334D]'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#1A1E2E] font-medium'
+          }`}
         >
-          {isSaving ? 'Saving' : isDirty ? 'Save' : 'Saved'}
-        </Button>
+          <Monitor className={`h-3.5 w-3.5 ${viewMode === 'preview' ? 'text-[#635BFF] dark:text-[#A5B4FC]' : 'text-slate-400'}`} />
+          <span className="hidden md:inline">Live Preview</span>
+        </button>
+      </div>
 
-        {/* Icon-only code actions */}
-        <div className="hidden md:flex items-center gap-0.5">
-          <button
-            onClick={onViewCode}
-            title="View React Code"
-            aria-label="View React code"
-            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-[#635BFF] hover:border-[#635BFF]/40 transition-all"
+      {/* Right cluster: Actions */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {sandboxUrl && (
+          <a
+            href={sandboxUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open Sandbox in New Window"
+            className="h-8 px-2.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A1E2E] text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
           >
-            <FileCode className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={onViewSchema}
-            title="View JSON Schema"
-            aria-label="View JSON schema"
-            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-[#635BFF] hover:border-[#635BFF]/40 transition-all"
-          >
-            <Code2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Validation issue indicator (only when there are issues) */}
-        {!isValid && errorsCount > 0 && (
-          <div
-            title={`${errorsCount} schema ${errorsCount === 1 ? 'issue' : 'issues'}`}
-            aria-label={`${errorsCount} schema issues`}
-            className="hidden xl:inline-flex items-center justify-center h-7 min-w-[28px] px-1.5 rounded-full border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 text-[10.5px] font-bold tabular-nums"
-          >
-            {errorsCount}
-          </div>
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span className="hidden lg:inline">Open URL</span>
+          </a>
         )}
 
+        {onExportCodebase && (
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<Download className="h-3.5 w-3.5" />}
+            onClick={onExportCodebase}
+            className="h-8 text-xs"
+          >
+            <span className="hidden sm:inline">Export Codebase</span>
+          </Button>
+        )}
       </div>
     </header>
   );

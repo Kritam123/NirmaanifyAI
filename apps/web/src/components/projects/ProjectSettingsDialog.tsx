@@ -220,13 +220,27 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
           <div className="space-y-3 text-xs">
             <Card className="p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900 dark:text-white">Live project schema</span>
+                <span className="font-bold text-slate-900 dark:text-white">Project Configuration</span>
                 <Badge variant="cyan" size="sm">
-                  {project.projectSchema && Object.keys(project.projectSchema).length} keys
+                  {project.type}
                 </Badge>
               </div>
               <pre className="p-3 rounded-lg bg-slate-900 dark:bg-black text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-72">
-                {JSON.stringify(project.projectSchema ?? {}, null, 2)}
+                {JSON.stringify(
+                  {
+                    id: project.id,
+                    name: project.name,
+                    slug: project.slug,
+                    type: project.type,
+                    framework: project.framework,
+                    uiLibrary: project.uiLibrary,
+                    isBackendEnabled: project.isBackendEnabled,
+                    storageDriver: project.storageDriver,
+                    status: project.status,
+                  },
+                  null,
+                  2,
+                )}
               </pre>
             </Card>
 

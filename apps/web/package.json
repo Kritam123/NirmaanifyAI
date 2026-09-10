@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@nirmaanify/api-client": "workspace:*",
-    "@nirmaanify/component-registry": "workspace:*",
     "@nirmaanify/design-tokens": "workspace:*",
     "@nirmaanify/icons": "workspace:*",
     "@nirmaanify/types": "workspace:*",

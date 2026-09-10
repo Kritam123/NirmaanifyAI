@@ -15,6 +15,7 @@ import {
 import {
   Download,
   Play,
+  Sparkles,
   Layers,
   FileCode2,
   Server,
@@ -61,20 +62,14 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
   const serverMeta = SERVER_ARCHITECTURES[serverType];
 
   const handleUpdateServerArchitecture = async (newType: ProjectServerType) => {
-    const updatedSchema = {
-      ...(currentProject.projectSchema || {}),
-      serverType: newType,
-    };
     const isBackend = newType === 'nestjs' || newType === 'fullstack';
     try {
       const updated = await updateProject(currentProject.id, {
-        projectSchema: updatedSchema,
         isBackendEnabled: isBackend,
       });
       setCurrentProject({
         ...currentProject,
         ...updated,
-        projectSchema: updatedSchema,
         isBackendEnabled: isBackend,
       });
       toast({
@@ -300,9 +295,6 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
                     isProtected?: boolean;
                   }>)
                 : [];
-              const schemaPages = Array.isArray(project.projectSchema?.pages)
-                ? (project.projectSchema!.pages as Array<unknown>)
-                : [];
 
               const items =
                 aiPages.length > 0
@@ -311,24 +303,9 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
                       title: p.name,
                       status: p.isProtected ? 'Auth required' : 'Generated',
                     }))
-                  : schemaPages.map((p) => {
-                      if (typeof p === 'string') {
-                        return {
-                          path: p,
-                          title: p === '/' ? 'Home' : p.replace(/^\//, ''),
-                          status: 'Generated',
-                        };
-                      }
-                      const obj = p as { path?: string; name?: string };
-                      const path = typeof obj?.path === 'string' ? obj.path : '/';
-                      const title =
-                        typeof obj?.name === 'string' && obj.name.length > 0
-                          ? obj.name
-                          : path === '/'
-                          ? 'Home'
-                          : path.replace(/^\//, '');
-                      return { path, title, status: 'Generated' };
-                    });
+                  : [
+                      { path: '/', title: 'Home', status: 'Generated' },
+                    ];
 
               if (items.length === 0) {
                 return (
@@ -517,10 +494,10 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
             <Button
               variant="default"
               size="sm"
-              leftIcon={<Play className="h-4 w-4" />}
+              leftIcon={<Sparkles className="h-4 w-4" />}
               onClick={openStudio}
             >
-              Launch visual builder
+              Open AI Code Studio
             </Button>
           </>
         }

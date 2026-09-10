@@ -58,13 +58,7 @@ export const SERVER_ARCHITECTURES: Record<ProjectServerType, ServerArchitectureM
 export function getProjectServerType(project: Partial<ProjectDto> | null | undefined): ProjectServerType {
   if (!project) return 'static';
 
-  // 1. Explicitly configured serverType in projectSchema
-  const schemaServerType = project.projectSchema?.serverType as ProjectServerType | undefined;
-  if (schemaServerType && SERVER_ARCHITECTURES[schemaServerType]) {
-    return schemaServerType;
-  }
-
-  // 2. AI Plan backend specification
+  // 1. AI Plan backend specification
   const aiServerType = project.aiPlan?.backendRequirements?.serverType as ProjectServerType | undefined;
   if (aiServerType && SERVER_ARCHITECTURES[aiServerType]) {
     return aiServerType;

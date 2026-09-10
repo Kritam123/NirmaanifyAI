@@ -197,7 +197,6 @@ model Project {
   isBackendEnabled Boolean         @default(false)
   isArchived       Boolean         @default(false)
   status           String          @default("ACTIVE")
-  projectSchema    Json            @default("{}")
   aiPlan           Json?
   storageDriver    String          @default("local")
   storageConfig    Json?

@@ -4,7 +4,7 @@ export type SandboxProvider = 'E2B_CLOUD' | 'LOCAL_DOCKER' | 'WEBCONTAINER';
 
 export type SandboxStatus = 'INITIALIZING' | 'READY' | 'BUSY' | 'ERROR' | 'TERMINATED';
 
-export type StudioViewMode = 'canvas' | 'agent' | 'code';
+export type StudioViewMode = 'split' | 'agent' | 'code' | 'preview';
 
 export interface ToolCallExecution {
   id?: string;

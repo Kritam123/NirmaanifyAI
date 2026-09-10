@@ -76,6 +76,7 @@ export function SandboxPreviewPane({
       const returnMatch = pageFile.match(/return\s*\(\s*([\s\S]*?)\s*\);?\s*\n*}/);
       if (returnMatch && returnMatch[1]) {
         bodyHtml = returnMatch[1]
+          .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
           .replace(/className=/g, 'class=')
           .replace(/<Button[^>]*>(.*?)<\/Button>/gs, '<button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-all cursor-pointer">$1</button>')
           .replace(/<Card[^>]*>(.*?)<\/Card>/gs, '<div class="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">$1</div>')
@@ -95,11 +96,11 @@ export function SandboxPreviewPane({
 
     if (!bodyHtml || bodyHtml.trim().length === 0) {
       bodyHtml = `
-        <div class="min-h-screen bg-slate-50 dark:bg-[#0A0D14] text-slate-900 dark:text-white flex flex-col items-center justify-center p-8 text-center font-sans">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-500 text-xs font-bold mb-4">
+        <div class="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center p-8 text-center font-sans">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 text-xs font-bold mb-4">
             <span>⚡ Live Preview</span>
           </div>
-          <h1 class="text-3xl font-extrabold tracking-tight">
+          <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">
             Ready for AI Model Generation
           </h1>
           <p class="mt-3 text-slate-500 max-w-md text-sm">
@@ -111,7 +112,7 @@ export function SandboxPreviewPane({
 
     return `
       <!DOCTYPE html>
-      <html class="dark">
+      <html class="light">
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -132,7 +133,7 @@ export function SandboxPreviewPane({
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; }
           </style>
         </head>
-        <body class="bg-slate-50 dark:bg-[#07090F] text-slate-900 dark:text-slate-100 min-h-screen antialiased">
+        <body class="bg-white text-slate-900 min-h-screen antialiased">
           ${bodyHtml}
         </body>
       </html>
@@ -140,26 +141,26 @@ export function SandboxPreviewPane({
   }, [files]);
 
   return (
-    <div className="h-full flex flex-col bg-slate-100 dark:bg-[#07090F] overflow-hidden">
+    <div className="h-full w-full flex-1 flex flex-col bg-slate-100/70 dark:bg-[#07090F] overflow-hidden">
       {/* Top Browser & Control Bar */}
-      <div className="h-12 px-3 border-b border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0E101A] flex items-center justify-between shrink-0 gap-3">
+      <div className="h-12 w-full px-3.5 border-b border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0E101A] flex items-center justify-between shrink-0 gap-3">
         {/* Navigation / Address Bar */}
-        <div className="flex items-center gap-2 flex-1 max-w-xl">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <button
             onClick={handleReload}
             title="Reload Sandbox"
             aria-label="Reload Sandbox"
-            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors shadow-xs"
           >
             <RotateCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin text-[#635BFF]' : ''}`} />
           </button>
 
           <div className="flex-1 h-7 px-2.5 rounded-md border border-slate-200 dark:border-[#24293D] bg-slate-50 dark:bg-[#141724] flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 font-mono select-all overflow-hidden">
-            <Globe className="h-3 w-3 text-emerald-400 shrink-0" />
+            <Globe className="h-3 w-3 text-emerald-500 shrink-0" />
             <span className="truncate">
               {previewMode === 'virtual' ? `virtual://preview/${projectId}` : displayUrl}
             </span>
-            <span className="ml-auto text-[10px] text-emerald-500 font-sans font-semibold flex items-center gap-1">
+            <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-semibold flex items-center gap-1">
               <CheckCircle className="h-2.5 w-2.5" />
               Live
             </span>
@@ -170,21 +171,21 @@ export function SandboxPreviewPane({
             target="_blank"
             rel="noopener noreferrer"
             title="Open in new window"
-            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-[#635BFF] transition-colors"
+            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#141724] text-slate-500 hover:text-[#635BFF] transition-colors shadow-xs"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
 
         {/* Engine Switcher [Virtual Preview | Cloud Micro-VM | Console] */}
-        <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#141724] p-0.5 rounded-md border border-slate-200 dark:border-[#24293D]">
+        <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-[#141724] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D]">
           <button
             onClick={() => setPreviewMode('virtual')}
             title="Instant Virtual Live Preview"
-            className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
               previewMode === 'virtual'
-                ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-xs border border-slate-200/80 dark:border-[#2D334D]'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <Zap className="h-3 w-3" />
@@ -194,10 +195,10 @@ export function SandboxPreviewPane({
           <button
             onClick={() => setPreviewMode('cloud')}
             title="Cloud Micro-VM / Local Docker Server"
-            className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
               previewMode === 'cloud'
-                ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-xs border border-slate-200/80 dark:border-[#2D334D]'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <Cloud className="h-3 w-3" />
@@ -207,10 +208,10 @@ export function SandboxPreviewPane({
           <button
             onClick={() => setPreviewMode('console')}
             title="View Live Console Logs"
-            className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
               previewMode === 'console'
-                ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-xs border border-slate-200/80 dark:border-[#2D334D]'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <Terminal className="h-3 w-3" />
@@ -219,7 +220,7 @@ export function SandboxPreviewPane({
         </div>
 
         {/* Viewport Modes */}
-        <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-[#141724] p-0.5 rounded-md border border-slate-200 dark:border-[#24293D]">
+        <div className="flex items-center gap-0.5 bg-slate-100/90 dark:bg-[#141724] p-0.5 rounded-lg border border-slate-200 dark:border-[#24293D]">
           {[
             { id: 'desktop' as const, label: 'Desktop · 100%', icon: <Monitor className="h-3.5 w-3.5" /> },
             { id: 'tablet' as const, label: 'Tablet · 768px', icon: <Tablet className="h-3.5 w-3.5" /> },
@@ -229,10 +230,10 @@ export function SandboxPreviewPane({
               key={v.id}
               onClick={() => setViewport(v.id)}
               title={v.label}
-              className={`h-6 w-6 inline-flex items-center justify-center rounded transition-all ${
+              className={`h-6 w-6 inline-flex items-center justify-center rounded-md transition-all ${
                 viewport === v.id
-                  ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-white'
+                  ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-xs border border-slate-200/80 dark:border-[#2D334D]'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               {v.icon}
@@ -242,24 +243,26 @@ export function SandboxPreviewPane({
       </div>
 
       {/* Preview Stage / Console Logs */}
-      <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
+      <div className={`flex-1 w-full flex items-center justify-center overflow-hidden ${viewport === 'desktop' ? 'p-0' : 'p-3'}`}>
         <div
-          className="h-full bg-white dark:bg-[#0A0D14] rounded-xl shadow-2xl border border-slate-200 dark:border-[#24293D] overflow-hidden transition-all duration-300 flex flex-col"
+          className={`h-full w-full bg-white dark:bg-[#0A0D14] overflow-hidden transition-all duration-300 flex flex-col ${
+            viewport === 'desktop'
+              ? 'rounded-none border-0 shadow-none'
+              : 'rounded-xl shadow-2xl border border-slate-200 dark:border-[#24293D]'
+          }`}
           style={{ width: getViewportWidth() }}
         >
-          {/* Simulated Browser Frame Header */}
-          <div className="h-6 px-3 bg-slate-100 dark:bg-[#121522] border-b border-slate-200 dark:border-[#24293D] flex items-center gap-1.5 select-none shrink-0">
-            <span className="h-2 w-2 rounded-full bg-rose-400" />
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span className="ml-2 text-[10px] text-slate-400 font-mono truncate">
-              {previewMode === 'virtual'
-                ? 'Instant Virtual Runtime (Tailwind CSS CDN + Reactive DOM)'
-                : previewMode === 'cloud'
-                ? `Cloud Micro-VM: ${displayUrl}`
-                : 'Console Output Telemetry'}
-            </span>
-          </div>
+          {/* Simulated Browser Frame Header - displayed when simulating smaller devices */}
+          {viewport !== 'desktop' && (
+            <div className="h-6 px-3 bg-slate-100 dark:bg-[#121522] border-b border-slate-200 dark:border-[#24293D] flex items-center gap-1.5 select-none shrink-0">
+              <span className="h-2 w-2 rounded-full bg-rose-400" />
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="ml-2 text-[10px] text-slate-400 font-mono truncate">
+                {viewport === 'tablet' ? 'Tablet · 768px' : 'Mobile · 375px'}
+              </span>
+            </div>
+          )}
 
           <div className="flex-1 relative w-full h-full overflow-hidden">
             {previewMode === 'virtual' ? (
@@ -267,7 +270,7 @@ export function SandboxPreviewPane({
                 key={`virtual-${key}`}
                 srcDoc={virtualSrcDoc}
                 title="Virtual Live Application Preview"
-                className="w-full h-full border-0 bg-white dark:bg-[#07090F]"
+                className="w-full h-full min-w-full border-0 bg-white dark:bg-[#07090F] block"
                 sandbox="allow-scripts allow-forms allow-same-origin"
               />
             ) : previewMode === 'cloud' ? (
@@ -275,7 +278,7 @@ export function SandboxPreviewPane({
                 key={`cloud-${key}`}
                 src={displayUrl}
                 title="Live Cloud Micro-VM Sandbox Preview"
-                className="w-full h-full border-0 bg-white dark:bg-[#07090F]"
+                className="w-full h-full min-w-full border-0 bg-white dark:bg-[#07090F] block"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               />
             ) : (

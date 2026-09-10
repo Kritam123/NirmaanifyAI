@@ -39,17 +39,6 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
         uiLibrary,
         isBackendEnabled: isBackend,
         storageDriver,
-        projectSchema: {
-          pages: ['/', '/dashboard', '/settings'],
-          authEnabled: true,
-          serverType,
-          databaseModel:
-            serverType === 'static'
-              ? 'None (client-side)'
-              : serverType === 'cms'
-              ? 'PostgreSQL CMS Store'
-              : 'PostgreSQL + Prisma ORM',
-        },
       });
 
       toast({

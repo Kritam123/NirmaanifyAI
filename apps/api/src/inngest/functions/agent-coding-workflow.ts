@@ -1,7 +1,7 @@
 import { inngest } from '../inngest.client';
 import { PrismaService } from '../../database/prisma.service';
 import { SandboxDriverFactory } from '@nirmaanify/sandbox-driver';
-import { ReactCodeGenerator } from '@nirmaanify/component-registry/dist/engine/code-generator.js';
+import { getStarterProjectFiles } from '../../agent/starter-templates';
 import { ToolCallExecution, ProjectMessageDto } from '@nirmaanify/types';
 import { executeGeminiAgentLoop } from '../../agent/gemini-agent-engine';
 
@@ -59,7 +59,9 @@ export const agentCodingWorkflowFunction = inngest.createFunction(
         hostUrl: sandbox.hostUrl,
         apiHostUrl: sandbox.apiHostUrl,
         latestFiles: (project.fragments?.[0]?.files as Record<string, string>) || null,
-        projectSchema: (project.projectSchema as any) || null,
+        projectName: project.name,
+        projectType: project.type,
+        projectDescription: project.description || undefined,
       };
     });
 
@@ -74,7 +76,11 @@ export const agentCodingWorkflowFunction = inngest.createFunction(
 
       let currentFiles = sandboxState.latestFiles;
       if (!currentFiles || Object.keys(currentFiles).length === 0) {
-        currentFiles = ReactCodeGenerator.generateProjectFiles(sandboxState.projectSchema || {});
+        currentFiles = getStarterProjectFiles({
+          name: sandboxState.projectName,
+          type: sandboxState.projectType,
+          description: sandboxState.projectDescription,
+        });
       }
       await driver.writeFiles(currentFiles);
 

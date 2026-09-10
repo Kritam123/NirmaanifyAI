@@ -197,8 +197,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     onDelete(project);
   };
 
-  const routeCount = Array.isArray(project.projectSchema?.pages)
-    ? (project.projectSchema.pages as unknown[]).length
+  const routeCount = Array.isArray(project.aiPlan?.pages)
+    ? (project.aiPlan.pages as unknown[]).length
     : 0;
 
   return (

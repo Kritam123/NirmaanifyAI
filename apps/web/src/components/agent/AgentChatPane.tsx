@@ -71,11 +71,11 @@ export function AgentChatPane({
   const activeModelConfig = AVAILABLE_AGENT_MODELS.find((m) => m.id === selectedModel) || AVAILABLE_AGENT_MODELS[0];
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-[#0E101A] border-r border-slate-200 dark:border-[#24293D] min-w-[360px] max-w-[460px] w-full select-text">
+    <div className="h-full flex flex-col bg-white dark:bg-[#0E101A] w-full select-text">
       {/* Header */}
-      <div className="h-12 px-3 border-b border-slate-200 dark:border-[#24293D] flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-[#121522]/50">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-md bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] flex items-center justify-center text-white shadow-sm shadow-[#635BFF]/25">
+      <div className="h-12 px-4 border-b border-slate-200 dark:border-[#24293D] flex items-center justify-between shrink-0 bg-white dark:bg-[#121522]">
+        <div className="flex items-center gap-2.5">
+          <div className="h-6 w-6 rounded-md bg-[#635BFF] flex items-center justify-center text-white shadow-sm shadow-[#635BFF]/25">
             <Sparkles className="h-3.5 w-3.5" />
           </div>
 
@@ -83,20 +83,20 @@ export function AgentChatPane({
           <div className="relative">
             <button
               onClick={() => setShowModelDropdown((prev) => !prev)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-slate-200/60 dark:hover:bg-[#1E2235] text-xs font-bold text-slate-900 dark:text-white transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[#24293D] bg-slate-50 dark:bg-[#151928] hover:bg-slate-100 dark:hover:bg-[#1E2235] text-xs font-semibold text-slate-800 dark:text-white transition-colors shadow-xs"
             >
               <span className="flex items-center gap-1">
                 {selectedModel.includes('flash') ? <Zap className="h-3 w-3 text-amber-500" /> : <Cpu className="h-3 w-3 text-indigo-400" />}
                 {activeModelConfig.name}
               </span>
-              <span className="text-[10px] font-medium px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-500">
+              <span className="text-[10px] font-medium px-1.5 py-0.2 rounded-full bg-[#635BFF]/10 text-[#635BFF] font-mono">
                 {activeModelConfig.badge}
               </span>
               <ChevronDown className="h-3 w-3 text-slate-400" />
             </button>
 
             {showModelDropdown && (
-              <div className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-[#151827] border border-slate-200 dark:border-[#24293D] rounded-xl shadow-xl z-50 p-1.5 space-y-1">
+              <div className="absolute left-0 top-full mt-1.5 w-64 bg-white dark:bg-[#151827] border border-slate-200 dark:border-[#24293D] rounded-xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in-50 zoom-in-95">
                 {AVAILABLE_AGENT_MODELS.map((model) => (
                   <button
                     key={model.id}
@@ -106,16 +106,16 @@ export function AgentChatPane({
                     }}
                     className={`w-full text-left p-2 rounded-lg text-xs transition-colors flex flex-col gap-0.5 ${
                       selectedModel === model.id
-                        ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold'
-                        : 'hover:bg-slate-100 dark:hover:bg-[#1E2235] text-slate-700 dark:text-slate-300'
+                        ? 'bg-[#635BFF]/10 text-[#635BFF] font-semibold'
+                        : 'hover:bg-slate-50 dark:hover:bg-[#1E2235] text-slate-700 dark:text-slate-300'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 font-medium">
                         {model.id.includes('flash') ? <Zap className="h-3 w-3 text-amber-500" /> : <Cpu className="h-3 w-3 text-indigo-400" />}
                         {model.name}
                       </span>
-                      <span className="text-[9px] px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
                         {model.badge}
                       </span>
                     </div>
@@ -128,7 +128,7 @@ export function AgentChatPane({
         </div>
 
         {/* Inngest Workflow Indicator */}
-        <div className="flex items-center gap-1.5 text-[10px] text-emerald-500 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full">
+        <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-mono bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
           <Workflow className="h-3 w-3" />
           <span>Inngest</span>
         </div>
@@ -157,7 +157,7 @@ export function AgentChatPane({
                 <button
                   key={sample}
                   onClick={() => onSendMessage(sample, selectedModel)}
-                  className="p-2 rounded-lg bg-slate-50 dark:bg-[#151928] hover:bg-[#635BFF]/10 hover:text-[#635BFF] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#24293D] transition-colors text-left font-medium"
+                  className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#151928] hover:bg-[#635BFF]/5 hover:border-[#635BFF]/30 hover:text-[#635BFF] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#24293D] transition-all text-left font-medium shadow-xs"
                 >
                   ⚡ {sample}
                 </button>
@@ -185,10 +185,10 @@ export function AgentChatPane({
                 ) : (
                   <>
                     <Bot className="h-3 w-3 text-[#635BFF]" />
-                    <span className="font-semibold text-slate-600 dark:text-slate-300">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
                       {msg.modelUsed || activeModelConfig.name}
                     </span>
-                    <span className="text-slate-500">·</span>
+                    <span className="text-slate-400">·</span>
                     <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </>
                 )}
@@ -196,24 +196,24 @@ export function AgentChatPane({
 
               {/* Message Bubble */}
               <div
-                className={`p-3 rounded-2xl text-xs max-w-[92%] leading-relaxed ${
+                className={`p-3.5 rounded-2xl text-xs max-w-[92%] leading-relaxed ${
                   isUser
-                    ? 'bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white rounded-br-none shadow-md shadow-[#635BFF]/15'
-                    : 'bg-slate-50 dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 rounded-bl-none shadow-sm'
+                    ? 'bg-[#635BFF] text-white rounded-br-none shadow-md shadow-[#635BFF]/15'
+                    : 'bg-slate-50 dark:bg-[#141724] border border-slate-200 dark:border-[#24293D] text-slate-800 dark:text-slate-200 rounded-bl-none shadow-xs'
                 }`}
               >
                 {/* Assistant Thought Expansion */}
                 {!isUser && msg.thought && (
-                  <div className="mb-2 pb-2 border-b border-slate-200/60 dark:border-[#24293D]">
+                  <div className="mb-2.5 pb-2.5 border-b border-slate-200 dark:border-[#24293D]">
                     <button
                       onClick={() => toggleThought(msg.id)}
-                      className="flex items-center gap-1 text-[11px] font-semibold text-[#635BFF] hover:underline"
+                      className="flex items-center gap-1.5 text-[11px] font-semibold text-[#635BFF] hover:underline"
                     >
                       {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                       <span>Reasoning Process & Step Actions</span>
                     </button>
                     {isExpanded && (
-                      <div className="mt-1.5 p-2 rounded-lg bg-white/60 dark:bg-[#0B0D14] border border-slate-200/50 dark:border-[#1E2235] text-[11px] font-mono text-slate-500 dark:text-slate-400 whitespace-pre-wrap leading-tight">
+                      <div className="mt-2 p-2.5 rounded-lg bg-white dark:bg-[#0B0D14] border border-slate-200 dark:border-[#1E2235] text-[11px] font-mono text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed shadow-inner">
                         {msg.thought}
                       </div>
                     )}
@@ -225,7 +225,7 @@ export function AgentChatPane({
 
                 {/* Tool Calls Execution Pill */}
                 {!isUser && msg.toolCalls && msg.toolCalls.length > 0 && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-[#24293D] space-y-1">
+                  <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#24293D] space-y-1.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Executed Agent Tools ({msg.toolCalls.length})
                     </span>
@@ -233,22 +233,22 @@ export function AgentChatPane({
                       {msg.toolCalls.map((tc, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between gap-2 p-1.5 rounded-md bg-white/80 dark:bg-[#0F111D] border border-slate-200 dark:border-[#202538] text-[10px] font-mono"
+                          className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white dark:bg-[#0F111D] border border-slate-200 dark:border-[#202538] text-[10px] font-mono shadow-xs"
                         >
-                          <div className="flex items-center gap-1.5 truncate">
+                          <div className="flex items-center gap-2 truncate">
                             {tc.name === 'terminal' ? (
-                              <Terminal className="h-3 w-3 text-amber-500 shrink-0" />
+                              <Terminal className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                             ) : (
-                              <FileCode className="h-3 w-3 text-[#635BFF] shrink-0" />
+                              <FileCode className="h-3.5 w-3.5 text-[#635BFF] shrink-0" />
                             )}
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">
                               {tc.name}
                             </span>
-                            <span className="text-slate-400 truncate max-w-[140px]">
+                            <span className="text-slate-400 truncate max-w-[160px]">
                               {JSON.stringify(tc.args)}
                             </span>
                           </div>
-                          <span className="text-[9px] text-emerald-500 font-semibold shrink-0 flex items-center gap-0.5">
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold shrink-0 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-200/50 dark:border-transparent">
                             <CheckCircle2 className="h-2.5 w-2.5" />
                             OK
                           </span>
@@ -260,22 +260,22 @@ export function AgentChatPane({
 
                 {/* Fragment Snapshot Card */}
                 {!isUser && msg.fragment && (
-                  <div className="mt-3 p-2.5 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-500/20 flex items-center justify-between">
+                  <div className="mt-3 p-3 rounded-xl bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-transparent dark:from-indigo-500/10 dark:via-purple-500/10 dark:to-transparent border border-indigo-200/80 dark:border-indigo-500/20 flex items-center justify-between shadow-xs">
                     <div>
-                      <div className="text-[11px] font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                         <span>Snapshot:</span>
                         <span className="text-[#635BFF]">{msg.fragment.title}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                         {Object.keys(msg.fragment.files || {}).length} files generated
                       </div>
                     </div>
                     <button
                       onClick={() => onRollback(msg.fragment!.id)}
                       title="Rollback to this point in time"
-                      className="px-2 py-1 rounded-md bg-white dark:bg-[#1E2235] hover:bg-slate-100 dark:hover:bg-[#282E47] border border-slate-200 dark:border-[#24293D] text-[10px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1 transition-colors"
+                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#1E2235] hover:bg-slate-50 dark:hover:bg-[#282E47] border border-slate-200 dark:border-[#24293D] text-[10px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors shadow-xs"
                     >
-                      <RotateCcw className="h-2.5 w-2.5" />
+                      <RotateCcw className="h-3 w-3" />
                       <span>Rollback</span>
                     </button>
                   </div>
@@ -287,7 +287,7 @@ export function AgentChatPane({
 
         {/* Loading Indicator */}
         {isLoading && (
-          <div className="flex items-center gap-2 text-xs text-[#635BFF] font-medium p-2 rounded-xl bg-[#635BFF]/5 border border-[#635BFF]/10 animate-pulse">
+          <div className="flex items-center gap-2 text-xs text-[#635BFF] font-medium p-2.5 rounded-xl bg-[#635BFF]/5 border border-[#635BFF]/15 animate-pulse">
             <Loader2 className="h-4 w-4 animate-spin text-[#635BFF]" />
             <span>{activeModelConfig.name} is synthesizing code with Inngest...</span>
           </div>
@@ -297,8 +297,8 @@ export function AgentChatPane({
       </div>
 
       {/* Input Form */}
-      <div className="p-3 border-t border-slate-200 dark:border-[#24293D] bg-slate-50/50 dark:bg-[#121522]/50">
-        <div className="relative rounded-xl border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#151827] focus-within:border-[#635BFF] focus-within:ring-1 focus-within:ring-[#635BFF] transition-all">
+      <div className="p-3.5 border-t border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#121522]/50">
+        <div className="relative rounded-xl border border-slate-200 dark:border-[#24293D] bg-slate-50/60 dark:bg-[#151827] focus-within:border-[#635BFF] focus-within:ring-2 focus-within:ring-[#635BFF]/15 focus-within:bg-white dark:focus-within:bg-[#151827] transition-all shadow-xs">
           <textarea
             ref={textareaRef}
             rows={3}
@@ -307,17 +307,17 @@ export function AgentChatPane({
             onKeyDown={handleKeyDown}
             disabled={isLoading}
             placeholder={`Ask ${activeModelConfig.name} to write Next.js & NestJS code... (Enter to send)`}
-            className="w-full p-2.5 text-xs bg-transparent border-0 focus:outline-none resize-none text-slate-900 dark:text-white placeholder:text-slate-400"
+            className="w-full p-3 text-xs bg-transparent border-0 focus:outline-none resize-none text-slate-900 dark:text-white placeholder:text-slate-400"
           />
-          <div className="px-2.5 pb-2 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="flex items-center gap-1 text-[10px]">
-              <Zap className="h-2.5 w-2.5 text-amber-500" />
-              {activeModelConfig.name}
+          <div className="px-3 pb-2.5 flex items-center justify-between text-[11px] text-slate-400">
+            <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+              <Zap className="h-3 w-3 text-amber-500" />
+              <span>{activeModelConfig.name}</span>
             </span>
             <button
               onClick={handleSubmit}
               disabled={!prompt.trim() || isLoading}
-              className="h-7 px-3 inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-[#635BFF] to-[#8B5CF6] text-white font-semibold text-xs disabled:opacity-30 transition-opacity shadow-sm"
+              className="h-7 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-[#635BFF] hover:bg-[#5248FF] text-white font-semibold text-xs disabled:opacity-30 transition-all shadow-sm cursor-pointer"
             >
               {isLoading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

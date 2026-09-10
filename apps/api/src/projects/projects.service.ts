@@ -106,7 +106,6 @@ export class ProjectsService {
       isBackendEnabled: p.isBackendEnabled,
       isArchived: p.isArchived,
       status: p.status,
-      projectSchema: p.projectSchema as any,
       aiPlan: p.aiPlan as any,
       storageDriver: (p.storageDriver as any) || 'local',
       storageConfig: ((p as any).storageConfig as any) || undefined,
@@ -156,7 +155,6 @@ export class ProjectsService {
       isBackendEnabled: p.isBackendEnabled,
       isArchived: p.isArchived,
       status: p.status,
-      projectSchema: p.projectSchema as any,
       aiPlan: p.aiPlan as any,
       storageDriver: (p.storageDriver as any) || 'local',
       storageConfig: ((p as any).storageConfig as any) || undefined,
@@ -224,7 +222,6 @@ export class ProjectsService {
       isBackendEnabled: Boolean(data.isBackendEnabled),
       isArchived: Boolean(data.isArchived),
       status: data.status || 'ACTIVE',
-      projectSchema: (data.projectSchema as any) || { pages: ['/'] },
       aiPlan: (data.aiPlan as any) || undefined,
       storageDriver: data.storageDriver || 'local',
       storageConfig: (data.storageConfig as any) || undefined,
@@ -248,7 +245,6 @@ export class ProjectsService {
       isBackendEnabled: p.isBackendEnabled,
       isArchived: p.isArchived,
       status: p.status,
-      projectSchema: p.projectSchema as any,
       aiPlan: p.aiPlan as any,
       storageDriver: (p.storageDriver as any) || 'local',
       storageConfig: ((p as any).storageConfig as any) || undefined,
@@ -273,7 +269,6 @@ export class ProjectsService {
     if (data.isBackendEnabled !== undefined) updateData.isBackendEnabled = data.isBackendEnabled;
     if (data.isArchived !== undefined) updateData.isArchived = data.isArchived;
     if (data.status !== undefined) updateData.status = data.status;
-    if (data.projectSchema !== undefined) updateData.projectSchema = data.projectSchema;
     if (data.aiPlan !== undefined) updateData.aiPlan = data.aiPlan;
     if (data.storageDriver !== undefined) updateData.storageDriver = data.storageDriver;
     if (data.storageConfig !== undefined) updateData.storageConfig = data.storageConfig;
@@ -283,7 +278,7 @@ export class ProjectsService {
       data: updateData,
     });
 
-    this.logger.log(`✓ Project updated: "${p.name}" (${p.id})`);
+    this.logger.log(`✓ Project updated: ${p.name} (${p.id})`);
 
     return {
       id: p.id,
@@ -297,7 +292,6 @@ export class ProjectsService {
       isBackendEnabled: p.isBackendEnabled,
       isArchived: p.isArchived,
       status: p.status,
-      projectSchema: p.projectSchema as any,
       aiPlan: p.aiPlan as any,
       storageDriver: (p.storageDriver as any) || 'local',
       storageConfig: ((p as any).storageConfig as any) || undefined,
@@ -332,7 +326,6 @@ export class ProjectsService {
         isBackendEnabled: source.isBackendEnabled,
         isArchived: false,
         status: 'ACTIVE',
-        projectSchema: source.projectSchema,
         aiPlan: source.aiPlan,
         storageDriver: source.storageDriver || 'local',
         storageConfig: source.storageConfig,
@@ -392,14 +385,6 @@ export class ProjectsService {
         isBackendEnabled: plan.backendRequirements.enabled,
         isArchived: false,
         status: 'ACTIVE',
-        projectSchema: {
-          pages: plan.pages.map((p) => p.path),
-          features: plan.features.map((f) => f.title),
-          modules: plan.backendRequirements.modules.map((m) => m.name),
-          databaseModels: plan.databaseRequirements.models.map((m) => m.name),
-          cmsCollections: plan.cmsRequirements.collections.map((c) => c.name),
-          plugins: plan.pluginRecommendations.filter((p) => p.isRecommended).map((p) => p.name),
-        },
         aiPlan: approvedPlan,
       },
       userId,
