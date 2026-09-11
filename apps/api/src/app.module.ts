@@ -12,6 +12,8 @@ import { CmsModule } from './cms/cms.module';
 import { BaasModule } from './baas/baas.module';
 import { AgentModule } from './agent/agent.module';
 import { InngestModule } from './inngest/inngest.module';
+import { PackagesModule } from './packages/packages.module';
+import { PluginsModule } from './plugins/plugins.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -37,6 +39,8 @@ import { validateEnv } from './config/env.validation';
     BaasModule,
     AgentModule,
     InngestModule,
+    PackagesModule,
+    PluginsModule,
   ],
 })
 export class AppModule {}

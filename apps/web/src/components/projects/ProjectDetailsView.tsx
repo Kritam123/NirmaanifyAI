@@ -24,6 +24,7 @@ import {
   Database,
   Copy,
   Check,
+  Boxes,
 } from 'lucide-react';
 import { ProjectDto } from '@nirmaanify/types';
 import { ROUTES } from '../../lib/routes';
@@ -34,6 +35,7 @@ import { FileUploadDropzone } from '../storage/FileUploadDropzone';
 import { FileListTable } from '../storage/FileListTable';
 import { CmsDashboardView } from '../cms/CmsDashboardView';
 import { NestJsBackendView } from '../backend/NestJsBackendView';
+import { PackagesAndPluginsView } from '../packages/PackagesAndPluginsView';
 import { useAuth } from '../../context/auth-context';
 import {
   getProjectServerType,
@@ -361,6 +363,21 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project 
           },
         ]
       : []),
+    {
+      id: 'packages',
+      label: 'Packages & Plugins',
+      icon: <Boxes className="h-4 w-4" />,
+      content: (
+        <PackagesAndPluginsView
+          projectId={currentProject.id}
+          projectName={currentProject.name}
+          currentUiLibrary={currentProject.uiLibrary}
+          onUiLibraryChanged={(newLib) =>
+            setCurrentProject({ ...currentProject, uiLibrary: newLib })
+          }
+        />
+      ),
+    },
     {
       id: 'deploy',
       label: 'Cloud deployment',

@@ -125,6 +125,23 @@ export const API_ENDPOINTS = {
     ROLLBACK: (projectId: string, fragmentId: string) => `${API_PREFIX}/projects/${projectId}/agent/rollback/${fragmentId}`,
     INNGEST_TRIGGER: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/inngest/trigger`,
   },
+  PACKAGES: {
+    PRESETS: (projectId: string) => `${API_PREFIX}/projects/${projectId}/packages/presets`,
+    LIST: (projectId: string) => `${API_PREFIX}/projects/${projectId}/packages`,
+    CHECK_COMPATIBILITY: (projectId: string) => `${API_PREFIX}/projects/${projectId}/packages/check-compatibility`,
+    INSTALL: (projectId: string) => `${API_PREFIX}/projects/${projectId}/packages/install`,
+    REMOVE: (projectId: string, packageName: string) => `${API_PREFIX}/projects/${projectId}/packages/${encodeURIComponent(packageName)}`,
+    SWITCH_PRESET: (projectId: string) => `${API_PREFIX}/projects/${projectId}/packages/switch-preset`,
+    SEARCH_NPM: (projectId: string, q: string) => `${API_PREFIX}/projects/${projectId}/packages/search-npm?q=${encodeURIComponent(q)}`,
+  },
+  PLUGINS: {
+    MARKETPLACE: `${API_PREFIX}/plugins/marketplace`,
+    MARKETPLACE_DETAIL: (slug: string) => `${API_PREFIX}/plugins/marketplace/${slug}`,
+    PROJECT_PLUGINS: (projectId: string) => `${API_PREFIX}/projects/${projectId}/plugins`,
+    INSTALL: (projectId: string) => `${API_PREFIX}/projects/${projectId}/plugins/install`,
+    UPDATE: (projectId: string, pluginId: string) => `${API_PREFIX}/projects/${projectId}/plugins/${pluginId}`,
+    UNINSTALL: (projectId: string, pluginId: string) => `${API_PREFIX}/projects/${projectId}/plugins/${pluginId}`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;

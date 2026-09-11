@@ -8,3 +8,5 @@ export * from './rbac';
 export * from './cms';
 export * from './baas';
 export * from './agent';
+export * from './packages';
+export * from './plugins';

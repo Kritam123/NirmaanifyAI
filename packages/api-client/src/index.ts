@@ -7,6 +7,8 @@ import { HealthService } from './services/health.service';
 import { CmsService } from './services/cms.service';
 import { BaasService } from './services/baas.service';
 import { AgentService } from './services/agent.service';
+import { PackagesService } from './services/packages.service';
+import { PluginsService } from './services/plugins.service';
 
 export * from './endpoints';
 export * from './http-client';
@@ -18,6 +20,8 @@ export * from './services/health.service';
 export * from './services/cms.service';
 export * from './services/baas.service';
 export * from './services/agent.service';
+export * from './services/packages.service';
+export * from './services/plugins.service';
 
 /**
  * Unified Nirmaanify API Client Suite
@@ -33,6 +37,8 @@ export class NirmaanifyApiClient {
   public readonly cms: CmsService;
   public readonly baas: BaasService;
   public readonly agent: AgentService;
+  public readonly packages: PackagesService;
+  public readonly plugins: PluginsService;
 
   constructor(config: HttpClientConfig = {}) {
     this.http = new HttpClient(config);
@@ -44,6 +50,8 @@ export class NirmaanifyApiClient {
     this.cms = new CmsService(this.http);
     this.baas = new BaasService(this.http);
     this.agent = new AgentService(this.http);
+    this.packages = new PackagesService(this.http);
+    this.plugins = new PluginsService(this.http);
   }
 
   /**
