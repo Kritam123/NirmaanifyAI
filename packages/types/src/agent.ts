@@ -110,3 +110,103 @@ export interface SwitchSandboxDto {
 export interface RollbackSnapshotDto {
   fragmentId: string;
 }
+
+// ==========================================
+// PHASE 11: MULTI-AGENT ORCHESTRATION TYPES
+// ==========================================
+
+export type SpecializedAgentType =
+  | 'ORCHESTRATOR'
+  | 'PROJECT_PLANNER'
+  | 'UI_AGENT'
+  | 'BACKEND_AGENT'
+  | 'DATABASE_AGENT'
+  | 'CMS_AGENT'
+  | 'PACKAGE_AGENT'
+  | 'PLUGIN_AGENT';
+
+export type TaskExecutionStatus =
+  | 'QUEUED'
+  | 'IN_PROGRESS'
+  | 'AWAITING_APPROVAL'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'SKIPPED';
+
+export interface OrchestrationTask {
+  id: string;
+  agent: SpecializedAgentType;
+  title: string;
+  description: string;
+  dependencies: string[];
+  status: TaskExecutionStatus;
+  requiresApproval?: boolean;
+  isApproved?: boolean;
+  outputSummary?: string;
+  affectedFiles?: string[];
+}
+
+export interface AgentDesignContext {
+  mode: 'platform' | 'project';
+  brandTokens: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    fontFamily: string;
+    borderRadius: string;
+  };
+  uiFramework: string;
+  animationEngine: string;
+  formEngine: string;
+}
+
+export interface AgentMemoryContext {
+  project: {
+    id: string;
+    name: string;
+    slug: string;
+    type: string;
+    serverType: string;
+    framework: string;
+  };
+  architecture: {
+    routes: string[];
+    filesCount: number;
+    sandboxUrl?: string;
+    apiSandboxUrl?: string;
+  };
+  packages: Array<{ name: string; version: string; category: string }>;
+  backend: {
+    hasNestJs: boolean;
+    hasCms: boolean;
+    entities: string[];
+  };
+  designContext: AgentDesignContext;
+}
+
+export interface AgentOrchestrationRunDto {
+  id: string;
+  projectId: string;
+  messageId?: string | null;
+  prompt: string;
+  status: TaskExecutionStatus;
+  plan: OrchestrationTask[];
+  contextSnapshot: AgentMemoryContext;
+  currentAgent: SpecializedAgentType;
+  logs: Array<{ timestamp: string; agent: SpecializedAgentType; message: string }>;
+  error?: string | null;
+  startedAt: string;
+  completedAt?: string | null;
+}
+
+export interface OrchestratePromptRequestDto {
+  prompt: string;
+  preferredModel?: string;
+  requireApprovalForMigrations?: boolean;
+}
+
+export interface ApproveTaskDto {
+  taskId: string;
+  approved: boolean;
+}
+

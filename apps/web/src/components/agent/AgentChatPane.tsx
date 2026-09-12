@@ -18,8 +18,17 @@ import {
   Zap,
   Cpu,
   Workflow,
+  Network,
+  Users,
 } from 'lucide-react';
-import { ProjectMessageDto, ProjectFragmentDto, AgentCodingModel, AVAILABLE_AGENT_MODELS } from '@nirmaanify/types';
+import {
+  ProjectMessageDto,
+  ProjectFragmentDto,
+  AgentCodingModel,
+  AVAILABLE_AGENT_MODELS,
+  AgentOrchestrationRunDto,
+} from '@nirmaanify/types';
+import { AgentOrchestratorView } from './AgentOrchestratorView';
 
 interface AgentChatPaneProps {
   projectId: string;
@@ -27,6 +36,9 @@ interface AgentChatPaneProps {
   isLoading: boolean;
   onSendMessage: (prompt: string, preferredModel?: string) => Promise<void>;
   onRollback: (fragmentId: string) => Promise<void>;
+  activeRun?: AgentOrchestrationRunDto | null;
+  onOrchestrate?: (prompt: string, preferredModel?: string) => Promise<void>;
+  onApproveTask?: (taskId: string) => void;
 }
 
 export function AgentChatPane({
@@ -35,9 +47,13 @@ export function AgentChatPane({
   isLoading,
   onSendMessage,
   onRollback,
+  activeRun,
+  onOrchestrate,
+  onApproveTask,
 }: AgentChatPaneProps) {
   const [prompt, setPrompt] = useState('');
   const [selectedModel, setSelectedModel] = useState<AgentCodingModel>('gemini-3.8-flash');
+  const [isMultiAgentMode, setIsMultiAgentMode] = useState(true);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -65,7 +81,11 @@ export function AgentChatPane({
     const trimmed = prompt.trim();
     if (!trimmed || isLoading) return;
     setPrompt('');
-    await onSendMessage(trimmed, selectedModel);
+    if (isMultiAgentMode && onOrchestrate) {
+      await onOrchestrate(trimmed, selectedModel);
+    } else {
+      await onSendMessage(trimmed, selectedModel);
+    }
   };
 
   const activeModelConfig = AVAILABLE_AGENT_MODELS.find((m) => m.id === selectedModel) || AVAILABLE_AGENT_MODELS[0];
@@ -74,7 +94,7 @@ export function AgentChatPane({
     <div className="h-full flex flex-col bg-white dark:bg-[#0E101A] w-full select-text">
       {/* Header */}
       <div className="h-12 px-4 border-b border-slate-200 dark:border-[#24293D] flex items-center justify-between shrink-0 bg-white dark:bg-[#121522]">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <div className="h-6 w-6 rounded-md bg-[#635BFF] flex items-center justify-center text-white shadow-sm shadow-[#635BFF]/25">
             <Sparkles className="h-3.5 w-3.5" />
           </div>
@@ -125,6 +145,20 @@ export function AgentChatPane({
               </div>
             )}
           </div>
+
+          {/* Multi-Agent Mode Toggle Switch */}
+          <button
+            onClick={() => setIsMultiAgentMode((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-xs ${
+              isMultiAgentMode
+                ? 'bg-[#635BFF]/10 text-[#635BFF] border-[#635BFF]/30 dark:bg-[#635BFF]/20 dark:text-[#A5B4FC] dark:border-[#635BFF]/40'
+                : 'bg-slate-50 dark:bg-[#151928] text-slate-500 dark:text-slate-400 border-slate-200 dark:border-[#24293D] hover:bg-slate-100'
+            }`}
+            title="Toggle Multi-Agent Orchestrator (Phase 11: 7 Specialized Agents)"
+          >
+            <Network className="h-3 w-3" />
+            <span>{isMultiAgentMode ? 'Multi-Agent (7)' : 'Direct Agent'}</span>
+          </button>
         </div>
 
         {/* Inngest Workflow Indicator */}
@@ -136,27 +170,47 @@ export function AgentChatPane({
 
       {/* Message List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
-          <div className="py-12 px-4 text-center space-y-3">
+        {/* Active Multi-Agent Orchestration Run Status / DAG Card */}
+        {activeRun && (
+          <div className="mb-4">
+            <AgentOrchestratorView
+              activeRun={activeRun}
+              onApproveTask={onApproveTask}
+            />
+          </div>
+        )}
+
+        {messages.length === 0 && !activeRun && (
+          <div className="py-8 px-4 text-center space-y-3">
             <div className="h-12 w-12 rounded-2xl bg-[#635BFF]/10 text-[#635BFF] flex items-center justify-center mx-auto">
               <Sparkles className="h-6 w-6" />
             </div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-              Autonomous Full-Stack Pair Programmer
+              {isMultiAgentMode
+                ? 'Multi-Agent Orchestration Engine'
+                : 'Autonomous Full-Stack Pair Programmer'}
             </h4>
             <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-              Equipped with {activeModelConfig.name} and Inngest durable workflow execution. Build components, backend APIs, and database schemas.
+              {isMultiAgentMode
+                ? 'Master Orchestrator coordinates 7 specialized agents (UI, Backend, Database, CMS, Packages, Plugins, Architecture) with DAG dependency tracking.'
+                : `Equipped with ${activeModelConfig.name} and Inngest durable workflow execution. Build components, backend APIs, and database schemas.`}
             </p>
             <div className="pt-2 flex flex-col gap-1.5 text-left text-xs">
               {[
-                'Build a 3-tier pricing table with monthly & annual billing toggle',
-                'Create a NestJS products API with GET and POST endpoints',
-                'Design a responsive hero banner with CTA button and badge',
-                'Add an interactive authentication sign-in form with validation',
+                'Build a full SaaS billing dashboard with Stripe packages and Prisma database models',
+                'Create a NestJS products and categories API with PostgreSQL schema',
+                'Design a responsive hero banner with CTA button, theme selector, and animated badges',
+                'Set up a blog CMS content model with author relations and publishing workflow',
               ].map((sample) => (
                 <button
                   key={sample}
-                  onClick={() => onSendMessage(sample, selectedModel)}
+                  onClick={() => {
+                    if (isMultiAgentMode && onOrchestrate) {
+                      onOrchestrate(sample, selectedModel);
+                    } else {
+                      onSendMessage(sample, selectedModel);
+                    }
+                  }}
                   className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#151928] hover:bg-[#635BFF]/5 hover:border-[#635BFF]/30 hover:text-[#635BFF] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#24293D] transition-all text-left font-medium shadow-xs"
                 >
                   ⚡ {sample}
@@ -306,14 +360,24 @@ export function AgentChatPane({
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
-            placeholder={`Ask ${activeModelConfig.name} to write Next.js & NestJS code... (Enter to send)`}
+            placeholder={
+              isMultiAgentMode
+                ? `Task Master Orchestrator & 7 Specialized Agents (e.g. Build an e-commerce dashboard)... (Enter to send)`
+                : `Ask ${activeModelConfig.name} to write Next.js & NestJS code... (Enter to send)`
+            }
             className="w-full p-3 text-xs bg-transparent border-0 focus:outline-none resize-none text-slate-900 dark:text-white placeholder:text-slate-400"
           />
           <div className="px-3 pb-2.5 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-              <Zap className="h-3 w-3 text-amber-500" />
-              <span>{activeModelConfig.name}</span>
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                {isMultiAgentMode ? (
+                  <Network className="h-3 w-3 text-[#635BFF]" />
+                ) : (
+                  <Zap className="h-3 w-3 text-amber-500" />
+                )}
+                <span>{isMultiAgentMode ? 'Multi-Agent DAG' : activeModelConfig.name}</span>
+              </span>
+            </div>
             <button
               onClick={handleSubmit}
               disabled={!prompt.trim() || isLoading}

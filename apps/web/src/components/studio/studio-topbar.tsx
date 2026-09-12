@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Download,
   ExternalLink,
+  Rocket,
   X,
 } from 'lucide-react';
 import { Button } from '@nirmaanify/ui';
@@ -28,6 +29,7 @@ interface StudioTopbarProps {
   sandboxUrl?: string;
   filesCount?: number;
   onExportCodebase?: () => void;
+  onOpenExportDeployModal?: () => void;
   onCloseStudio: () => void;
 }
 
@@ -44,6 +46,7 @@ export function StudioTopbar({
   sandboxUrl,
   filesCount = 0,
   onExportCodebase,
+  onOpenExportDeployModal,
   onCloseStudio,
 }: StudioTopbarProps) {
   return (
@@ -165,6 +168,18 @@ export function StudioTopbar({
           </a>
         )}
 
+        {onOpenExportDeployModal && (
+          <Button
+            variant="default"
+            size="sm"
+            leftIcon={<Rocket className="h-3.5 w-3.5" />}
+            onClick={onOpenExportDeployModal}
+            className="h-8 text-xs bg-[#635BFF] hover:bg-[#5248FF] text-white shadow-xs"
+          >
+            <span className="hidden sm:inline">Export & Deploy</span>
+          </Button>
+        )}
+
         {onExportCodebase && (
           <Button
             variant="outline"
@@ -173,7 +188,7 @@ export function StudioTopbar({
             onClick={onExportCodebase}
             className="h-8 text-xs"
           >
-            <span className="hidden sm:inline">Export Codebase</span>
+            <span className="hidden sm:inline">JSON</span>
           </Button>
         )}
       </div>

@@ -9,6 +9,9 @@ import { BaasService } from './services/baas.service';
 import { AgentService } from './services/agent.service';
 import { PackagesService } from './services/packages.service';
 import { PluginsService } from './services/plugins.service';
+import { BuildsService } from './services/builds.service';
+import { ExportService } from './services/export.service';
+import { DeploymentsService } from './services/deployments.service';
 
 export * from './endpoints';
 export * from './http-client';
@@ -22,6 +25,9 @@ export * from './services/baas.service';
 export * from './services/agent.service';
 export * from './services/packages.service';
 export * from './services/plugins.service';
+export * from './services/builds.service';
+export * from './services/export.service';
+export * from './services/deployments.service';
 
 /**
  * Unified Nirmaanify API Client Suite
@@ -39,6 +45,9 @@ export class NirmaanifyApiClient {
   public readonly agent: AgentService;
   public readonly packages: PackagesService;
   public readonly plugins: PluginsService;
+  public readonly builds: BuildsService;
+  public readonly export: ExportService;
+  public readonly deployments: DeploymentsService;
 
   constructor(config: HttpClientConfig = {}) {
     this.http = new HttpClient(config);
@@ -52,6 +61,9 @@ export class NirmaanifyApiClient {
     this.agent = new AgentService(this.http);
     this.packages = new PackagesService(this.http);
     this.plugins = new PluginsService(this.http);
+    this.builds = new BuildsService(this.http);
+    this.export = new ExportService(this.http);
+    this.deployments = new DeploymentsService(this.http);
   }
 
   /**

@@ -213,6 +213,9 @@ model Project {
   sandbox         ProjectSandbox?
   packages        ProjectPackage[]
   plugins         ProjectPlugin[]
+  orchestrationRuns AgentOrchestrationRun[]
+  builds          ProjectBuild[]
+  deployments     ProjectDeployment[]
 
   @@unique([workspaceId, slug])
   @@map("projects")
@@ -608,4 +611,121 @@ model PluginAuditReport {
 
   @@index([pluginId])
   @@map("plugin_audit_reports")
+}
+
+// ==========================================
+// PHASE 11: AI AGENT ORCHESTRATION
+// ==========================================
+
+enum SpecializedAgentType {
+  ORCHESTRATOR
+  PROJECT_PLANNER
+  UI_AGENT
+  BACKEND_AGENT
+  DATABASE_AGENT
+  CMS_AGENT
+  PACKAGE_AGENT
+  PLUGIN_AGENT
+}
+
+enum TaskExecutionStatus {
+  QUEUED
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+model AgentOrchestrationRun {
+  id              String               @id @default(uuid())
+  projectId       String
+  messageId       String?
+  prompt          String               @db.Text
+  status          TaskExecutionStatus  @default(QUEUED)
+  plan            Json                 @default("[]")
+  contextSnapshot Json                 @default("{}")
+  currentAgent    SpecializedAgentType @default(ORCHESTRATOR)
+  logs            Json                 @default("[]")
+  error           String?              @db.Text
+  startedAt       DateTime             @default(now())
+  completedAt     DateTime?
+
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@map("agent_orchestration_runs")
+}
+
+// ==========================================
+// PHASE 12: PREVIEW, BUILD, EXPORT & DEPLOY
+// ==========================================
+
+enum BuildStatus {
+  QUEUED
+  BUILDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum DeploymentTarget {
+  VERCEL
+  RENDER
+  RAILWAY
+  DOCKER
+  SELF_HOSTED
+  SANDBOX
+}
+
+enum DeploymentStatus {
+  PENDING
+  DEPLOYING
+  DEPLOYED
+  FAILED
+  CANCELLED
+}
+
+model ProjectBuild {
+  id            String       @id @default(uuid())
+  projectId     String
+  status        BuildStatus  @default(QUEUED)
+  durationMs    Int?
+  logs          Json         @default("[]")
+  errors        Json?        @default("[]")
+  envValidation Json?        @default("{}")
+  commitHash    String?
+  createdById   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deployments ProjectDeployment[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("project_builds")
+}
+
+model ProjectDeployment {
+  id          String           @id @default(uuid())
+  projectId   String
+  buildId     String?
+  target      DeploymentTarget @default(DOCKER)
+  status      DeploymentStatus @default(PENDING)
+  url         String?
+  logs        Json             @default("[]")
+  config      Json?            @default("{}")
+  createdById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  build   ProjectBuild? @relation(fields: [buildId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([target])
+  @@index([status])
+  @@map("project_deployments")
 }

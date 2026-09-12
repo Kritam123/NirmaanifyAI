@@ -124,6 +124,9 @@ export const API_ENDPOINTS = {
     SANDBOX_STATUS: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/sandbox/status`,
     ROLLBACK: (projectId: string, fragmentId: string) => `${API_PREFIX}/projects/${projectId}/agent/rollback/${fragmentId}`,
     INNGEST_TRIGGER: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/inngest/trigger`,
+    ORCHESTRATE: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/orchestrate`,
+    ORCHESTRATION_RUNS: (projectId: string) => `${API_PREFIX}/projects/${projectId}/agent/orchestration-runs`,
+    ORCHESTRATION_RUN: (projectId: string, runId: string) => `${API_PREFIX}/projects/${projectId}/agent/orchestration-runs/${runId}`,
   },
   PACKAGES: {
     PRESETS: (projectId: string) => `${API_PREFIX}/projects/${projectId}/packages/presets`,
@@ -141,6 +144,20 @@ export const API_ENDPOINTS = {
     INSTALL: (projectId: string) => `${API_PREFIX}/projects/${projectId}/plugins/install`,
     UPDATE: (projectId: string, pluginId: string) => `${API_PREFIX}/projects/${projectId}/plugins/${pluginId}`,
     UNINSTALL: (projectId: string, pluginId: string) => `${API_PREFIX}/projects/${projectId}/plugins/${pluginId}`,
+  },
+  BUILDS: {
+    TRIGGER: (projectId: string) => `${API_PREFIX}/projects/${projectId}/builds/trigger`,
+    LIST: (projectId: string) => `${API_PREFIX}/projects/${projectId}/builds`,
+    DETAIL: (projectId: string, buildId: string) => `${API_PREFIX}/projects/${projectId}/builds/${buildId}`,
+  },
+  EXPORT: {
+    ZIP: (projectId: string) => `${API_PREFIX}/projects/${projectId}/export/zip`,
+    GITHUB: (projectId: string) => `${API_PREFIX}/projects/${projectId}/export/github`,
+  },
+  DEPLOYMENTS: {
+    TRIGGER: (projectId: string) => `${API_PREFIX}/projects/${projectId}/deployments/trigger`,
+    LIST: (projectId: string) => `${API_PREFIX}/projects/${projectId}/deployments`,
+    DETAIL: (projectId: string, deployId: string) => `${API_PREFIX}/projects/${projectId}/deployments/${deployId}`,
   },
 } as const;
 

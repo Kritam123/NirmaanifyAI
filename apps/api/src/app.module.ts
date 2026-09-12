@@ -14,6 +14,9 @@ import { AgentModule } from './agent/agent.module';
 import { InngestModule } from './inngest/inngest.module';
 import { PackagesModule } from './packages/packages.module';
 import { PluginsModule } from './plugins/plugins.module';
+import { BuildsModule } from './builds/builds.module';
+import { ExportModule } from './export/export.module';
+import { DeploymentsModule } from './deployments/deployments.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -41,6 +44,9 @@ import { validateEnv } from './config/env.validation';
     InngestModule,
     PackagesModule,
     PluginsModule,
+    BuildsModule,
+    ExportModule,
+    DeploymentsModule,
   ],
 })
 export class AppModule {}
