@@ -2,9 +2,12 @@
 
 import React, { useState } from 'react';
 import { Dialog, Button, Card, Badge, useToast } from '@nirmaanify/ui';
-import { Settings, Layers, AlertTriangle, Copy, Archive, ArchiveRestore } from 'lucide-react';
-import { ProjectDto } from '@nirmaanify/types';
+import { Settings, Layers, AlertTriangle, Copy, Archive, ArchiveRestore, Database } from 'lucide-react';
+import { ProjectDto, StorageDriverType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
+import { useStorage } from '../../hooks/use-storage';
+import { StorageSettingsCard } from '../storage/StorageSettingsCard';
+import { getProjectServerType, SERVER_ARCHITECTURES } from '../../lib/server-architecture';
 
 interface ProjectSettingsDialogProps {
   project: ProjectDto | null;
@@ -13,7 +16,7 @@ interface ProjectSettingsDialogProps {
   onEdit: () => void;
 }
 
-type TabId = 'general' | 'schema' | 'danger';
+type TabId = 'general' | 'storage' | 'schema' | 'danger';
 
 export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
   project,
@@ -22,8 +25,17 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
   onEdit,
 }) => {
   const { toast } = useToast();
-  const { duplicateProject, archiveProject, unarchiveProject } = useAuth();
+  const { duplicateProject, archiveProject, unarchiveProject, updateProject } = useAuth();
   const [tab, setTab] = useState<TabId>('general');
+
+  const {
+    activeDriver: projectStorageDriver,
+    config: projectStorageConfig,
+    isSavingConfig,
+    isTestingConnection,
+    updateStorageConfig,
+    testConnection,
+  } = useStorage(project?.id);
 
   if (!project) return null;
 
@@ -81,6 +93,7 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
           {(
             [
               { id: 'general', label: 'General', icon: <Settings className="h-3.5 w-3.5" /> },
+              { id: 'storage', label: 'Storage Engine', icon: <Database className="h-3.5 w-3.5" /> },
               { id: 'schema', label: 'Schema inspector', icon: <Layers className="h-3.5 w-3.5" /> },
               { id: 'danger', label: 'Danger zone', icon: <AlertTriangle className="h-3.5 w-3.5 text-rose-500" /> },
             ] as { id: TabId; label: string; icon: React.ReactNode }[]
@@ -151,16 +164,28 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
                   <p className="font-semibold text-slate-800 dark:text-slate-100">{project.uiLibrary}</p>
                 </div>
                 <div>
-                  <span className="text-slate-400">Backend API</span>
+                  <span className="text-slate-400">Server Architecture</span>
+                  <div className="pt-0.5">
+                    <Badge variant={SERVER_ARCHITECTURES[getProjectServerType(project)].badgeVariant} size="sm">
+                      {SERVER_ARCHITECTURES[getProjectServerType(project)].label}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-400">Database &amp; Store</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-100">
-                    {project.isBackendEnabled ? 'NestJS 11 + Prisma ORM' : 'Static export'}
+                    {SERVER_ARCHITECTURES[getProjectServerType(project)].hasNestJs || SERVER_ARCHITECTURES[getProjectServerType(project)].hasCms
+                      ? 'PostgreSQL 16'
+                      : 'None (client-side)'}
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-400">Database</span>
-                  <p className="font-semibold text-slate-800 dark:text-slate-100">
-                    {project.isBackendEnabled ? 'PostgreSQL 16' : 'None (client-side)'}
-                  </p>
+                  <span className="text-slate-400">Storage Engine</span>
+                  <div className="pt-0.5">
+                    <Badge variant={project.storageDriver === 's3' ? 'indigo' : project.storageDriver === 'vercel-blob' ? 'cyan' : 'secondary'} size="sm">
+                      {(project.storageDriver || 'local').toUpperCase()}
+                    </Badge>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -174,18 +199,48 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
           </div>
         )}
 
+        {/* Storage engine tab */}
+        {tab === 'storage' && (
+          <div className="space-y-4 text-xs">
+            <StorageSettingsCard
+              projectId={project.id}
+              projectName={project.name}
+              activeDriver={(projectStorageDriver || project.storageDriver || 'local') as StorageDriverType}
+              initialConfig={projectStorageConfig || (project.storageConfig as any)}
+              onSave={(cfg, drv) => updateStorageConfig(cfg, drv)}
+              onTest={(drv, cfg) => testConnection(drv, cfg)}
+              isSaving={isSavingConfig}
+              isTesting={isTestingConnection}
+            />
+          </div>
+        )}
+
         {/* Schema inspector */}
         {tab === 'schema' && (
           <div className="space-y-3 text-xs">
             <Card className="p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900 dark:text-white">Live project schema</span>
+                <span className="font-bold text-slate-900 dark:text-white">Project Configuration</span>
                 <Badge variant="cyan" size="sm">
-                  {project.projectSchema && Object.keys(project.projectSchema).length} keys
+                  {project.type}
                 </Badge>
               </div>
               <pre className="p-3 rounded-lg bg-slate-900 dark:bg-black text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-72">
-                {JSON.stringify(project.projectSchema ?? {}, null, 2)}
+                {JSON.stringify(
+                  {
+                    id: project.id,
+                    name: project.name,
+                    slug: project.slug,
+                    type: project.type,
+                    framework: project.framework,
+                    uiLibrary: project.uiLibrary,
+                    isBackendEnabled: project.isBackendEnabled,
+                    storageDriver: project.storageDriver,
+                    status: project.status,
+                  },
+                  null,
+                  2,
+                )}
               </pre>
             </Card>
 

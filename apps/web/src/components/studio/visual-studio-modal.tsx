@@ -1,37 +1,22 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ProjectDto,
-  ProjectSchema,
-  PageSchema,
-  ComponentNode,
-  ComponentNodeStyle,
+  StudioViewMode,
+  SandboxProvider,
+  ProjectMessageDto,
+  AgentOrchestrationRunDto,
 } from '@nirmaanify/types';
-import {
-  useProjectHistory,
-  ProjectValidator,
-  createDefaultProjectSchema,
-  createComponentNode,
-  ReactCodeGenerator,
-  rewireParentPointers,
-  normalizeParentPointers,
-  jumpNode,
-  moveNodeToTarget,
-  findNode,
-  findParentNode,
-  getComponentDefinition,
-} from '@nirmaanify/component-registry';
 import { StudioTopbar } from './studio-topbar';
-import { AiCommandBar } from './ai-command-bar';
-import { ComponentPalette } from './component-palette';
-import { LayersPanel } from './layers-panel';
-import { PropertyInspector } from './property-inspector';
-import { VisualCanvas } from './visual-canvas';
-import { Button, Dialog, Input, useToast } from '@nirmaanify/ui';
-import { useAuth } from '../../context/auth-context';
-import { Copy, Check, FileCode, Code2, Save, Sparkles, Layers, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ExportDeployModal } from './export-deploy-modal';
+import { AgentChatPane } from '../agent/AgentChatPane';
+import { SandboxPreviewPane } from '../agent/SandboxPreviewPane';
+import { FileExplorerPane } from '../agent/FileExplorerPane';
+import { useToast } from '@nirmaanify/ui';
+import { apiClient } from '../../lib/api';
+import { Monitor, Code2 } from 'lucide-react';
 
 interface VisualStudioModalProps {
   project: ProjectDto | null;
@@ -39,99 +24,21 @@ interface VisualStudioModalProps {
   onClose: () => void;
 }
 
-function findNodeInTree(root: ComponentNode, id: string | null): ComponentNode | null {
-  if (!id) return null;
-  if (!root) return null;
-  if (root.id === id) return root;
-  if (Array.isArray(root.children)) {
-    for (const c of root.children) {
-      const res = findNodeInTree(c, id);
-      if (res) return res;
-    }
-  }
-  if (root.slots && typeof root.slots === 'object') {
-    for (const arr of Object.values(root.slots)) {
-      if (!Array.isArray(arr)) continue;
-      for (const c of arr) {
-        const res = findNodeInTree(c, id);
-        if (res) return res;
-      }
-    }
-  }
-  return null;
-}
-
 export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModalProps) {
   const { toast } = useToast();
-  const { updateProject } = useAuth();
 
-  // Initial schema generation or parsing
-  const initialSchema: ProjectSchema = useMemo(() => {
-    if (!project) {
-      return createDefaultProjectSchema('My App', 'SAAS');
-    }
-
-    if (
-      project.projectSchema &&
-      project.projectSchema.pages &&
-      Array.isArray(project.projectSchema.pages) &&
-      typeof project.projectSchema.pages[0] === 'object'
-    ) {
-      return project.projectSchema as ProjectSchema;
-    }
-
-    return createDefaultProjectSchema(project.name, project.type);
-  }, [project]);
-
-  // History & State Engine
-  const {
-    state: projectSchema,
-    set: setProjectSchema,
-    undo,
-    redo,
-    reset,
-    canUndo,
-    canRedo,
-    meta: historyMeta,
-    setMeta: setHistoryMeta,
-  } = useProjectHistory(initialSchema);
-
-  // Active editor view states
-  const [activePageId, setActivePageIdRaw] = useState<string>('');
-  const [selectedNodeId, setSelectedNodeIdRaw] = useState<string | null>(null);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [activeLeftTab, setActiveLeftTab] = useState<'palette' | 'layers'>('palette');
-  const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-  const [mode, setMode] = useState<'builder' | 'preview'>('builder');
-  const [zoom, setZoom] = useState<number>(1);
-
-  // Manual save state
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-  const lastSavedRef = useRef<string>(JSON.stringify(initialSchema));
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
-
-  // Collapsible sidebars (persisted in localStorage)
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
-  useEffect(() => {
-    try {
-      const l = localStorage.getItem('nirmaanify_studio_left_collapsed');
-      const r = localStorage.getItem('nirmaanify_studio_right_collapsed');
-      if (l !== null) setLeftCollapsed(l === 'true');
-      if (r !== null) setRightCollapsed(r === 'true');
-    } catch {}
-  }, []);
-  useEffect(() => {
-    try {
-      localStorage.setItem('nirmaanify_studio_left_collapsed', String(leftCollapsed));
-    } catch {}
-  }, [leftCollapsed]);
-  useEffect(() => {
-    try {
-      localStorage.setItem('nirmaanify_studio_right_collapsed', String(rightCollapsed));
-    } catch {}
-  }, [rightCollapsed]);
+  // Unified Mode Switcher: 'split' | 'agent' | 'code' | 'preview'
+  const [viewMode, setViewMode] = useState<StudioViewMode>('split');
+  const [sandboxProvider, setSandboxProvider] = useState<SandboxProvider>('E2B_CLOUD');
+  const [sandboxStatus, setSandboxStatus] = useState<string>('READY');
+  const [sandboxUrl, setSandboxUrl] = useState<string>('');
+  const [agentMessages, setAgentMessages] = useState<ProjectMessageDto[]>([]);
+  const [activeOrchestrationRun, setActiveOrchestrationRun] = useState<AgentOrchestrationRunDto | null>(null);
+  const [isAgentLoading, setIsAgentLoading] = useState(false);
+  const [projectFiles, setProjectFiles] = useState<Record<string, string>>({});
+  const [fileDiffs, setFileDiffs] = useState<Record<string, any> | null>(null);
+  const [splitRightTab, setSplitRightTab] = useState<'preview' | 'code'>('preview');
+  const [isExportDeployOpen, setIsExportDeployOpen] = useState(false);
 
   // SSR safety for createPortal
   const [mounted, setMounted] = useState(false);
@@ -139,1074 +46,398 @@ export function VisualStudioModal({ project, isOpen, onClose }: VisualStudioModa
     setMounted(true);
   }, []);
 
-  // Wrap the selection/page setters so the history engine can replay them
-  // on undo/redo without the studio dropping its cursor context.
-  const setActivePageId = (id: string) => {
-    setActivePageIdRaw(id);
-    setHistoryMeta({ activePageId: id });
-  };
-  const setSelectedNodeId = (id: string | null) => {
-    setSelectedNodeIdRaw(id);
-    setHistoryMeta({ selectedNodeId: id });
-  };
-
-  // Add Page Modal
-  const [addPageModalOpen, setAddPageModalOpen] = useState(false);
-  const [newPageName, setNewPageName] = useState('');
-  const [newPagePath, setNewPagePath] = useState('');
-  const [newPageTitle, setNewPageTitle] = useState('');
-
-  // Master Schema Modal
-  const [schemaModalOpen, setSchemaModalOpen] = useState(false);
-  const [copiedSchema, setCopiedSchema] = useState(false);
-
-  // Live React Code Preview Modal
-  const [codeModalOpen, setCodeModalOpen] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
-
-  // Sync initial schema ONLY when the project identity changes (i.e. the
-// user navigated to a different project). We deliberately do NOT depend
-// on the `project` object reference here — after a save, `updateProject`
-// replaces the project in the context's projects list, which would
-// otherwise re-fire this effect and bounce the user back to the first
-// page even though they stayed on the same project.
+  // Sync / Load Initial Agent State and Sandbox
   useEffect(() => {
+    if (!isOpen || !project) return;
+
+    let isMounted = true;
+
+    async function loadStudioData() {
+      try {
+        // 1. Fetch sandbox status
+        const sb = await apiClient.agent.getSandboxStatus(project!.id).catch(() => null);
+        if (sb && isMounted) {
+          setSandboxProvider(sb.provider);
+          setSandboxStatus(sb.status);
+          setSandboxUrl(sb.hostUrl);
+        }
+
+        // 2. Fetch agent conversation history & fragments
+        const messages = await apiClient.agent.getMessages(project!.id).catch(() => []);
+        if (isMounted) {
+          setAgentMessages(messages);
+
+          // Locate latest code fragment if any
+          const latestWithFragment = [...messages].reverse().find((m) => m.fragment?.files);
+          if (latestWithFragment?.fragment?.files) {
+            setProjectFiles(latestWithFragment.fragment.files);
+            setFileDiffs(latestWithFragment.fragment.diffs || null);
+            if (latestWithFragment.fragment.sandboxUrl) {
+              setSandboxUrl(latestWithFragment.fragment.sandboxUrl);
+            }
+          }
+        }
+
+        // 3. Fetch latest multi-agent orchestration runs if any (Phase 11)
+        const runs = await apiClient.agent.listOrchestrationRuns(project!.id).catch(() => []);
+        if (isMounted && runs && runs.length > 0) {
+          setActiveOrchestrationRun(runs[0]);
+        }
+      } catch (err: any) {
+        console.error('Failed to load studio data:', err);
+      }
+    }
+
+    loadStudioData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, project]);
+
+  // Handle Switch Sandbox Provider (Cloud E2B vs Docker vs WebContainer)
+  const handleSwitchSandboxProvider = async (provider: SandboxProvider) => {
     if (!project) return;
-    const s =
-      project.projectSchema &&
-      project.projectSchema.pages &&
-      Array.isArray(project.projectSchema.pages) &&
-      typeof project.projectSchema.pages[0] === 'object'
-        ? (project.projectSchema as ProjectSchema)
-        : createDefaultProjectSchema(project.name, project.type);
-
-    s.pages?.forEach((p) => p?.rootNode && normalizeParentPointers(p.rootNode, null));
-
-    const initialMeta = s.pages && s.pages.length > 0
-      ? { selectedNodeId: s.pages[0].rootNode.id, activePageId: s.pages[0].id }
-      : {};
-    reset(s, initialMeta);
-    if (s.pages && s.pages.length > 0) {
-      setActivePageId(s.pages[0].id);
-      setSelectedNodeId(s.pages[0].rootNode.id);
-    }
-
-    const snapshot = JSON.stringify(s);
-    lastSavedRef.current = snapshot;
-    setIsDirty(false);
-    setSavedAt(new Date());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id]);
-
-  // Track dirty state: compare current schema against the last saved snapshot.
-  useEffect(() => {
-    const snapshot = JSON.stringify(projectSchema);
-    if (snapshot !== lastSavedRef.current) {
-      setIsDirty(true);
-    }
-  }, [projectSchema]);
-
-  // Manual save handler — also reused by the 30s auto-save loop. We keep an
-  // `isSavingRef` alongside `isSaving` state so the auto-save interval can
-  // read the latest value without racing on a stale React closure.
-  const isSavingRef = useRef(false);
-  const isDirtyRef = useRef(false);
-  const handleSaveRef = useRef<() => Promise<void>>(async () => {});
-  useEffect(() => {
-    isSavingRef.current = isSaving;
-  }, [isSaving]);
-  useEffect(() => {
-    isDirtyRef.current = isDirty;
-  }, [isDirty]);
-
-  const handleSave = useCallback(async () => {
-    if (!project || isSavingRef.current) return;
-    isSavingRef.current = true;
-    setIsSaving(true);
     try {
-      await updateProject(project.id, { projectSchema: projectSchema as any });
-      const snapshot = JSON.stringify(projectSchema);
-      lastSavedRef.current = snapshot;
-      setIsDirty(false);
-      isDirtyRef.current = false;
-      setSavedAt(new Date());
+      setSandboxProvider(provider);
+      setSandboxStatus('INITIALIZING');
       toast({
-        title: 'Project saved',
-        description: `${projectSchema.pages.length} page${projectSchema.pages.length === 1 ? '' : 's'} synced to cloud.`,
+        title: 'Switching Sandbox',
+        description: `Connecting project to ${provider === 'E2B_CLOUD' ? 'Cloud E2B Sandbox' : 'Local Docker Container'}...`,
+        type: 'info',
+      });
+      const sb = await apiClient.agent.switchSandbox(project.id, provider);
+      setSandboxStatus(sb.status);
+      setSandboxUrl(sb.hostUrl);
+      toast({
+        title: 'Sandbox Connected',
+        description: `Active runtime on ${sb.provider}`,
         type: 'success',
       });
-    } catch (err) {
-      console.error('Save error:', err);
+    } catch (err: any) {
       toast({
-        title: 'Save failed',
-        description: 'Could not persist your changes. Please try again.',
+        title: 'Sandbox Switch Failed',
+        description: err.message || 'Could not connect to sandbox runtime',
+        type: 'error',
+      });
+    }
+  };
+
+  // Handle Send Agent Prompt
+  const handleSendAgentMessage = async (prompt: string, preferredModel?: string) => {
+    if (!project) return;
+
+    // Optimistically append user message
+    const tempUserMsg: ProjectMessageDto = {
+      id: `temp-${Date.now()}`,
+      projectId: project.id,
+      role: 'USER',
+      content: prompt,
+      modelUsed: preferredModel || 'gemini-3.8-flash',
+      createdAt: new Date().toISOString(),
+      toolCalls: [],
+    };
+    setAgentMessages((prev) => [...prev, tempUserMsg]);
+    setIsAgentLoading(true);
+
+    try {
+      const response = await apiClient.agent.sendMessage(
+        project.id,
+        prompt,
+        preferredModel,
+      );
+
+      // Replace optimistic message and append real assistant response
+      setAgentMessages((prev) => [...prev.filter((m) => m.id !== tempUserMsg.id), tempUserMsg, response]);
+
+      if (response.fragment?.files) {
+        setProjectFiles(response.fragment.files);
+        setFileDiffs(response.fragment.diffs || null);
+        if (response.fragment.sandboxUrl) {
+          setSandboxUrl(response.fragment.sandboxUrl);
+        }
+      }
+
+      toast({
+        title: 'Code Updated',
+        description: response.fragment?.title || 'Gemini generated project files successfully',
+        type: 'success',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Agent Error',
+        description: err.message || 'Failed to process prompt with Gemini agent',
         type: 'error',
       });
     } finally {
-      isSavingRef.current = false;
-      setIsSaving(false);
+      setIsAgentLoading(false);
     }
-  }, [project, projectSchema, updateProject, toast]);
+  };
 
-  // Keep `handleSaveRef` pointing at the latest handleSave so the
-  // auto-save interval below can call it without capturing a stale closure.
-  useEffect(() => {
-    handleSaveRef.current = handleSave;
-  }, [handleSave]);
+  // Handle Multi-Agent Orchestration Run (Phase 11)
+  const handleOrchestrate = async (prompt: string, preferredModel?: string) => {
+    if (!project) return;
 
-  // Auto-save: every 30 seconds, if the schema has diverged from the last
-  // saved snapshot. We compare via `isDirtyRef.current` (kept in sync with
-  // `isDirty` state above) so the interval doesn't need to re-render on
-  // every keystroke. The interval cleans up when the modal closes, when
-  // the project changes, or when the component unmounts.
-  const AUTO_SAVE_INTERVAL_MS = 30_000;
-  useEffect(() => {
-    if (!isOpen || !project) return;
-    const intervalId = window.setInterval(() => {
-      if (isDirtyRef.current && !isSavingRef.current) {
-        handleSaveRef.current();
-      }
-    }, AUTO_SAVE_INTERVAL_MS);
-    return () => window.clearInterval(intervalId);
-  }, [isOpen, project?.id]);
-
-  // Warn before closing if there are unsaved changes
-  const handleClose = useCallback(() => {
-    if (isDirty) {
-      const ok = typeof window !== 'undefined'
-        ? window.confirm('You have unsaved changes. Discard them and close the studio?')
-        : true;
-      if (!ok) return;
-    }
-    onClose();
-  }, [isDirty, onClose]);
-
-  // Active page resolution
-  const activePage: PageSchema = useMemo(() => {
-    if (!projectSchema.pages || projectSchema.pages.length === 0) {
-      return createDefaultProjectSchema(project?.name || 'App').pages[0];
-    }
-    return (
-      projectSchema.pages.find((p) => p.id === activePageId) ||
-      projectSchema.pages[0]
-    );
-  }, [projectSchema.pages, activePageId, project?.name]);
-
-  // Validation diagnostic
-  const validationResult = useMemo(() => {
-    return ProjectValidator.validate(projectSchema);
-  }, [projectSchema]);
-
-  // Active node resolution for inspector
-  const selectedNode = useMemo((): ComponentNode | null => {
-    if (!selectedNodeId || !activePage?.rootNode) return null;
-
-    const findNode = (curr: ComponentNode): ComponentNode | null => {
-      if (curr.id === selectedNodeId) return curr;
-      if (curr.children) {
-        for (const child of curr.children) {
-          const res = findNode(child);
-          if (res) return res;
-        }
-      }
-      return null;
+    // Optimistically append user message
+    const tempUserMsg: ProjectMessageDto = {
+      id: `temp-${Date.now()}`,
+      projectId: project.id,
+      role: 'USER',
+      content: prompt,
+      modelUsed: preferredModel || 'gemini-3.8-flash',
+      createdAt: new Date().toISOString(),
+      toolCalls: [],
     };
+    setAgentMessages((prev) => [...prev, tempUserMsg]);
+    setIsAgentLoading(true);
 
-    return findNode(activePage.rootNode);
-  }, [selectedNodeId, activePage?.rootNode]);
-
-  // Generated React TSX Code
-  const generatedReactCode = useMemo(() => {
-    if (!activePage) return '';
-    return ReactCodeGenerator.generatePageComponent(activePage);
-  }, [activePage]);
-
-  // Keyboard shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+S, Ctrl+[, Ctrl+], Escape)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        handleSave();
-        return;
-      }
-
-      // Toggle left sidebar: Ctrl/Cmd + [
-      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
-        e.preventDefault();
-        setLeftCollapsed((prev) => !prev);
-        return;
-      }
-      // Toggle right sidebar: Ctrl/Cmd + ]
-      if ((e.ctrlKey || e.metaKey) && e.key === ']') {
-        e.preventDefault();
-        setRightCollapsed((prev) => !prev);
-        return;
-      }
-
-      // Move / Jump selected node: Alt + ArrowUp / Alt + ArrowDown
-      if (selectedNodeId && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        e.preventDefault();
-        handleMoveNode(selectedNodeId, e.key === 'ArrowUp' ? 'up' : 'down');
-        return;
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      } else if (
-        ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')
-      ) {
-        e.preventDefault();
-        redo();
-      } else if (e.key === 'Escape') {
-        if (isDirty) {
-          handleClose();
-        } else {
-          setSelectedNodeId(null);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, undo, redo, handleSave, isDirty, handleClose]);
-
-  // Restore selection + active page after undo/redo. We only apply metadata
-  // when the target id still exists in the current schema; otherwise we
-  // gracefully fall back to the root of the active page.
-  useEffect(() => {
-    if (!historyMeta) return;
-    if (historyMeta.activePageId && historyMeta.activePageId !== activePageId) {
-      const exists = projectSchema.pages?.some((p) => p.id === historyMeta.activePageId);
-      if (exists) {
-        setActivePageIdRaw(historyMeta.activePageId);
-      }
-    }
-    if (historyMeta.selectedNodeId !== undefined && historyMeta.selectedNodeId !== selectedNodeId) {
-      const target = historyMeta.selectedNodeId;
-      const page = projectSchema.pages?.find((p) => p.id === (historyMeta.activePageId ?? activePageId));
-      if (!page) return;
-      const found = findNodeInTree(page.rootNode, target);
-      if (found) {
-        setSelectedNodeIdRaw(target);
-      } else if (page.rootNode) {
-        setSelectedNodeIdRaw(page.rootNode.id);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyMeta]);
-
-  // Helper to update current page component tree
-  const updateActivePageRootNode = useCallback(
-    (updater: (currentRoot: ComponentNode) => ComponentNode) => {
-      setProjectSchema((prev) => {
-        const updatedPages = prev.pages.map((page) => {
-          if (page.id === activePage.id) {
-            return {
-              ...page,
-              rootNode: updater(page.rootNode),
-              updatedAt: new Date().toISOString(),
-            };
-          }
-          return page;
-        });
-
-        return {
-          ...prev,
-          pages: updatedPages,
-        };
+    try {
+      toast({
+        title: 'Multi-Agent Orchestration Initiated',
+        description: 'Master Orchestrator analyzing intent and scheduling specialized agents DAG...',
+        type: 'info',
       });
-    },
-    [activePage.id, setProjectSchema]
-  );
 
-  // Add Component handler
-  const handleAddComponent = (type: string) => {
-    const parentId = selectedNodeId || activePage.rootNode.id;
-    const parentNode = findNode(activePage.rootNode, parentId);
-    if (parentNode?.isLocked) {
-      toast({ title: 'Container Locked', description: 'Cannot insert components into a locked container. Unlock it first.', type: 'warning' });
-      return;
+      const run = await apiClient.agent.orchestrate(
+        project.id,
+        prompt,
+        preferredModel,
+      );
+      setActiveOrchestrationRun(run);
+
+      // Refresh messages & fragments generated by agents
+      const updatedMessages = await apiClient.agent.getMessages(project.id).catch(() => []);
+      setAgentMessages(updatedMessages);
+
+      const latestWithFragment = [...updatedMessages].reverse().find((m) => m.fragment?.files);
+      if (latestWithFragment?.fragment?.files) {
+        setProjectFiles(latestWithFragment.fragment.files);
+        setFileDiffs(latestWithFragment.fragment.diffs || null);
+        if (latestWithFragment.fragment.sandboxUrl) {
+          setSandboxUrl(latestWithFragment.fragment.sandboxUrl);
+        }
+      }
+
+      toast({
+        title: 'Multi-Agent Run Completed',
+        description: `${run.plan?.length || 0} specialized agent tasks coordinated. Status: ${run.status}`,
+        type: run.status === 'FAILED' ? 'error' : 'success',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Orchestration Error',
+        description: err.message || 'Failed to complete multi-agent orchestration',
+        type: 'error',
+      });
+    } finally {
+      setIsAgentLoading(false);
     }
-    const newNode = createComponentNode(type, {}, parentId);
-
-    updateActivePageRootNode((root) => {
-      const insertNode = (parent: ComponentNode): ComponentNode => {
-        if (parent.id === parentId) {
-          return rewireParentPointers({
-            ...parent,
-            children: [...(parent.children || []), newNode],
-          });
-        }
-        if (parent.children) {
-          return rewireParentPointers({
-            ...parent,
-            children: parent.children.map(insertNode),
-          });
-        }
-        return parent;
-      };
-
-      return insertNode(root);
-    });
-
-    setSelectedNodeId(newNode.id);
-    toast({ title: 'Component Added', description: `Inserted ${newNode.name}`, type: 'info' });
   };
 
-  // Drag-and-Drop component dropped into canvas
-  const handleDropComponent = (type: string, targetParentId?: string) => {
-    const parentId = targetParentId || activePage.rootNode.id;
-    const parentNode = findNode(activePage.rootNode, parentId);
-    if (parentNode?.isLocked) {
-      toast({ title: 'Container Locked', description: 'Cannot drop components into a locked container. Unlock it first.', type: 'warning' });
-      return;
-    }
-    const newNode = createComponentNode(type, {}, parentId);
-
-    updateActivePageRootNode((root) => {
-      const insert = (curr: ComponentNode): ComponentNode => {
-        if (curr.id === parentId) {
-          return {
-            ...curr,
-            children: [...(curr.children || []), newNode],
-          };
-        }
-        if (curr.children) {
-          return {
-            ...curr,
-            children: curr.children.map(insert),
-          };
-        }
-        return curr;
-      };
-      return insert(root);
-    });
-
-    setSelectedNodeId(newNode.id);
-    toast({ title: 'Dropped Component', description: `Added ${newNode.name} to canvas`, type: 'success' });
-  };
-
-  // Move / Jump Node Up / Down across siblings and layout sections
-  const handleMoveNode = (nodeId: string, direction: 'up' | 'down') => {
-    const targetNode = findNode(activePage.rootNode, nodeId);
-    if (targetNode?.isLocked) {
-      toast({
-        title: 'Component Locked',
-        description: 'Cannot move or jump a locked component. Unlock it first.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    const parentNode = findParentNode(activePage.rootNode, nodeId);
-    if (parentNode?.isLocked) {
-      toast({
-        title: 'Container Locked',
-        description: 'Cannot move components inside a locked container. Unlock it first.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    updateActivePageRootNode((root) => {
-      const updated = jumpNode(root, nodeId, direction);
-      if (!updated) {
-        toast({
-          title: direction === 'up' ? 'Top Boundary' : 'Bottom Boundary',
-          description: `Cannot move ${direction} further.`,
-          type: 'info',
-        });
-        return root;
-      }
-      return updated;
-    });
-  };
-
-  // Reparent / Drag and Drop Move Node across layouts
-  const handleReparentNode = (
-    sourceId: string,
-    targetId: string,
-    position: 'before' | 'after' | 'inside'
-  ) => {
-    const sourceNode = findNode(activePage.rootNode, sourceId);
-    if (sourceNode?.isLocked) {
-      toast({
-        title: 'Component Locked',
-        description: 'Cannot move a locked component. Unlock it first.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    const sourceParent = findParentNode(activePage.rootNode, sourceId);
-    if (sourceParent?.isLocked) {
-      toast({
-        title: 'Container Locked',
-        description: 'Cannot move components out of a locked container. Unlock it first.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    const targetNode = findNode(activePage.rootNode, targetId);
-    if (position === 'inside' && targetNode?.isLocked) {
-      toast({
-        title: 'Container Locked',
-        description: 'Cannot move components into a locked container. Unlock it first.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    if (position === 'before' || position === 'after') {
-      const targetParent = findParentNode(activePage.rootNode, targetId);
-      if (targetParent?.isLocked) {
-        toast({
-          title: 'Container Locked',
-          description: 'Cannot insert components into a locked container. Unlock it first.',
-          type: 'warning',
-        });
-        return;
-      }
-    }
-
-    updateActivePageRootNode((root) => {
-      const updated = moveNodeToTarget(root, sourceId, targetId, position);
-      if (!updated) {
-        toast({
-          title: 'Cannot Move Component',
-          description: 'Cannot move a locked component or place into a locked container.',
-          type: 'error',
-        });
-        return root;
+  // Handle Rollback to Earlier Fragment Snapshot
+  const handleRollbackFragment = async (fragmentId: string) => {
+    if (!project) return;
+    try {
+      setIsAgentLoading(true);
+      const restoredFragment = await apiClient.agent.rollback(project.id, fragmentId);
+      setProjectFiles(restoredFragment.files);
+      setFileDiffs(null);
+      if (restoredFragment.sandboxUrl) {
+        setSandboxUrl(restoredFragment.sandboxUrl);
       }
       toast({
-        title: 'Component Moved',
-        description: `Reparented component ${position} target layout.`,
+        title: 'Snapshot Restored',
+        description: `Codebase restored to: ${restoredFragment.title}`,
         type: 'success',
       });
-      return updated;
-    });
-    setSelectedNodeId(sourceId);
-  };
-
-  // Insert AI generated node tree
-  const handleInsertGeneratedNodes = (nodes: ComponentNode[]) => {
-    updateActivePageRootNode((root) => {
-      return {
-        ...root,
-        children: [...(root.children || []), ...nodes],
-      };
-    });
-    if (nodes[0]) {
-      setSelectedNodeId(nodes[0].id);
+      // Refresh messages
+      const msgs = await apiClient.agent.getMessages(project.id);
+      setAgentMessages(msgs);
+    } catch (err: any) {
+      toast({
+        title: 'Rollback Failed',
+        description: err.message || 'Could not rollback to fragment',
+        type: 'error',
+      });
+    } finally {
+      setIsAgentLoading(false);
     }
   };
 
-  // Update Props
-  const handleUpdateProps = (nodeId: string, newProps: Record<string, any>) => {
-    const targetNode = findNode(activePage.rootNode, nodeId);
-    if (targetNode?.isLocked) {
-      toast({ title: 'Component Locked', description: 'Unlock this component to edit its properties.', type: 'warning' });
+  // Handle Export Codebase as JSON / files
+  const handleExportCodebase = useCallback(() => {
+    const fileEntries = Object.entries(projectFiles);
+    if (fileEntries.length === 0) {
+      toast({
+        title: 'No Files to Export',
+        description: 'Prompt the AI Agent to generate project code first.',
+        type: 'warning',
+      });
       return;
     }
 
-    updateActivePageRootNode((root) => {
-      const update = (curr: ComponentNode): ComponentNode => {
-        if (curr.id === nodeId) {
-          return { ...curr, props: newProps };
-        }
-        if (curr.children) {
-          return { ...curr, children: curr.children.map(update) };
-        }
-        return curr;
-      };
-      return update(root);
-    });
-  };
-
-  // Update Styles
-  const handleUpdateStyle = (nodeId: string, newStyle: ComponentNodeStyle) => {
-    const targetNode = findNode(activePage.rootNode, nodeId);
-    if (targetNode?.isLocked) {
-      toast({ title: 'Component Locked', description: 'Unlock this component to edit styles.', type: 'warning' });
-      return;
-    }
-
-    updateActivePageRootNode((root) => {
-      const update = (curr: ComponentNode): ComponentNode => {
-        if (curr.id === nodeId) {
-          return { ...curr, style: newStyle };
-        }
-        if (curr.children) {
-          return { ...curr, children: curr.children.map(update) };
-        }
-        return curr;
-      };
-      return update(root);
-    });
-  };
-
-  // Update Node Name
-  const handleUpdateName = (nodeId: string, newName: string) => {
-    const targetNode = findNode(activePage.rootNode, nodeId);
-    if (targetNode?.isLocked) {
-      toast({ title: 'Component Locked', description: 'Unlock this component to rename it.', type: 'warning' });
-      return;
-    }
-
-    updateActivePageRootNode((root) => {
-      const update = (curr: ComponentNode): ComponentNode => {
-        if (curr.id === nodeId) {
-          return { ...curr, name: newName };
-        }
-        if (curr.children) {
-          return { ...curr, children: curr.children.map(update) };
-        }
-        return curr;
-      };
-      return update(root);
-    });
-  };
-
-  // Delete Node
-  const handleDeleteNode = (nodeId: string) => {
-    if (nodeId === activePage.rootNode.id) {
-      toast({ title: 'Protected Node', description: 'Cannot delete the page root container.', type: 'error' });
-      return;
-    }
-
-    const targetNode = findNode(activePage.rootNode, nodeId);
-    if (targetNode?.isLocked) {
-      toast({ title: 'Component Locked', description: 'Cannot delete a locked component. Unlock it first.', type: 'warning' });
-      return;
-    }
-
-    const parentNode = findParentNode(activePage.rootNode, nodeId);
-    if (parentNode?.isLocked) {
-      toast({ title: 'Container Locked', description: 'Cannot delete components inside a locked container. Unlock it first.', type: 'warning' });
-      return;
-    }
-
-    updateActivePageRootNode((root) => {
-      const remove = (curr: ComponentNode): ComponentNode => {
-        if (curr.children) {
-          return {
-            ...curr,
-            children: curr.children.filter((c) => c.id !== nodeId).map(remove),
-          };
-        }
-        return curr;
-      };
-      return remove(root);
-    });
-
-    if (selectedNodeId === nodeId) {
-      setSelectedNodeId(null);
-    }
-  };
-
-  // Duplicate Node
-  const handleDuplicateNode = (nodeId: string) => {
-    const targetNode = findNode(activePage.rootNode, nodeId);
-    if (targetNode?.isLocked) {
-      toast({ title: 'Component Locked', description: 'Cannot duplicate a locked component.', type: 'warning' });
-      return;
-    }
-
-    const parentNode = findParentNode(activePage.rootNode, nodeId);
-    if (parentNode?.isLocked) {
-      toast({ title: 'Container Locked', description: 'Cannot duplicate components inside a locked container. Unlock it first.', type: 'warning' });
-      return;
-    }
-
-    updateActivePageRootNode((root) => {
-      const duplicate = (curr: ComponentNode): ComponentNode => {
-        if (curr.children) {
-          const index = curr.children.findIndex((c) => c.id === nodeId);
-          if (index !== -1) {
-            const target = curr.children[index];
-            const clonedRaw: ComponentNode = JSON.parse(JSON.stringify(target));
-            clonedRaw.id = `node-${clonedRaw.type}-${Date.now().toString(36)}`;
-            clonedRaw.name = `${clonedRaw.name || clonedRaw.type} (Copy)`;
-
-            const cloned = rewireParentPointers(clonedRaw, curr.id);
-
-            const newChildren = [...curr.children];
-            newChildren.splice(index + 1, 0, cloned);
-            return { ...curr, children: newChildren };
-          }
-          return { ...curr, children: curr.children.map(duplicate) };
-        }
-        return curr;
-      };
-      return duplicate(root);
-    });
-    toast({ title: 'Duplicated', description: 'Cloned component node', type: 'info' });
-  };
-
-  // Reset Node changes (Props & Styles)
-  const handleResetNode = (nodeId: string, options?: { stylesOnly?: boolean; propsOnly?: boolean }) => {
-    const targetNode = findNode(activePage.rootNode, nodeId);
-    if (!targetNode) return;
-    if (targetNode.isLocked) {
-      toast({ title: 'Component Locked', description: 'Unlock this container in the Layers panel to reset.', type: 'warning' });
-      return;
-    }
-
-    const def = getComponentDefinition(targetNode.type);
-    const defaultProps = def?.defaultProps ? { ...def.defaultProps } : {};
-
-    updateActivePageRootNode((root) => {
-      const update = (curr: ComponentNode): ComponentNode => {
-        if (curr.id === nodeId) {
-          if (options?.stylesOnly) {
-            return { ...curr, style: {} };
-          }
-          if (options?.propsOnly) {
-            return { ...curr, props: defaultProps };
-          }
-          return {
-            ...curr,
-            props: defaultProps,
-            style: {},
-          };
-        }
-        if (curr.children) {
-          return { ...curr, children: curr.children.map(update) };
-        }
-        return curr;
-      };
-      return update(root);
-    });
+    const payload = JSON.stringify(projectFiles, null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(project?.name || 'project').toLowerCase().replace(/[^a-z0-9-]/g, '-')}-source.json`;
+    a.click();
+    URL.revokeObjectURL(url);
 
     toast({
-      title: 'Container Reset',
-      description: `Reset ${options?.stylesOnly ? 'styles' : options?.propsOnly ? 'properties' : 'all changes'} for ${targetNode.name || targetNode.type}. (Ctrl+Z to Undo)`,
+      title: 'Codebase Exported',
+      description: `Downloaded ${fileEntries.length} project files.`,
       type: 'success',
     });
-  };
+  }, [projectFiles, project, toast]);
 
-  // Toggle Lock
-  const handleToggleLockNode = (nodeId: string) => {
-    updateActivePageRootNode((root) => {
-      const update = (curr: ComponentNode): ComponentNode => {
-        if (curr.id === nodeId) {
-          return { ...curr, isLocked: !curr.isLocked };
-        }
-        if (curr.children) {
-          return { ...curr, children: curr.children.map(update) };
-        }
-        if (curr.slots && typeof curr.slots === 'object') {
-          const updatedSlots = Object.fromEntries(
-            Object.entries(curr.slots).map(([k, list]) => [
-              k,
-              Array.isArray(list) ? list.map(update) : list,
-            ])
-          );
-          return { ...curr, slots: updatedSlots };
-        }
-        return curr;
-      };
-      return update(root);
-    });
-  };
-
-  // Toggle Hide (cascades to all sub-children and slots)
-  const handleToggleHideNode = (nodeId: string) => {
-    updateActivePageRootNode((root) => {
-      // Helper to recursively set isHidden on a node and all its descendants
-      const setHiddenDeep = (node: ComponentNode, hidden: boolean): ComponentNode => {
-        const updatedChildren = Array.isArray(node.children)
-          ? node.children.map((child) => setHiddenDeep(child, hidden))
-          : node.children;
-
-        let updatedSlots = node.slots;
-        if (node.slots && typeof node.slots === 'object') {
-          updatedSlots = Object.fromEntries(
-            Object.entries(node.slots).map(([k, list]) => [
-              k,
-              Array.isArray(list) ? list.map((c) => setHiddenDeep(c, hidden)) : list,
-            ])
-          );
-        }
-
-        return {
-          ...node,
-          isHidden: hidden,
-          children: updatedChildren,
-          slots: updatedSlots,
-        };
-      };
-
-      const update = (curr: ComponentNode): ComponentNode => {
-        if (curr.id === nodeId) {
-          const nextHidden = !curr.isHidden;
-          return setHiddenDeep(curr, nextHidden);
-        }
-        if (curr.children) {
-          return { ...curr, children: curr.children.map(update) };
-        }
-        if (curr.slots && typeof curr.slots === 'object') {
-          const updatedSlots = Object.fromEntries(
-            Object.entries(curr.slots).map(([k, list]) => [
-              k,
-              Array.isArray(list) ? list.map(update) : list,
-            ])
-          );
-          return { ...curr, slots: updatedSlots };
-        }
-        return curr;
-      };
-      return update(root);
-    });
-  };
-
-  // Add Page submit
-  const handleAddPageSubmit = () => {
-    if (!newPageName.trim() || !newPagePath.trim()) return;
-
-    const pageId = `page-${Date.now()}`;
-    const rootId = `root-${Date.now()}`;
-    const newPage: PageSchema = {
-      id: pageId,
-      name: newPageName.trim(),
-      path: newPagePath.trim().startsWith('/') ? newPagePath.trim() : `/${newPagePath.trim()}`,
-      title: newPageTitle.trim() || newPageName.trim(),
-      layout: 'default',
-      rootNode: {
-        id: rootId,
-        type: 'container',
-        name: 'Page Root',
-        props: { maxWidth: '1200px', padding: '24px', direction: 'column', gap: '24px' },
-        children: [],
-        parent: null,
-      },
+  // Handle Escape Key to exit
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
     };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
-    setProjectSchema((prev) => ({
-      ...prev,
-      pages: [...prev.pages, newPage],
-    }));
-
-    setActivePageId(newPage.id);
-    setSelectedNodeId(newPage.rootNode.id);
-    setNewPageName('');
-    setNewPagePath('');
-    setNewPageTitle('');
-    setAddPageModalOpen(false);
-    toast({ title: 'Page Created', description: `Created route ${newPage.path}`, type: 'success' });
-  };
-
-  const handleCopySchema = () => {
-    navigator.clipboard.writeText(JSON.stringify(projectSchema, null, 2));
-    setCopiedSchema(true);
-    setTimeout(() => setCopiedSchema(false), 2000);
-    toast({ title: 'Copied to Clipboard', description: 'Full Project JSON Schema copied', type: 'info' });
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(generatedReactCode);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-    toast({ title: 'Copied Code', description: 'React TSX component copied to clipboard', type: 'success' });
-  };
-
-  const lastSavedLabel = savedAt
-    ? savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '—';
-
-  if (!isOpen || !project || !mounted) return null;
+  if (!isOpen || !mounted) return null;
 
   const studioContent = (
-    <div className="fixed inset-0 z-[100] bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden animate-in fade-in duration-200 font-sans">
-      {/* Brand gradient accent strip across the top */}
-      <div className="h-[2px] w-full bg-gradient-to-r from-[#635BFF] via-[#8B5CF6] to-[#22D3EE] shrink-0 z-40" />
-
-      {/* Top Bar */}
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-[#07090F] text-slate-900 dark:text-slate-100 font-sans overflow-hidden select-none animate-in fade-in duration-150">
+      {/* Top Navigation Bar */}
       <StudioTopbar
-        project={projectSchema}
-        activePage={activePage}
-        viewport={viewport}
-        mode={mode}
-        zoom={zoom}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        isSaving={isSaving}
-        isDirty={isDirty}
-        isValid={validationResult.isValid}
-        errorsCount={validationResult.errors.length}
-        lastSavedLabel={lastSavedLabel}
-        autoSaveEnabled={isOpen && !!project}
-        autoSaveIntervalLabel={`${AUTO_SAVE_INTERVAL_MS / 1000}s`}
-        leftCollapsed={leftCollapsed}
-        rightCollapsed={rightCollapsed}
-        onToggleLeft={() => setLeftCollapsed((v) => !v)}
-        onToggleRight={() => setRightCollapsed((v) => !v)}
-        onSelectPage={(id) => {
-          setActivePageId(id);
-          setSelectedNodeId(null);
-        }}
-        onAddPage={() => setAddPageModalOpen(true)}
-        onChangeViewport={setViewport}
-        onChangeMode={setMode}
-        onChangeZoom={setZoom}
-        onUndo={undo}
-        onRedo={redo}
-        onViewSchema={() => setSchemaModalOpen(true)}
-        onViewCode={() => setCodeModalOpen(true)}
-        onSave={handleSave}
-        onCloseStudio={handleClose}
+        projectId={project?.id || 'demo'}
+        projectName={project?.name || 'Project'}
+        projectType={project?.type || 'WEBSITE'}
+        framework={project?.framework || 'Next.js 15'}
+        viewMode={viewMode}
+        onChangeViewMode={setViewMode}
+        sandboxProvider={sandboxProvider}
+        onSwitchSandboxProvider={handleSwitchSandboxProvider}
+        sandboxStatus={sandboxStatus}
+        sandboxUrl={sandboxUrl}
+        filesCount={Object.keys(projectFiles).length}
+        onExportCodebase={handleExportCodebase}
+        onOpenExportDeployModal={() => setIsExportDeployOpen(true)}
+        onCloseStudio={onClose}
       />
 
-      {/* In-Studio AI Command Bar */}
-      {mode === 'builder' && (
-        <AiCommandBar
-          onInsertGeneratedNodes={handleInsertGeneratedNodes}
-          selectedNodeId={selectedNodeId}
-        />
-      )}
-
-      {/* Main Workspace Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar in Builder Mode */}
-        {mode === 'builder' && (
-          <div className="flex">
-            {/* Narrow Icon Switcher (always visible in builder mode) */}
-            <div className="w-11 border-r border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] flex flex-col items-center py-2.5 gap-1 shrink-0 select-none">
-              {/* Collapse / Expand Toggle Button at Top */}
-              <button
-                onClick={() => setLeftCollapsed((v) => !v)}
-                title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
-                aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] border border-slate-200 dark:border-[#24293D] transition-all mb-1 shadow-xs"
-              >
-                {leftCollapsed ? (
-                  <PanelLeftOpen className="h-4 w-4" />
-                ) : (
-                  <PanelLeftClose className="h-4 w-4" />
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  if (leftCollapsed) setLeftCollapsed(false);
-                  setActiveLeftTab('palette');
-                }}
-                title="Component Palette"
-                aria-label="Switch to Component Palette"
-                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
-                  !leftCollapsed && activeLeftTab === 'palette'
-                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
-                }`}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => {
-                  if (leftCollapsed) setLeftCollapsed(false);
-                  setActiveLeftTab('layers');
-                }}
-                title="Layers Tree"
-                aria-label="Switch to Layers Tree"
-                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all duration-200 ${
-                  !leftCollapsed && activeLeftTab === 'layers'
-                    ? 'bg-gradient-to-br from-[#635BFF] to-[#8B5CF6] text-white shadow-sm shadow-[#635BFF]/30'
-                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724]'
-                }`}
-              >
-                <Layers className="h-3.5 w-3.5" />
-              </button>
-              <div className="flex-1" />
-              <button
-                onClick={() => setLeftCollapsed((v) => !v)}
-                title={leftCollapsed ? 'Expand sidebar (Ctrl+[)' : 'Collapse sidebar (Ctrl+[)'}
-                aria-label={leftCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141724] transition-colors"
-              >
-                {leftCollapsed ? (
-                  <PanelLeftOpen className="h-3.5 w-3.5" />
-                ) : (
-                  <PanelLeftClose className="h-3.5 w-3.5" />
-                )}
-              </button>
+      {/* Main Workspace Body */}
+      <div className="flex-1 w-full flex overflow-hidden">
+        {viewMode === 'split' ? (
+          /* Split View: Left Agent Chat, Right Sandbox / Code Tabs */
+          <div className="flex-1 w-full flex overflow-hidden">
+            {/* Left AI Chat Pane */}
+            <div className="w-full md:w-[460px] lg:w-[480px] xl:w-[520px] border-r border-slate-200 dark:border-[#24293D] flex flex-col shrink-0 bg-white dark:bg-[#0E101A] shadow-xs">
+              <AgentChatPane
+                projectId={project?.id || 'demo'}
+                messages={agentMessages}
+                isLoading={isAgentLoading}
+                onSendMessage={handleSendAgentMessage}
+                onRollback={handleRollbackFragment}
+                activeRun={activeOrchestrationRun}
+                onOrchestrate={handleOrchestrate}
+              />
             </div>
 
-            {/* Left Panel Content (only when not collapsed) */}
-            {!leftCollapsed && (
-              <div className="animate-in slide-in-from-left-2 duration-200">
-                {activeLeftTab === 'palette' ? (
-                  <ComponentPalette onAddComponent={handleAddComponent} />
+            {/* Right Sandbox & Code Stage */}
+            <div className="flex-1 w-full min-w-0 flex flex-col overflow-hidden bg-slate-100/70 dark:bg-[#07090F]">
+              {/* Stage Sub-Tabs Switcher */}
+              <div className="h-11 px-4 bg-white dark:bg-[#0E101A] border-b border-slate-200 dark:border-[#24293D] flex items-center justify-between shrink-0 shadow-xs">
+                <div className="flex items-center bg-slate-100/90 dark:bg-[#121522] p-1 rounded-xl border border-slate-200/90 dark:border-[#24293D] gap-1 shadow-inner">
+                  <button
+                    onClick={() => setSplitRightTab('preview')}
+                    className={`h-7 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-150 ${
+                      splitRightTab === 'preview'
+                        ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-sm border border-slate-200/70 dark:border-[#2D334D]'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#1A1E2E]'
+                    }`}
+                  >
+                    <Monitor className={`h-3.5 w-3.5 ${splitRightTab === 'preview' ? 'text-[#635BFF] dark:text-[#A5B4FC]' : 'text-slate-400'}`} />
+                    <span>Live Sandbox Preview</span>
+                  </button>
+                  <button
+                    onClick={() => setSplitRightTab('code')}
+                    className={`h-7 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-150 ${
+                      splitRightTab === 'code'
+                        ? 'bg-white dark:bg-[#1E2337] text-[#635BFF] dark:text-[#A5B4FC] shadow-sm border border-slate-200/70 dark:border-[#2D334D]'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#1A1E2E]'
+                    }`}
+                  >
+                    <Code2 className={`h-3.5 w-3.5 ${splitRightTab === 'code' ? 'text-[#635BFF] dark:text-[#A5B4FC]' : 'text-slate-400'}`} />
+                    <span>Code Explorer</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono transition-colors ${
+                        splitRightTab === 'code'
+                          ? 'bg-[#635BFF]/10 text-[#635BFF] font-bold'
+                          : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {Object.keys(projectFiles).length}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 w-full flex flex-col overflow-hidden">
+                {splitRightTab === 'preview' ? (
+                  <SandboxPreviewPane
+                    sandboxUrl={sandboxUrl}
+                    projectId={project?.id || 'demo'}
+                    files={projectFiles}
+                  />
                 ) : (
-                  <LayersPanel
-                    rootNode={activePage.rootNode}
-                    selectedNodeId={selectedNodeId}
-                    onSelectNode={setSelectedNodeId}
-                    onDeleteNode={handleDeleteNode}
-                    onDuplicateNode={handleDuplicateNode}
-                    onToggleLockNode={handleToggleLockNode}
-                    onToggleHideNode={handleToggleHideNode}
-                    onMoveNode={handleMoveNode}
-                    onReparentNode={handleReparentNode}
+                  <FileExplorerPane
+                    files={projectFiles}
+                    diffs={fileDiffs}
                   />
                 )}
               </div>
-            )}
+            </div>
           </div>
-        )}
-
-        {/* Center Visual Canvas */}
-        <VisualCanvas
-          page={activePage}
-          mode={mode}
-          viewport={viewport}
-          zoom={zoom}
-          selectedNodeId={selectedNodeId}
-          hoveredNodeId={hoveredNodeId}
-          onSelectNode={setSelectedNodeId}
-          onHoverNode={setHoveredNodeId}
-          onDeleteNode={handleDeleteNode}
-          onDuplicateNode={handleDuplicateNode}
-          onResetNode={handleResetNode}
-          onMoveNode={handleMoveNode}
-          onReparentNode={handleReparentNode}
-          onDropComponent={handleDropComponent}
-          onOpenAddModal={() => {
-            setLeftCollapsed(false);
-            setActiveLeftTab('palette');
-          }}
-        />
-
-        {/* Right Property Inspector in Builder Mode */}
-        {mode === 'builder' && !rightCollapsed && (
-          <div className="h-full flex animate-in slide-in-from-right-2 duration-200">
-            <PropertyInspector
-              selectedNode={selectedNode}
-              onUpdateProps={handleUpdateProps}
-              onUpdateStyle={handleUpdateStyle}
-              onUpdateName={handleUpdateName}
-              onResetNode={handleResetNode}
-              viewport={viewport}
-              onChangeViewport={setViewport}
-              onCollapse={() => setRightCollapsed(true)}
+        ) : viewMode === 'agent' ? (
+          /* Full Agent Chat Mode: Centered, readable, spacious */
+          <div className="flex-1 w-full flex justify-center overflow-hidden bg-slate-100/60 dark:bg-[#07090F]">
+            <div className="w-full max-w-4xl h-full flex flex-col bg-white dark:bg-[#0E101A] border-x border-slate-200 dark:border-[#24293D] shadow-sm">
+              <AgentChatPane
+                projectId={project?.id || 'demo'}
+                messages={agentMessages}
+                isLoading={isAgentLoading}
+                onSendMessage={handleSendAgentMessage}
+                onRollback={handleRollbackFragment}
+                activeRun={activeOrchestrationRun}
+                onOrchestrate={handleOrchestrate}
+              />
+            </div>
+          </div>
+        ) : viewMode === 'code' ? (
+          /* Full Code Explorer Mode */
+          <div className="flex-1 w-full flex flex-col overflow-hidden bg-white dark:bg-[#0A0C14]">
+            <FileExplorerPane files={projectFiles} diffs={fileDiffs} />
+          </div>
+        ) : (
+          /* Full Live Preview Mode */
+          <div className="flex-1 w-full flex flex-col overflow-hidden bg-slate-100/70 dark:bg-[#07090F]">
+            <SandboxPreviewPane
+              sandboxUrl={sandboxUrl}
+              projectId={project?.id || 'demo'}
+              files={projectFiles}
             />
           </div>
         )}
-
-        {/* Floating chevron to re-open right inspector when collapsed */}
-        {mode === 'builder' && rightCollapsed && (
-          <button
-            onClick={() => setRightCollapsed(false)}
-            title="Open inspector (Ctrl+])"
-            aria-label="Open inspector"
-            className="absolute right-3 top-20 z-30 h-8 w-8 inline-flex items-center justify-center rounded-full bg-white dark:bg-[#0F111A] border border-slate-200 dark:border-[#24293D] text-slate-500 hover:text-[#635BFF] hover:border-[#635BFF]/40 hover:shadow-md hover:shadow-[#635BFF]/20 transition-all"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 5l-7 7 7 7" />
-            </svg>
-          </button>
-        )}
       </div>
 
-      {/* LIVE REACT CODE PREVIEW MODAL */}
-      <Dialog
-        isOpen={codeModalOpen}
-        onClose={() => setCodeModalOpen(false)}
-        title="Live React JSX & Tailwind Code Preview"
-        description="Generated in real-time from the declarative project component tree."
-        className="max-w-4xl"
-        footer={
-          <div className="w-full flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              onClick={handleCopyCode}
-            >
-              {copiedCode ? 'Copied Code!' : 'Copy TSX Component'}
-            </Button>
-            <Button variant="default" size="sm" onClick={() => setCodeModalOpen(false)}>
-              Close Code Preview
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-2">
-          <pre className="p-4 rounded-xl bg-slate-950 dark:bg-[#06080F] text-[#22D3EE] font-mono text-[11px] overflow-auto max-h-[500px] border border-slate-200 dark:border-[#24293D]">
-            {generatedReactCode}
-          </pre>
-        </div>
-      </Dialog>
-
-      {/* ADD PAGE MODAL */}
-      <Dialog
-        isOpen={addPageModalOpen}
-        onClose={() => setAddPageModalOpen(false)}
-        title="Add New Page Route"
-        description="Create an additional route in this application schema."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setAddPageModalOpen(false)}>Cancel</Button>
-            <Button variant="default" onClick={handleAddPageSubmit}>Create Page</Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Page Name"
-            placeholder="e.g. Products Catalog"
-            value={newPageName}
-            onChange={(e) => setNewPageName(e.target.value)}
-          />
-          <Input
-            label="Route Path (URL)"
-            placeholder="e.g. /products"
-            value={newPagePath}
-            onChange={(e) => setNewPagePath(e.target.value)}
-          />
-          <Input
-            label="Page Browser Title"
-            placeholder="e.g. Products — Store"
-            value={newPageTitle}
-            onChange={(e) => setNewPageTitle(e.target.value)}
-          />
-        </div>
-      </Dialog>
-
-      {/* MASTER JSON SCHEMA MODAL */}
-      <Dialog
-        isOpen={schemaModalOpen}
-        onClose={() => setSchemaModalOpen(false)}
-        title="Project Declarative JSON Schema"
-        description="The clean decoupled schema representing all settings, theme tokens, pages, and component nodes."
-        className="max-w-4xl"
-        footer={
-          <div className="w-full flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={copiedSchema ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              onClick={handleCopySchema}
-            >
-              {copiedSchema ? 'Copied!' : 'Copy JSON'}
-            </Button>
-            <Button variant="default" size="sm" onClick={() => setSchemaModalOpen(false)}>
-              Close Inspector
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-2">
-          <pre className="p-4 rounded-xl bg-slate-950 dark:bg-[#06080F] text-emerald-400 font-mono text-[11px] overflow-auto max-h-[500px] border border-slate-200 dark:border-[#24293D]">
-            {JSON.stringify(projectSchema, null, 2)}
-          </pre>
-        </div>
-      </Dialog>
+      {/* Export & Deploy Modal (Phase 12) */}
+      <ExportDeployModal
+        projectId={project?.id || 'demo'}
+        projectName={project?.name || 'Project'}
+        projectSlug={project?.slug || 'project'}
+        isOpen={isExportDeployOpen}
+        onClose={() => setIsExportDeployOpen(false)}
+      />
     </div>
   );
 

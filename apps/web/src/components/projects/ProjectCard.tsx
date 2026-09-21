@@ -24,11 +24,13 @@ import {
   Settings,
   Trash2,
   Layout,
+  Database,
 } from 'lucide-react';
 import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/routes';
+import { getProjectServerType, SERVER_ARCHITECTURES } from '../../lib/server-architecture';
 
 interface ProjectCardProps {
   project: ProjectDto;
@@ -195,8 +197,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     onDelete(project);
   };
 
-  const routeCount = Array.isArray(project.projectSchema?.pages)
-    ? (project.projectSchema.pages as unknown[]).length
+  const routeCount = Array.isArray(project.aiPlan?.pages)
+    ? (project.aiPlan.pages as unknown[]).length
     : 0;
 
   return (
@@ -342,9 +344,17 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           </div>
           <div className="flex items-center justify-between text-slate-400">
             <span className="flex items-center gap-1.5">Server</span>
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {project.isBackendEnabled ? 'NestJS + PostgreSQL' : 'Static export'}
+            <Badge variant={SERVER_ARCHITECTURES[getProjectServerType(project)].badgeVariant} size="sm">
+              {SERVER_ARCHITECTURES[getProjectServerType(project)].label}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <Database className="h-3 w-3" /> Storage
             </span>
+            <Badge variant={project.storageDriver === 's3' ? 'indigo' : project.storageDriver === 'vercel-blob' ? 'cyan' : 'secondary'} size="sm">
+              {(project.storageDriver || 'local').toUpperCase()}
+            </Badge>
           </div>
           {routeCount > 0 && (
             <div className="flex items-center justify-between text-slate-400">

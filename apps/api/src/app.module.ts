@@ -8,6 +8,15 @@ import { AuthModule } from './auth/auth.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 import { ProjectsModule } from './projects/projects.module';
 import { MailModule } from './mail/mail.module';
+import { CmsModule } from './cms/cms.module';
+import { BaasModule } from './baas/baas.module';
+import { AgentModule } from './agent/agent.module';
+import { InngestModule } from './inngest/inngest.module';
+import { PackagesModule } from './packages/packages.module';
+import { PluginsModule } from './plugins/plugins.module';
+import { BuildsModule } from './builds/builds.module';
+import { ExportModule } from './export/export.module';
+import { DeploymentsModule } from './deployments/deployments.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -29,6 +38,15 @@ import { validateEnv } from './config/env.validation';
     AuthModule,
     WorkspacesModule,
     ProjectsModule,
+    CmsModule,
+    BaasModule,
+    AgentModule,
+    InngestModule,
+    PackagesModule,
+    PluginsModule,
+    BuildsModule,
+    ExportModule,
+    DeploymentsModule,
   ],
 })
 export class AppModule {}

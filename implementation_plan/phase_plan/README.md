@@ -25,6 +25,7 @@
 | [`12_phase_12_preview_build_export_and_deployment.md`](./12_phase_12_preview_build_export_and_deployment.md) | **Phase 12: Preview, Build, Export & Deployment** | Weeks 34–35 | Isolated preview runtime, full code exporter (ZIP/Git) & deployment integrations |
 | [`13_phase_13_testing_security_and_mvp_launch.md`](./13_phase_13_testing_security_and_mvp_launch.md) | **Phase 13: Testing, Security & MVP Launch** | Week 36 | End-to-end testing, security audits & production MVP release |
 | [`14_mvp_priorities_workflow_and_rules.md`](./14_mvp_priorities_workflow_and_rules.md) | **MVP Priorities, Workflow & Rules** | Post-Launch | P0/P1/P2 priorities, daily/weekly rhythms, development rules & core principle |
+| [`../global_headless_cms_and_backend_services_plan.md`](../global_headless_cms_and_backend_services_plan.md) | **Standalone Global CMS & BaaS Services** | Extension | Workspace-scoped Headless CMS & NestJS BaaS for external apps/sites without projects |
 
 ---
 

@@ -8,12 +8,14 @@ import { StorageFileInfo, StorageDriverType } from '@nirmaanify/types';
 interface FileListTableProps {
   files: StorageFileInfo[];
   activeDriver: StorageDriverType;
+  targetName?: string;
   onDeleteFile: (key: string) => void;
 }
 
 export const FileListTable: React.FC<FileListTableProps> = ({
   files,
   activeDriver,
+  targetName,
   onDeleteFile,
 }) => {
   const formatSize = (bytes?: number) => {
@@ -30,7 +32,7 @@ export const FileListTable: React.FC<FileListTableProps> = ({
           <div>
             <CardTitle className="text-base">Stored Files & Assets</CardTitle>
             <CardDescription className="text-xs">
-              Objects currently stored in active engine ({activeDriver.toUpperCase()}).
+              Objects currently stored in {activeDriver.toUpperCase()} engine{targetName ? ` for ${targetName}` : ''}.
             </CardDescription>
           </div>
           <Badge variant="indigo" size="sm">

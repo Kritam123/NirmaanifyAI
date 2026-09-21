@@ -88,8 +88,9 @@ export interface ProjectDto {
   isBackendEnabled: boolean;
   isArchived?: boolean;
   status?: string;
-  projectSchema: Record<string, any>;
   aiPlan?: any;
+  storageDriver?: 'local' | 's3' | 'vercel-blob';
+  storageConfig?: Record<string, any>;
   createdAt: string | Date;
   updatedAt: string | Date;
 }

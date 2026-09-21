@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { Dialog, Button, Input, Select, Textarea, useToast } from '@nirmaanify/ui';
-import { ProjectDto, ProjectType } from '@nirmaanify/types';
+import { ProjectDto, ProjectType, StorageDriverType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
+import { getProjectServerType, ProjectServerType } from '../../lib/server-architecture';
 
 interface EditProjectDialogProps {
   project: ProjectDto | null;
@@ -32,6 +33,8 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
   const [type, setType] = useState<ProjectType>('SAAS');
   const [framework, setFramework] = useState('');
   const [uiLibrary, setUiLibrary] = useState('');
+  const [storageDriver, setStorageDriver] = useState<StorageDriverType>('local');
+  const [serverType, setServerType] = useState<ProjectServerType>('cms');
   const [isBackendEnabled, setIsBackendEnabled] = useState(true);
   const [slugTouched, setSlugTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +47,8 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
       setType(project.type);
       setFramework(project.framework);
       setUiLibrary(project.uiLibrary);
+      setStorageDriver((project.storageDriver as StorageDriverType) || 'local');
+      setServerType(getProjectServerType(project));
       setIsBackendEnabled(project.isBackendEnabled);
       setSlugTouched(true);
     }
@@ -55,6 +60,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
     const finalSlug = slugTouched && slug.trim() ? slug.trim() : slugify(name) || project.slug;
     setIsLoading(true);
     try {
+      const isBackend = serverType === 'nestjs' || serverType === 'fullstack';
       await updateProject(project.id, {
         name: name.trim(),
         slug: finalSlug,
@@ -62,7 +68,8 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
         type,
         framework,
         uiLibrary,
-        isBackendEnabled,
+        isBackendEnabled: isBackend,
+        storageDriver,
       });
       onClose();
       toast({
@@ -170,22 +177,28 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
           />
         </div>
 
-        <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#24293D] bg-slate-50 dark:bg-[#141724] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isBackendEnabled}
-            onChange={(e) => setIsBackendEnabled(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#635BFF] focus:ring-[#635BFF] focus-visible:outline-none"
-          />
-          <div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              Backend API &amp; database
-            </span>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Connect to the NestJS REST API, PostgreSQL, and BullMQ workers.
-            </p>
-          </div>
-        </label>
+        <Select
+          label="Individual Storage Engine"
+          value={storageDriver}
+          onChange={(e) => setStorageDriver(e.target.value as StorageDriverType)}
+          options={[
+            { label: 'Local Filesystem — Development & local testing', value: 'local' },
+            { label: 'AWS S3 / MinIO — Production object storage', value: 's3' },
+            { label: 'Vercel Blob Storage — Global edge media CDN', value: 'vercel-blob' },
+          ]}
+        />
+
+        <Select
+          label="Server Architecture"
+          value={serverType}
+          onChange={(e) => setServerType(e.target.value as ProjectServerType)}
+          options={[
+            { label: 'Headless CMS — Dynamic content collections & delivery API', value: 'cms' },
+            { label: 'Full NestJS API — REST API, Prisma ORM, & PostgreSQL', value: 'nestjs' },
+            { label: 'Full-Stack (NestJS + CMS) — Combined custom API & CMS engine', value: 'fullstack' },
+            { label: 'Static Frontend — Client-only Next.js export, no server', value: 'static' },
+          ]}
+        />
       </div>
     </Dialog>
   );

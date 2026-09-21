@@ -15,4 +15,5 @@ export interface IStorageDriver {
   getUrl(key: string): Promise<string>;
   listFiles(folder?: string): Promise<StorageFileInfo[]>;
   getDescription(): string;
+  testConnection(): Promise<{ success: boolean; message: string; details?: any }>;
 }

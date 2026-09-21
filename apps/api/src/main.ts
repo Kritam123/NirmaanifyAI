@@ -1,3 +1,28 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
+function loadEnvSync(filePath: string) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      for (const line of content.split('\n')) {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match && match[1] && match[2] !== undefined) {
+          const key = match[1].trim();
+          const val = match[2].trim().replace(/^['"](.*)['"]$/, '$1');
+          if (!process.env[key]) {
+            process.env[key] = val;
+          }
+        }
+      }
+    }
+  } catch {}
+}
+
+loadEnvSync(path.resolve(process.cwd(), '.env'));
+loadEnvSync(path.resolve(process.cwd(), 'apps/api/.env'));
+
+
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';

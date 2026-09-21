@@ -248,33 +248,52 @@ export class AiPlannerService {
     type: ProjectType,
     apiKey: string,
   ): Promise<AIProjectPlan> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     const systemInstruction = `You are Nirmaanify AI Project Architect. Given a user prompt and project type, generate a comprehensive, production-ready JSON blueprint matching the AIProjectPlan schema. Return ONLY valid raw JSON with keys: name, slug, description, pages (array with name, path, description, isProtected, components), features (array with title, description, category), components (array with name, type, source, description), requiredPackages (array with name, version, scope, purpose), backendRequirements (enabled, framework, modules with endpoints, auth, queueJobs), databaseRequirements (engine, models with fields), cmsRequirements (enabled, type, collections), pluginRecommendations (array with name, category, reason, isRecommended), architecturePlan (summary, frontendStack, backendStack, databaseStack, deploymentTarget, scalabilityNotes).`;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: `${systemInstruction}\n\nUser Prompt: "${prompt}"\nProject Type: ${type}\n\nOutput JSON:` },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
+    let lastError: Error | null = null;
+    let data: any = null;
 
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.statusText}`);
+    for (const model of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: `${systemInstruction}\n\nUser Prompt: "${prompt}"\nProject Type: ${type}\n\nOutput JSON:` },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: 'application/json',
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 404 || response.status === 400) {
+            continue;
+          }
+          throw new Error(`Gemini API error ${response.status}: ${response.statusText}`);
+        }
+
+        data = await response.json();
+        break;
+      } catch (err: any) {
+        lastError = err;
+      }
     }
 
-    const data = await response.json();
+    if (!data) {
+      throw lastError || new Error('Failed to generate plan with Gemini');
+    }
+
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       throw new Error('Empty response from Gemini');

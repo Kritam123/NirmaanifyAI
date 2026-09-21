@@ -9,11 +9,14 @@ import { useRBAC } from '../../hooks/use-rbac';
 interface StorageDriverSwitcherProps {
   activeDriver: StorageDriverType;
   drivers: StorageDriverInfo[];
+  targetName?: string;
   onSwitchDriver: (driver: StorageDriverType) => void;
 }
 
 export const StorageDriverSwitcher: React.FC<StorageDriverSwitcherProps> = ({
   activeDriver,
+  drivers,
+  targetName,
   onSwitchDriver,
 }) => {
   const { canSwitchStorageDriver } = useRBAC();
@@ -100,7 +103,7 @@ export const StorageDriverSwitcher: React.FC<StorageDriverSwitcherProps> = ({
                   className="w-full text-xs font-semibold bg-[#635BFF] text-white opacity-100"
                 >
                   <span className="flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5" /> Active Storage Driver
+                    <Check className="h-3.5 w-3.5" /> Active {targetName ? `(${targetName})` : 'Driver'}
                   </span>
                 </Button>
               ) : canSwitchStorageDriver ? (
@@ -113,7 +116,7 @@ export const StorageDriverSwitcher: React.FC<StorageDriverSwitcherProps> = ({
                     onSwitchDriver(driver.id);
                   }}
                 >
-                  Switch to this Driver
+                  Switch {targetName ? `for ${targetName}` : 'Driver'}
                 </Button>
               ) : (
                 <Button

@@ -7,12 +7,14 @@ import { StorageDriverType } from '@nirmaanify/types';
 
 interface FileUploadDropzoneProps {
   activeDriver: StorageDriverType;
+  targetName?: string;
   onUpload: (file: File, folder?: string) => Promise<any>;
   isUploading: boolean;
 }
 
 export const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({
   activeDriver,
+  targetName,
   onUpload,
   isUploading,
 }) => {
@@ -39,7 +41,10 @@ export const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Upload Asset to Storage</h3>
-          <p className="text-xs text-slate-400">Target Driver: {activeDriver.toUpperCase()}</p>
+          <p className="text-xs text-slate-400">
+            Target Driver: <span className="font-semibold text-slate-700 dark:text-slate-200">{activeDriver.toUpperCase()}</span>
+            {targetName ? ` • ${targetName}` : ''}
+          </p>
         </div>
         <div className="w-full sm:w-48">
           <Input

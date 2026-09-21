@@ -27,6 +27,9 @@ import {
   PackageCheck,
   Cpu,
   FolderTree,
+  Cloud,
+  Palette,
+  KeyRound,
 } from 'lucide-react';
 import {
   AIProjectPlan,
@@ -70,6 +73,16 @@ export function AiPlannerModal({ isOpen, onClose, initialPrompt = '', initialPre
   const [newPageName, setNewPageName] = useState('');
   const [newPagePath, setNewPagePath] = useState('');
 
+  // Dual-mode Inception states: Quick Prompt vs Architect Questionnaire
+  const [inceptionMode, setInceptionMode] = useState<'quick' | 'architect'>('quick');
+  const [archProjectName, setArchProjectName] = useState('');
+  const [archProjectDesc, setArchProjectDesc] = useState('');
+  const [archTheme, setArchTheme] = useState('modern');
+  const [archServer, setArchServer] = useState('nestjs');
+  const [archSandbox, setArchSandbox] = useState<'E2B_CLOUD' | 'LOCAL_DOCKER'>('E2B_CLOUD');
+  const [archAuth, setArchAuth] = useState('jwt');
+  const [archDb, setArchDb] = useState('postgresql');
+
   useEffect(() => {
     if (initialPrompt) setPrompt(initialPrompt);
     if (initialPreferredType) setPreferredType(initialPreferredType);
@@ -87,7 +100,26 @@ export function AiPlannerModal({ isOpen, onClose, initialPrompt = '', initialPre
   }, [isOpen, initialPrompt]);
 
   const handleStartGeneration = async () => {
-    if (!prompt.trim()) return;
+    let effectivePrompt = prompt.trim();
+    if (inceptionMode === 'architect') {
+      const parts = [
+        archProjectName ? `Project Name: ${archProjectName}.` : '',
+        archProjectDesc ? `Description: ${archProjectDesc}.` : '',
+        `UI Theme: ${archTheme}.`,
+        `Backend Architecture: ${
+          archServer === 'nestjs'
+            ? 'NestJS 11 Full-Stack REST API with Modules & Controllers'
+            : archServer === 'cms'
+              ? 'Nirmaanify Headless CMS Collections & Fields'
+              : 'Static Frontend'
+        }.`,
+        `Sandbox Environment: ${archSandbox === 'E2B_CLOUD' ? 'Cloud Micro-VM (E2B)' : 'Local Docker Runner'}.`,
+        `Database: ${archDb}, Authentication: ${archAuth}.`,
+      ].filter(Boolean);
+      effectivePrompt = parts.join(' ');
+    }
+
+    if (!effectivePrompt) return;
     setStep('generating');
     setCurrentGenStep(0);
 
@@ -97,7 +129,7 @@ export function AiPlannerModal({ isOpen, onClose, initialPrompt = '', initialPre
 
     try {
       const generatedPlan = await generateAiPlan({
-        prompt: prompt.trim(),
+        prompt: effectivePrompt,
         workspaceId: activeWorkspace?.id,
         preferredType,
       });
@@ -230,7 +262,11 @@ export function AiPlannerModal({ isOpen, onClose, initialPrompt = '', initialPre
               variant="default"
               leftIcon={<Cpu className="h-4 w-4" />}
               onClick={handleStartGeneration}
-              disabled={!prompt.trim()}
+              disabled={
+                inceptionMode === 'quick'
+                  ? !prompt.trim()
+                  : !archProjectName.trim() && !archProjectDesc.trim()
+              }
             >
               Architect project
             </Button>
@@ -260,83 +296,267 @@ export function AiPlannerModal({ isOpen, onClose, initialPrompt = '', initialPre
     >
       {step === 'prompt' && (
         <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Project description
-            </label>
-            <textarea
-              rows={4}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="e.g. I want to create an online luxury clothing boutique with Next.js 15, Stripe checkout, product search, reviews, and customer order history."
-              className="w-full rounded-xl p-3 text-sm bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] focus:outline-none focus:ring-2 focus:ring-[#635BFF] text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-            />
+          {/* Dual Inception Mode Switcher */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D]">
+            <button
+              type="button"
+              onClick={() => setInceptionMode('quick')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                inceptionMode === 'quick'
+                  ? 'bg-white dark:bg-[#0F111A] text-[#635BFF] shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              ⚡ Quick Prompt (One-Shot)
+            </button>
+            <button
+              type="button"
+              onClick={() => setInceptionMode('architect')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                inceptionMode === 'architect'
+                  ? 'bg-white dark:bg-[#0F111A] text-[#635BFF] shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              📐 Architect Questionnaire
+            </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Preferred type"
-              value={preferredType}
-              onChange={(e) => setPreferredType(e.target.value as ProjectType)}
-              options={[
-                { label: 'E-commerce Platform', value: 'ECOMMERCE' },
-                { label: 'SaaS Platform', value: 'SAAS' },
-                { label: 'Editorial / Tech Blog', value: 'BLOG' },
-                { label: 'Executive Dashboard', value: 'DASHBOARD' },
-                { label: 'Portfolio / Agency', value: 'PORTFOLIO' },
-                { label: 'Landing / Website', value: 'WEBSITE' },
-                { label: 'Custom Application', value: 'CUSTOM' },
-              ]}
-            />
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Target workspace
-              </label>
-              <div className="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-                {activeWorkspace?.name || 'Personal studio'}
+          {inceptionMode === 'quick' ? (
+            /* ONE-SHOT QUICK PROMPT MODE */
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Project description
+                </label>
+                <textarea
+                  rows={4}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="e.g. I want to create an online luxury clothing boutique with Next.js 15, Stripe checkout, product search, reviews, and customer order history."
+                  className="w-full rounded-xl p-3 text-sm bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] focus:outline-none focus:ring-2 focus:ring-[#635BFF] text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Select
+                  label="Preferred type"
+                  value={preferredType}
+                  onChange={(e) => setPreferredType(e.target.value as ProjectType)}
+                  options={[
+                    { label: 'E-commerce Platform', value: 'ECOMMERCE' },
+                    { label: 'SaaS Platform', value: 'SAAS' },
+                    { label: 'Editorial / Tech Blog', value: 'BLOG' },
+                    { label: 'Executive Dashboard', value: 'DASHBOARD' },
+                    { label: 'Portfolio / Agency', value: 'PORTFOLIO' },
+                    { label: 'Landing / Website', value: 'WEBSITE' },
+                    { label: 'Custom Application', value: 'CUSTOM' },
+                  ]}
+                />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Target workspace
+                  </label>
+                  <div className="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
+                    {activeWorkspace?.name || 'Personal studio'}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs font-semibold text-slate-400">Quick templates:</span>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {[
+                    {
+                      title: 'Clothing store',
+                      prompt: 'Online clothing store with Next.js 15, Stripe checkout, variant selector, and cart.',
+                      type: 'ECOMMERCE' as const,
+                    },
+                    {
+                      title: 'AI video SaaS',
+                      prompt: 'Generative AI video studio platform with subscription tiers, BullMQ workers, and credit metering.',
+                      type: 'SAAS' as const,
+                    },
+                    {
+                      title: 'Dev tech blog',
+                      prompt: 'Engineering blog with MDX support, syntax highlighting, author profiles, and newsletter capture.',
+                      type: 'BLOG' as const,
+                    },
+                    {
+                      title: 'Analytics dashboard',
+                      prompt: 'Executive KPI dashboard with Recharts, date filters, TanStack table, and CSV export.',
+                      type: 'DASHBOARD' as const,
+                    },
+                  ].map((tmpl) => (
+                    <button
+                      key={tmpl.title}
+                      type="button"
+                      onClick={() => {
+                        setPrompt(tmpl.prompt);
+                        setPreferredType(tmpl.type);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-xs bg-slate-100 dark:bg-[#161926] hover:bg-[#635BFF]/15 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#24293D] transition-colors"
+                    >
+                      {tmpl.title}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* CONTEXT QUESTIONNAIRE (ARCHITECT MODE) */
+            <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+              {/* Step 1: Project Identity */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                  1. Project Identity
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <Input
+                    placeholder="Project Name (e.g. Zenith SaaS)"
+                    value={archProjectName}
+                    onChange={(e) => setArchProjectName(e.target.value)}
+                    className="text-xs"
+                  />
+                  <Select
+                    value={preferredType}
+                    onChange={(e) => setPreferredType(e.target.value as ProjectType)}
+                    options={[
+                      { label: 'SaaS Platform', value: 'SAAS' },
+                      { label: 'E-commerce Store', value: 'ECOMMERCE' },
+                      { label: 'Executive Dashboard', value: 'DASHBOARD' },
+                      { label: 'Blog / Publication', value: 'BLOG' },
+                      { label: 'Portfolio', value: 'PORTFOLIO' },
+                      { label: 'Landing Page', value: 'WEBSITE' },
+                    ]}
+                  />
+                </div>
+                <textarea
+                  rows={2}
+                  value={archProjectDesc}
+                  onChange={(e) => setArchProjectDesc(e.target.value)}
+                  placeholder="Primary objective and key features..."
+                  className="w-full rounded-xl p-2.5 text-xs bg-slate-50 dark:bg-[#161926] border border-slate-200 dark:border-[#24293D] focus:outline-none focus:ring-1 focus:ring-[#635BFF] text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                />
+              </div>
 
-          <div>
-            <span className="text-xs font-semibold text-slate-400">Quick templates:</span>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {[
-                {
-                  title: 'Clothing store',
-                  prompt: 'Online clothing store with Next.js 15, Stripe checkout, variant selector, and cart.',
-                  type: 'ECOMMERCE' as const,
-                },
-                {
-                  title: 'AI video SaaS',
-                  prompt: 'Generative AI video studio platform with subscription tiers, BullMQ workers, and credit metering.',
-                  type: 'SAAS' as const,
-                },
-                {
-                  title: 'Dev tech blog',
-                  prompt: 'Engineering blog with MDX support, syntax highlighting, author profiles, and newsletter capture.',
-                  type: 'BLOG' as const,
-                },
-                {
-                  title: 'Analytics dashboard',
-                  prompt: 'Executive KPI dashboard with Recharts, date filters, TanStack table, and CSV export.',
-                  type: 'DASHBOARD' as const,
-                },
-              ].map((tmpl) => (
-                <button
-                  key={tmpl.title}
-                  type="button"
-                  onClick={() => {
-                    setPrompt(tmpl.prompt);
-                    setPreferredType(tmpl.type);
-                  }}
-                  className="px-2.5 py-1 rounded-lg text-xs bg-slate-100 dark:bg-[#161926] hover:bg-[#635BFF]/15 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#24293D] transition-colors"
-                >
-                  {tmpl.title}
-                </button>
-              ))}
+              {/* Step 2: UI Theme */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Palette className="h-3.5 w-3.5 text-[#635BFF]" />
+                  2. UI Theme &amp; Visual Style
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'modern', label: 'Clean Modern', desc: 'Neutral slate & purple' },
+                    { id: 'dark', label: 'Dark Cyber', desc: 'Neon cyan & dark navy' },
+                    { id: 'vibrant', label: 'Vibrant Flow', desc: 'Warm gradients & soft glow' },
+                    { id: 'minimal', label: 'Minimal Luxe', desc: 'Monochrome precision' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setArchTheme(t.id)}
+                      className={`p-2 rounded-xl text-left border text-xs transition-all ${
+                        archTheme === t.id
+                          ? 'border-[#635BFF] bg-[#635BFF]/10 text-slate-900 dark:text-white font-bold'
+                          : 'border-slate-200 dark:border-[#24293D] text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      <div>{t.label}</div>
+                      <p className="text-[10px] text-slate-400 font-normal mt-0.5">{t.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 3: Server Architecture */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Server className="h-3.5 w-3.5 text-[#8B5CF6]" />
+                  3. Server Architecture
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'nestjs', label: 'NestJS 11 Full-Stack', desc: 'REST controllers, services, DTOs' },
+                    { id: 'cms', label: 'Headless CMS Bindings', desc: 'Collections, dynamic schemas' },
+                    { id: 'static', label: 'Static Next.js Frontend', desc: 'Client components only' },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setArchServer(s.id)}
+                      className={`p-2.5 rounded-xl text-left border text-xs transition-all ${
+                        archServer === s.id
+                          ? 'border-[#8B5CF6] bg-[#8B5CF6]/10 text-slate-900 dark:text-white font-bold'
+                          : 'border-slate-200 dark:border-[#24293D] text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      <div>{s.label}</div>
+                      <p className="text-[10px] text-slate-400 font-normal mt-0.5">{s.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 4: Sandbox Runner */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Cloud className="h-3.5 w-3.5 text-[#22D3EE]" />
+                  4. Default Sandbox Environment
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'E2B_CLOUD' as const, label: 'Cloud Micro-VM (E2B)', desc: 'Zero-config cloud dev with hot reload' },
+                    { id: 'LOCAL_DOCKER' as const, label: 'Local Docker Runner', desc: 'Offline self-hosted Docker daemon' },
+                  ].map((sb) => (
+                    <button
+                      key={sb.id}
+                      type="button"
+                      onClick={() => setArchSandbox(sb.id)}
+                      className={`p-2.5 rounded-xl text-left border text-xs transition-all ${
+                        archSandbox === sb.id
+                          ? 'border-[#22D3EE] bg-[#22D3EE]/10 text-slate-900 dark:text-white font-bold'
+                          : 'border-slate-200 dark:border-[#24293D] text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      <div>{sb.label}</div>
+                      <p className="text-[10px] text-slate-400 font-normal mt-0.5">{sb.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 5: Database & Auth */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Database className="h-3.5 w-3.5 text-emerald-400" />
+                  5. Database &amp; Authentication
+                </label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <Select
+                    label="Database Engine"
+                    value={archDb}
+                    onChange={(e) => setArchDb(e.target.value)}
+                    options={[
+                      { label: 'PostgreSQL (Prisma ORM)', value: 'postgresql' },
+                      { label: 'SQLite (Embedded Local)', value: 'sqlite' },
+                    ]}
+                  />
+                  <Select
+                    label="Authentication"
+                    value={archAuth}
+                    onChange={(e) => setArchAuth(e.target.value)}
+                    options={[
+                      { label: 'JWT Bearer Tokens', value: 'jwt' },
+                      { label: 'OAuth 2.0 (Google + GitHub)', value: 'oauth' },
+                      { label: 'Public (No Auth)', value: 'none' },
+                    ]}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 

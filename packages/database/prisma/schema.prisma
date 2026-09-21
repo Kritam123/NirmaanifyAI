@@ -39,25 +39,25 @@ enum InvitationStatus {
 }
 
 model User {
-  id              String               @id @default(uuid())
-  email           String               @unique
+  id              String       @id @default(uuid())
+  email           String       @unique
   passwordHash    String?
   name            String
   avatarUrl       String?
-  role            UserRole             @default(MEMBER)
-  primaryProvider AuthProvider         @default(CREDENTIALS)
-  isEmailVerified Boolean              @default(false)
-  isActive        Boolean              @default(true)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  role            UserRole     @default(MEMBER)
+  primaryProvider AuthProvider @default(CREDENTIALS)
+  isEmailVerified Boolean      @default(false)
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
-  socialAccounts  SocialAccount[]
-  workspaces      Workspace[]          @relation("WorkspaceOwner")
-  memberships     WorkspaceMember[]
-  projectMembers  ProjectMember[]
-  resetTokens     PasswordResetToken[]
+  socialAccounts     SocialAccount[]
+  workspaces         Workspace[]              @relation("WorkspaceOwner")
+  memberships        WorkspaceMember[]
+  projectMembers     ProjectMember[]
+  resetTokens        PasswordResetToken[]
   verificationTokens EmailVerificationToken[]
-  auditLogs       AuditLog[]
+  auditLogs          AuditLog[]
 
   @@map("users")
 }
@@ -82,7 +82,7 @@ model SocialAccount {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
@@ -91,47 +91,51 @@ model SocialAccount {
 }
 
 model Organization {
-  id          String      @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
-  slug        String      @unique
-  billingPlan String      @default("free")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  slug        String   @unique
+  billingPlan String   @default("free")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  workspaces  Workspace[]
+  workspaces Workspace[]
 
   @@map("organizations")
 }
 
 model Workspace {
-  id             String                @id @default(uuid())
+  id             String   @id @default(uuid())
   name           String
-  slug           String                @unique
-  isPersonal     Boolean               @default(false)
+  slug           String   @unique
+  isPersonal     Boolean  @default(false)
   ownerId        String
   organizationId String?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  owner          User                  @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  organization   Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  members        WorkspaceMember[]
-  invitations    WorkspaceInvitation[]
-  projects       Project[]
-  auditLogs      AuditLog[]
+  owner                User                  @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  organization         Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  members              WorkspaceMember[]
+  invitations          WorkspaceInvitation[]
+  projects             Project[]
+  auditLogs            AuditLog[]
+  cmsCollections       CmsCollection[]
+  cmsContentItems      CmsContentItem[]
+  apiKeys              ApiKey[]
+  webhookSubscriptions WebhookSubscription[]
 
   @@map("workspaces")
 }
 
 model WorkspaceMember {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   workspaceId String
   userId      String
-  role        UserRole  @default(DEVELOPER)
-  createdAt   DateTime  @default(now())
+  role        UserRole @default(DEVELOPER)
+  createdAt   DateTime @default(now())
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, userId])
   @@map("workspace_members")
@@ -147,7 +151,7 @@ model WorkspaceInvitation {
   expiresAt   DateTime
   createdAt   DateTime         @default(now())
 
-  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("workspace_invitations")
 }
@@ -160,7 +164,7 @@ model PasswordResetToken {
   isUsed    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_reset_tokens")
 }
@@ -175,32 +179,43 @@ model EmailVerificationToken {
   isUsed    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([email])
   @@map("email_verification_tokens")
 }
 
 model Project {
-  id               String          @id @default(uuid())
+  id               String      @id @default(uuid())
   name             String
   slug             String
   description      String?
-  type             ProjectType     @default(WEBSITE)
+  type             ProjectType @default(WEBSITE)
   workspaceId      String
-  framework        String          @default("nextjs-15")
-  uiLibrary        String          @default("shadcn-ui")
-  isBackendEnabled Boolean         @default(false)
-  isArchived       Boolean         @default(false)
-  status           String          @default("ACTIVE")
-  projectSchema    Json            @default("{}")
+  framework        String      @default("nextjs-15")
+  uiLibrary        String      @default("shadcn-ui")
+  isBackendEnabled Boolean     @default(false)
+  isArchived       Boolean     @default(false)
+  status           String      @default("ACTIVE")
   aiPlan           Json?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  storageDriver    String      @default("local")
+  storageConfig    Json?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  members          ProjectMember[]
-  aiPlans          AIProjectPlan[]
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members         ProjectMember[]
+  aiPlans         AIProjectPlan[]
+  cmsCollections  CmsCollection[]
+  cmsContentItems CmsContentItem[]
+  messages        ProjectMessage[]
+  fragments       ProjectFragment[]
+  sandbox         ProjectSandbox?
+  packages        ProjectPackage[]
+  plugins         ProjectPlugin[]
+  orchestrationRuns AgentOrchestrationRun[]
+  builds          ProjectBuild[]
+  deployments     ProjectDeployment[]
 
   @@unique([workspaceId, slug])
   @@map("projects")
@@ -213,26 +228,26 @@ model ProjectMember {
   role      UserRole @default(DEVELOPER)
   createdAt DateTime @default(now())
 
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
   @@map("project_members")
 }
 
 model AIProjectPlan {
-  id           String     @id @default(uuid())
-  workspaceId  String
-  projectId    String?
-  prompt       String     @db.Text
-  plan         Json
-  status       String     @default("DRAFT")
-  createdById  String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  expiresAt    DateTime?
+  id          String    @id @default(uuid())
+  workspaceId String
+  projectId   String?
+  prompt      String    @db.Text
+  plan        Json
+  status      String    @default("DRAFT")
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  expiresAt   DateTime?
 
-  project      Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
   @@index([projectId])
@@ -241,19 +256,476 @@ model AIProjectPlan {
 }
 
 model AuditLog {
-  id          String     @id @default(uuid())
+  id          String   @id @default(uuid())
   userId      String?
   workspaceId String?
   action      String
   entity      String
   entityId    String?
-  metadata    Json       @default("{}")
+  metadata    Json     @default("{}")
   ipAddress   String?
   userAgent   String?
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime @default(now())
 
-  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
-  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
+}
+
+// ==========================================
+// CMS & CONTENT MANAGEMENT MODELS
+// ==========================================
+
+enum CmsCollectionType {
+  POSTS
+  PRODUCTS
+  CATEGORIES
+  AUTHORS
+  CUSTOM
+}
+
+enum CmsFieldType {
+  TEXT
+  RICH_TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  IMAGE
+  FILE
+  SELECT
+  RELATION
+  JSON
+}
+
+enum CmsContentStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ARCHIVED
+}
+
+model CmsCollection {
+  id          String            @id @default(uuid())
+  workspaceId String
+  projectId   String?
+  name        String
+  slug        String
+  description String?           @db.Text
+  type        CmsCollectionType @default(CUSTOM)
+  isSystem    Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fields    CmsField[]
+  items     CmsContentItem[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@index([projectId])
+  @@map("cms_collections")
+}
+
+model CmsField {
+  id           String       @id @default(uuid())
+  collectionId String
+  name         String
+  key          String
+  type         CmsFieldType @default(TEXT)
+  required     Boolean      @default(false)
+  defaultValue Json?
+  validation   Json?        @default("{}")
+  options      Json?        @default("[]")
+  order        Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  collection CmsCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, key])
+  @@index([collectionId])
+  @@map("cms_fields")
+}
+
+model CmsContentItem {
+  id           String           @id @default(uuid())
+  collectionId String
+  workspaceId  String
+  projectId    String?
+  slug         String?
+  data         Json             @default("{}")
+  status       CmsContentStatus @default(DRAFT)
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+  authorId     String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  collection CmsCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  workspace  Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project    Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId])
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("cms_content_items")
+}
+
+// ==========================================
+// API KEYS & EXTERNAL BAAS SERVICES
+// ==========================================
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  keyPrefix   String
+  keyHash     String    @unique
+  scopes      String[]  @default([])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("api_keys")
+}
+
+model WebhookSubscription {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  targetUrl   String
+  secret      String?
+  events      String[] @default([])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("webhook_subscriptions")
+}
+
+// ==========================================
+// AUTONOMOUS AI AGENT & SANDBOX MODELS
+// ==========================================
+
+enum SandboxProvider {
+  E2B_CLOUD
+  LOCAL_DOCKER
+  WEBCONTAINER
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model ProjectMessage {
+  id        String      @id @default(uuid())
+  projectId String
+  role      MessageRole @default(USER)
+  content   String      @db.Text
+  thought   String?     @db.Text
+  toolCalls Json        @default("[]")
+  modelUsed String      @default("gemini-3.0-pro")
+  createdAt DateTime    @default(now())
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fragment ProjectFragment?
+
+  @@index([projectId])
+  @@map("project_messages")
+}
+
+model ProjectFragment {
+  id            String   @id @default(uuid())
+  messageId     String   @unique
+  projectId     String?
+  sandboxUrl    String
+  apiSandboxUrl String?
+  title         String
+  files         Json     @default("{}")
+  diffs         Json?
+  createdAt     DateTime @default(now())
+
+  message ProjectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  project Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([projectId])
+  @@map("project_fragments")
+}
+
+model ProjectSandbox {
+  id           String          @id @default(uuid())
+  projectId    String          @unique
+  provider     SandboxProvider @default(E2B_CLOUD)
+  sandboxId    String
+  status       String          @default("INITIALIZING")
+  hostUrl      String
+  apiHostUrl   String?
+  lastActiveAt DateTime        @default(now())
+  metadata     Json?           @default("{}")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_sandboxes")
+}
+
+// ==========================================
+// PHASE 10: PACKAGE & PLUGIN ECOSYSTEM
+// ==========================================
+
+enum PackageCategory {
+  UI_FRAMEWORK
+  ANIMATION_ENGINE
+  FORM_ENGINE
+  DATA_VISUALIZATION
+  ICONS
+  STATE_MANAGEMENT
+  UTILITY
+  CUSTOM_NPM
+}
+
+enum PackageInstallStatus {
+  PENDING
+  INSTALLING
+  INSTALLED
+  FAILED
+  REMOVING
+}
+
+enum PluginCategory {
+  UI
+  ANIMATION
+  PAYMENTS
+  AUTHENTICATION
+  ANALYTICS
+  SEO
+  FORMS
+  CMS
+  DEPLOYMENT
+  CUSTOM
+}
+
+enum PluginReviewStatus {
+  UNVERIFIED
+  IN_REVIEW
+  COMMUNITY_VERIFIED
+  OFFICIAL_VERIFIED
+  DEPRECATED
+  FLAGGED_SECURITY
+}
+
+model ProjectPackage {
+  id              String               @id @default(uuid())
+  projectId       String
+  name            String
+  version         String
+  resolvedVersion String?
+  category        PackageCategory      @default(CUSTOM_NPM)
+  isDevDependency Boolean              @default(false)
+  status          PackageInstallStatus @default(INSTALLED)
+  metadata        Json                 @default("{}")
+  installedAt     DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@index([category])
+  @@map("project_packages")
+}
+
+model Plugin {
+  id            String             @id @default(uuid())
+  slug          String             @unique
+  name          String
+  description   String             @db.Text
+  version       String
+  author        String
+  authorUrl     String?
+  iconUrl       String?
+  category      PluginCategory     @default(CUSTOM)
+  reviewStatus  PluginReviewStatus @default(COMMUNITY_VERIFIED)
+  isOfficial    Boolean            @default(false)
+  manifest      Json
+  permissions   String[]           @default([])
+  downloadCount Int                @default(0)
+  rating        Float              @default(5.0)
+  sourceUrl     String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  installations ProjectPlugin[]
+  auditLogs     PluginAuditReport[]
+
+  @@index([category])
+  @@index([reviewStatus])
+  @@map("plugins")
+}
+
+model ProjectPlugin {
+  id                 String   @id @default(uuid())
+  projectId          String
+  pluginId           String
+  version            String
+  isEnabled          Boolean  @default(true)
+  grantedPermissions String[] @default([])
+  configValues       Json     @default("{}")
+  encryptedSecrets   Json?
+  installedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  plugin  Plugin  @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, pluginId])
+  @@index([projectId])
+  @@index([pluginId])
+  @@map("project_plugins")
+}
+
+model PluginAuditReport {
+  id           String   @id @default(uuid())
+  pluginId     String
+  scannedAt    DateTime @default(now())
+  astClean     Boolean  @default(true)
+  networkClean Boolean  @default(true)
+  findings     Json     @default("[]")
+  rawReport    Json?
+
+  plugin Plugin @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+
+  @@index([pluginId])
+  @@map("plugin_audit_reports")
+}
+
+// ==========================================
+// PHASE 11: AI AGENT ORCHESTRATION
+// ==========================================
+
+enum SpecializedAgentType {
+  ORCHESTRATOR
+  PROJECT_PLANNER
+  UI_AGENT
+  BACKEND_AGENT
+  DATABASE_AGENT
+  CMS_AGENT
+  PACKAGE_AGENT
+  PLUGIN_AGENT
+}
+
+enum TaskExecutionStatus {
+  QUEUED
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+model AgentOrchestrationRun {
+  id              String               @id @default(uuid())
+  projectId       String
+  messageId       String?
+  prompt          String               @db.Text
+  status          TaskExecutionStatus  @default(QUEUED)
+  plan            Json                 @default("[]")
+  contextSnapshot Json                 @default("{}")
+  currentAgent    SpecializedAgentType @default(ORCHESTRATOR)
+  logs            Json                 @default("[]")
+  error           String?              @db.Text
+  startedAt       DateTime             @default(now())
+  completedAt     DateTime?
+
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@map("agent_orchestration_runs")
+}
+
+// ==========================================
+// PHASE 12: PREVIEW, BUILD, EXPORT & DEPLOY
+// ==========================================
+
+enum BuildStatus {
+  QUEUED
+  BUILDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum DeploymentTarget {
+  VERCEL
+  RENDER
+  RAILWAY
+  DOCKER
+  SELF_HOSTED
+  SANDBOX
+}
+
+enum DeploymentStatus {
+  PENDING
+  DEPLOYING
+  DEPLOYED
+  FAILED
+  CANCELLED
+}
+
+model ProjectBuild {
+  id            String       @id @default(uuid())
+  projectId     String
+  status        BuildStatus  @default(QUEUED)
+  durationMs    Int?
+  logs          Json         @default("[]")
+  errors        Json?        @default("[]")
+  envValidation Json?        @default("{}")
+  commitHash    String?
+  createdById   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deployments ProjectDeployment[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("project_builds")
+}
+
+model ProjectDeployment {
+  id          String           @id @default(uuid())
+  projectId   String
+  buildId     String?
+  target      DeploymentTarget @default(DOCKER)
+  status      DeploymentStatus @default(PENDING)
+  url         String?
+  logs        Json             @default("[]")
+  config      Json?            @default("{}")
+  createdById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  build   ProjectBuild? @relation(fields: [buildId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([target])
+  @@index([status])
+  @@map("project_deployments")
 }

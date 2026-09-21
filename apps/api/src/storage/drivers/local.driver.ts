@@ -6,6 +6,7 @@ import {
   StorageUploadResult,
   StorageFileInfo,
   StorageDriverType,
+  LocalStorageConfig,
 } from '@nirmaanify/types';
 import { IStorageDriver } from './storage-driver.interface';
 
@@ -15,10 +16,16 @@ export class LocalStorageDriver implements IStorageDriver {
   private readonly logger = new Logger(LocalStorageDriver.name);
   private readonly storageRoot: string;
 
-  constructor() {
-    this.storageRoot = path.join(process.cwd(), '.storage');
+  constructor(config?: LocalStorageConfig) {
+    if (config?.basePath && config.basePath.trim()) {
+      this.storageRoot = path.isAbsolute(config.basePath)
+        ? config.basePath
+        : path.join(process.cwd(), config.basePath);
+    } else {
+      this.storageRoot = path.join(process.cwd(), '.storage');
+    }
     fs.mkdir(this.storageRoot, { recursive: true }).catch((err) =>
-      this.logger.error('Failed to create .storage folder', err)
+      this.logger.error('Failed to create storage folder', err)
     );
   }
 
@@ -89,6 +96,25 @@ export class LocalStorageDriver implements IStorageDriver {
       return results;
     } catch {
       return [];
+    }
+  }
+
+  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+    try {
+      await fs.mkdir(this.storageRoot, { recursive: true });
+      const testFile = path.join(this.storageRoot, `.test-${Date.now()}.tmp`);
+      await fs.writeFile(testFile, 'ok');
+      await fs.unlink(testFile);
+      return {
+        success: true,
+        message: `Local filesystem storage is verified and writable at "${this.storageRoot}".`,
+        details: { path: this.storageRoot },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Failed to write to local storage directory: ${err?.message}`,
+      };
     }
   }
 }

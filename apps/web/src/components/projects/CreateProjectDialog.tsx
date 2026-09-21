@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Dialog, Input, Select, Button, Textarea, useToast } from '@nirmaanify/ui';
 import { useAuth } from '../../context/auth-context';
-import { ProjectType } from '@nirmaanify/types';
+import { ProjectType, StorageDriverType } from '@nirmaanify/types';
+import { ProjectServerType } from '../../lib/server-architecture';
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -19,7 +20,8 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
   const [type, setType] = useState<ProjectType>('SAAS');
   const [framework, setFramework] = useState('Next.js 15 App Router');
   const [uiLibrary, setUiLibrary] = useState('shadcn/ui + Tailwind CSS');
-  const [isBackendEnabled, setIsBackendEnabled] = useState(true);
+  const [storageDriver, setStorageDriver] = useState<StorageDriverType>('local');
+  const [serverType, setServerType] = useState<ProjectServerType>('cms');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,18 +30,15 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
 
     setIsSubmitting(true);
     try {
+      const isBackend = serverType === 'nestjs' || serverType === 'fullstack';
       await createProject({
         name,
         description: description || `Scaffolded ${type} application`,
         type,
         framework,
         uiLibrary,
-        isBackendEnabled,
-        projectSchema: {
-          pages: ['/', '/dashboard', '/settings'],
-          authEnabled: true,
-          databaseModel: isBackendEnabled ? 'PostgreSQL + Prisma' : 'None',
-        },
+        isBackendEnabled: isBackend,
+        storageDriver,
       });
 
       toast({
@@ -141,15 +140,28 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
           />
 
           <Select
-            label="Backend Architecture"
-            value={isBackendEnabled ? 'enabled' : 'disabled'}
-            onChange={(e) => setIsBackendEnabled(e.target.value === 'enabled')}
+            label="Server Architecture"
+            value={serverType}
+            onChange={(e) => setServerType(e.target.value as ProjectServerType)}
             options={[
-              { label: 'NestJS REST API + PostgreSQL', value: 'enabled' },
-              { label: 'Frontend-Only (Static)', value: 'disabled' },
+              { label: 'Headless CMS — Dynamic content collections & delivery API', value: 'cms' },
+              { label: 'Full NestJS API — REST API, Prisma ORM, & PostgreSQL', value: 'nestjs' },
+              { label: 'Full-Stack (NestJS + CMS) — Combined custom API & CMS engine', value: 'fullstack' },
+              { label: 'Static Frontend — Client-only Next.js export, no server', value: 'static' },
             ]}
           />
         </div>
+
+        <Select
+          label="Individual Storage Engine"
+          value={storageDriver}
+          onChange={(e) => setStorageDriver(e.target.value as StorageDriverType)}
+          options={[
+            { label: 'Local Filesystem — Development & local testing', value: 'local' },
+            { label: 'AWS S3 / MinIO — Production object storage', value: 's3' },
+            { label: 'Vercel Blob Storage — Global edge media CDN', value: 'vercel-blob' },
+          ]}
+        />
       </form>
     </Dialog>
   );

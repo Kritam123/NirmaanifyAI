@@ -31,22 +31,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const authRes = await apiClient.auth.login({
-          email: credentials.email as string,
-          password: credentials.password as string,
-        });
+        try {
+          const authRes = await apiClient.auth.login({
+            email: credentials.email as string,
+            password: credentials.password as string,
+          });
 
-        if (authRes && authRes.user) {
-          return {
-            id: authRes.user.id,
-            name: authRes.user.name,
-            email: authRes.user.email,
-            image: authRes.user.avatarUrl,
-            role: authRes.user.role,
-            accessToken: authRes.accessToken,
-            activeWorkspace: authRes.activeWorkspace,
-            provider: 'CREDENTIALS',
-          };
+          if (authRes && authRes.user) {
+            return {
+              id: authRes.user.id,
+              name: authRes.user.name,
+              email: authRes.user.email,
+              image: authRes.user.avatarUrl,
+              role: authRes.user.role,
+              accessToken: authRes.accessToken,
+              activeWorkspace: authRes.activeWorkspace,
+              provider: 'CREDENTIALS',
+            };
+          }
+        } catch (error) {
+          console.error('[auth] Credentials login failed:', error);
+          return null;
         }
         return null;
       },
@@ -83,13 +88,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         };
 
-        const syncedAuth = await apiClient.auth.oauthLogin(socialAccountData);
-        (user as any).id = syncedAuth.user.id;
-        (user as any).role = syncedAuth.user.role;
-        (user as any).accessToken = syncedAuth.accessToken;
-        (user as any).activeWorkspace = syncedAuth.activeWorkspace;
-        (user as any).socialAccount = socialAccountData;
-        (user as any).provider = providerName;
+        try {
+          const syncedAuth = await apiClient.auth.oauthLogin(socialAccountData);
+          (user as any).id = syncedAuth.user.id;
+          (user as any).role = syncedAuth.user.role;
+          (user as any).accessToken = syncedAuth.accessToken;
+          (user as any).activeWorkspace = syncedAuth.activeWorkspace;
+          (user as any).socialAccount = socialAccountData;
+          (user as any).provider = providerName;
+        } catch (error) {
+          console.error('[auth] OAuth sync with backend API failed:', error);
+          return false;
+        }
       }
 
       return true;

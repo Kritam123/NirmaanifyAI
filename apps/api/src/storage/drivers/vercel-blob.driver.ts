@@ -5,6 +5,7 @@ import {
   StorageUploadResult,
   StorageFileInfo,
   StorageDriverType,
+  VercelBlobStorageConfig,
 } from '@nirmaanify/types';
 import { IStorageDriver } from './storage-driver.interface';
 
@@ -14,8 +15,8 @@ export class VercelBlobStorageDriver implements IStorageDriver {
   private readonly logger = new Logger(VercelBlobStorageDriver.name);
   private readonly token: string | undefined;
 
-  constructor() {
-    this.token = process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_TOKEN;
+  constructor(config?: VercelBlobStorageConfig) {
+    this.token = config?.token || process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_TOKEN;
     if (this.token) {
       this.logger.log('✓ Vercel Blob Storage Driver configured with active token.');
     } else {
@@ -97,6 +98,28 @@ export class VercelBlobStorageDriver implements IStorageDriver {
       }));
     } catch {
       return [];
+    }
+  }
+
+  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+    if (!this.token) {
+      return {
+        success: false,
+        message: 'Vercel Blob token (BLOB_READ_WRITE_TOKEN) is not provided.',
+      };
+    }
+    try {
+      await list({ token: this.token, limit: 1 });
+      return {
+        success: true,
+        message: 'Connected successfully to Vercel Blob storage using active token.',
+        details: { tokenConfigured: true },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Vercel Blob token verification failed: ${err?.message || err}`,
+      };
     }
   }
 }

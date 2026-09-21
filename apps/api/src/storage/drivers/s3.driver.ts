@@ -12,6 +12,7 @@ import {
   StorageUploadResult,
   StorageFileInfo,
   StorageDriverType,
+  S3StorageConfig,
 } from '@nirmaanify/types';
 import { IStorageDriver } from './storage-driver.interface';
 
@@ -24,19 +25,20 @@ export class S3StorageDriver implements IStorageDriver {
   private readonly endpoint?: string;
   private readonly region: string;
 
-  constructor() {
-    this.bucketName = process.env.S3_BUCKET_NAME || 'nirmaanify-storage';
-    this.region = process.env.S3_REGION || 'us-east-1';
-    this.endpoint = process.env.S3_ENDPOINT || undefined;
+  constructor(config?: S3StorageConfig) {
+    this.bucketName = config?.bucket || process.env.S3_BUCKET_NAME || 'nirmaanify-storage';
+    this.region = config?.region || process.env.S3_REGION || 'us-east-1';
+    this.endpoint = config?.endpoint || process.env.S3_ENDPOINT || undefined;
 
-    const accessKeyId = process.env.S3_ACCESS_KEY;
-    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const accessKeyId = config?.accessKeyId || process.env.S3_ACCESS_KEY;
+    const secretAccessKey = config?.secretAccessKey || process.env.S3_SECRET_KEY;
+    const forcePathStyle = config?.forcePathStyle !== undefined ? config.forcePathStyle : Boolean(this.endpoint);
 
     if (accessKeyId && secretAccessKey) {
       this.s3Client = new S3Client({
         region: this.region,
         endpoint: this.endpoint,
-        forcePathStyle: Boolean(this.endpoint), // Required for MinIO / LocalStack
+        forcePathStyle,
         credentials: {
           accessKeyId,
           secretAccessKey,
@@ -150,6 +152,41 @@ export class S3StorageDriver implements IStorageDriver {
       }));
     } catch {
       return [];
+    }
+  }
+
+  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+    if (!this.s3Client) {
+      return {
+        success: false,
+        message: 'AWS S3 credentials (Access Key ID, Secret Access Key, and Bucket) are missing.',
+      };
+    }
+    try {
+      await this.s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucketName,
+          MaxKeys: 1,
+        })
+      );
+      return {
+        success: true,
+        message: `Connected successfully to S3 bucket "${this.bucketName}" (${this.region}).`,
+        details: {
+          bucket: this.bucketName,
+          region: this.region,
+          endpoint: this.endpoint || 'AWS S3 Standard',
+        },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `S3 connection failed: ${err?.message || err}`,
+        details: {
+          bucket: this.bucketName,
+          region: this.region,
+        },
+      };
     }
   }
 }
