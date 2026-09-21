@@ -4,44 +4,26 @@ RUN npm install -g pnpm@11.21.0 turbo
 
 WORKDIR /app
 
-# Copy root workspace configurations
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+# Prevent Prisma from running generate prematurely during pnpm install
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
 
-# Copy all package manifests for optimal layer caching
-COPY packages/config/package.json ./packages/config/
-COPY packages/types/package.json ./packages/types/
-COPY packages/database/package.json ./packages/database/
-COPY packages/design-tokens/package.json ./packages/design-tokens/
-COPY packages/icons/package.json ./packages/icons/
-COPY packages/ui/package.json ./packages/ui/
-COPY packages/api-client/package.json ./packages/api-client/
-COPY packages/plugin-sdk/package.json ./packages/plugin-sdk/
-COPY packages/sandbox-driver/package.json ./packages/sandbox-driver/
-COPY apps/api/package.json ./apps/api/
-COPY apps/web/package.json ./apps/web/
-COPY apps/worker/package.json ./apps/worker/
+# Copy repository source files (filtered by .dockerignore)
+COPY . .
 
-# Install workspace dependencies
-RUN pnpm install --frozen-lockfile
+# Install workspace dependencies (using --no-frozen-lockfile to allow Linux platform bindings)
+RUN pnpm install --no-frozen-lockfile
 
-# Copy Prisma schema and generate Prisma client
-COPY packages/database/prisma ./packages/database/prisma
+# Generate Prisma client for Linux container
 RUN pnpm --filter @nirmaanify/database generate
 
-# Copy package source codes
-COPY packages/ ./packages/
-
-# Copy API application source code
-COPY apps/api/ ./apps/api/
-
-# Build internal shared packages and API application
+# Build shared workspace packages and API application
 RUN pnpm --filter @nirmaanify/types build
 RUN pnpm --filter @nirmaanify/database build
 RUN pnpm --filter @nirmaanify/plugin-sdk build
 RUN pnpm --filter @nirmaanify/sandbox-driver build
 RUN pnpm --filter api build
 
-# Copy entrypoint script
+# Setup entrypoint script
 COPY infrastructure/docker/entrypoint-api.sh /usr/local/bin/entrypoint-api.sh
 RUN chmod +x /usr/local/bin/entrypoint-api.sh
 
