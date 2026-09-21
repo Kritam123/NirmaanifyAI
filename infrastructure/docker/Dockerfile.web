@@ -1,10 +1,52 @@
 FROM node:20-alpine AS base
-RUN npm install -g pnpm
+RUN apk add --no-cache libc6-compat curl
+RUN npm install -g pnpm@11.21.0 turbo
 
 WORKDIR /app
-COPY . .
+
+# Copy root workspace configurations
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+
+# Copy all package manifests for caching
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY packages/database/package.json ./packages/database/
+COPY packages/design-tokens/package.json ./packages/design-tokens/
+COPY packages/icons/package.json ./packages/icons/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/api-client/package.json ./packages/api-client/
+COPY packages/plugin-sdk/package.json ./packages/plugin-sdk/
+COPY packages/sandbox-driver/package.json ./packages/sandbox-driver/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY apps/worker/package.json ./apps/worker/
+
+# Install dependencies
 RUN pnpm install --frozen-lockfile
+
+# Generate Prisma client for shared database package
+COPY packages/database/prisma ./packages/database/prisma
+RUN pnpm --filter @nirmaanify/database generate
+
+# Copy all packages and web app
+COPY packages/ ./packages/
+COPY apps/web/ ./apps/web/
+
+# Build internal dependencies
+RUN pnpm --filter @nirmaanify/types build
+RUN pnpm --filter @nirmaanify/database build
+RUN pnpm --filter @nirmaanify/api-client build
+
+# Build arguments for Next.js public variables
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/v1}
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Build Next.js application
 RUN pnpm --filter web build
 
 EXPOSE 3000
+
 CMD ["pnpm", "--filter", "web", "start"]

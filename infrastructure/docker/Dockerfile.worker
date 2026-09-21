@@ -1,9 +1,42 @@
 FROM node:20-alpine AS base
-RUN npm install -g pnpm
+RUN apk add --no-cache libc6-compat openssl curl
+RUN npm install -g pnpm@11.21.0 turbo
 
 WORKDIR /app
-COPY . .
+
+# Copy root workspace configurations
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+
+# Copy all package manifests for caching
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY packages/database/package.json ./packages/database/
+COPY packages/design-tokens/package.json ./packages/design-tokens/
+COPY packages/icons/package.json ./packages/icons/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/api-client/package.json ./packages/api-client/
+COPY packages/plugin-sdk/package.json ./packages/plugin-sdk/
+COPY packages/sandbox-driver/package.json ./packages/sandbox-driver/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY apps/worker/package.json ./apps/worker/
+
+# Install dependencies
 RUN pnpm install --frozen-lockfile
+
+# Generate Prisma client
+COPY packages/database/prisma ./packages/database/prisma
+RUN pnpm --filter @nirmaanify/database generate
+
+# Copy package sources and worker app
+COPY packages/ ./packages/
+COPY apps/worker/ ./apps/worker/
+
+# Build internal packages and worker
+RUN pnpm --filter @nirmaanify/types build
+RUN pnpm --filter @nirmaanify/database build
 RUN pnpm --filter worker build
+
+ENV NODE_ENV=production
 
 CMD ["pnpm", "--filter", "worker", "start"]
