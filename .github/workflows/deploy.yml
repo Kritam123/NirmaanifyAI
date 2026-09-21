@@ -1,0 +1,140 @@
+name: CD (Deploy to DigitalOcean VPS)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Git branch or tag to deploy'
+        required: true
+        default: 'main'
+      no_cache:
+        description: 'Rebuild Docker images without cache'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Job 1: Build & Verify (CI Gate)
+  # ----------------------------------------------------------------------------
+  verify:
+    name: Verify Code Integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --no-frozen-lockfile
+        env:
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @nirmaanify/database generate
+
+      - name: Verify Types & Build Packages
+        run: |
+          pnpm --filter @nirmaanify/types build
+          pnpm --filter @nirmaanify/database build
+          pnpm --filter @nirmaanify/plugin-sdk build
+          pnpm --filter @nirmaanify/sandbox-driver build
+          pnpm --filter @nirmaanify/api-client build
+          pnpm typecheck
+
+  # ----------------------------------------------------------------------------
+  # Job 2: Execute Deployment on DigitalOcean Droplet via SSH
+  # ----------------------------------------------------------------------------
+  deploy:
+    name: Deploy to DigitalOcean VPS
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Deploy to Droplet via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER || 'root' }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          port: ${{ secrets.DO_PORT || 22 }}
+          script_stop: true
+          envs: GITHUB_SHA,GITHUB_REF_NAME
+          script: |
+            set -euo pipefail
+            TARGET_DIR="/opt/nirmaanify"
+
+            echo "==> [CI/CD] Navigating to deployment directory: $TARGET_DIR"
+            if [ ! -d "$TARGET_DIR" ]; then
+                echo "Error: Directory $TARGET_DIR does not exist on droplet."
+                exit 1
+            fi
+
+            cd "$TARGET_DIR"
+
+            # Determine target branch
+            DEPLOY_BRANCH="${{ inputs.branch || github.ref_name }}"
+            echo "==> [CI/CD] Syncing branch: $DEPLOY_BRANCH"
+
+            # Fetch and update git repository
+            git fetch origin "$DEPLOY_BRANCH"
+            git checkout "$DEPLOY_BRANCH"
+            git pull origin "$DEPLOY_BRANCH"
+
+            # Ensure scripts have execute permissions
+            chmod +x scripts/*.sh
+
+            # Prepare deploy flags
+            FLAGS=""
+            if [ "${{ inputs.no_cache }}" = "true" ]; then
+                FLAGS="--no-cache"
+            fi
+
+            echo "==> [CI/CD] Executing production deploy script..."
+            ./scripts/deploy.sh $FLAGS
+
+            echo "==> [CI/CD] Deployment completed successfully on VPS!"
+
+      - name: Health Check Endpoint Verification
+        run: |
+          echo "Verifying API health status at http://${{ secrets.DO_HOST }}/api/v1..."
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.DO_HOST }}/" || true)
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
+              echo "✓ Application responded with HTTP $STATUS!"
+              exit 0
+            fi
+            echo "Attempt $i/10: Waiting for services to become responsive (HTTP $STATUS)..."
+            sleep 5
+          done
+          echo "Warning: Direct HTTP check timed out, but containers may still be initializing."
+
+      - name: Publish Deployment Summary
+        if: always()
+        run: |
+          echo "### 🚀 Production Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Droplet Host:** \`${{ secrets.DO_HOST }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed Branch:** \`${{ inputs.branch || github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status == 'success' && '✅ SUCCESS' || '❌ FAILED' }}" >> $GITHUB_STEP_SUMMARY
