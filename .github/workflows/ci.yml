@@ -1,0 +1,67 @@
+name: CI (Code Quality & Build)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint, Typecheck & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install Workspace Dependencies
+        run: pnpm install --no-frozen-lockfile
+        env:
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @nirmaanify/database generate
+
+      - name: Build Internal Packages
+        run: |
+          pnpm --filter @nirmaanify/types build
+          pnpm --filter @nirmaanify/database build
+          pnpm --filter @nirmaanify/plugin-sdk build
+          pnpm --filter @nirmaanify/sandbox-driver build
+          pnpm --filter @nirmaanify/api-client build
+
+      - name: Run Typecheck
+        run: pnpm typecheck
+
+      - name: Run Lint
+        run: pnpm lint
+
+      - name: Build All Applications
+        run: pnpm build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          NODE_ENV: "production"
+          NEXT_PUBLIC_API_URL: "/api/v1"
