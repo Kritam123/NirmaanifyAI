@@ -68,6 +68,7 @@ jobs:
           host: ${{ secrets.DO_HOST }}
           username: ${{ secrets.DO_USER || 'root' }}
           key: ${{ secrets.DO_SSH_KEY }}
+          passphrase: ${{ secrets.DO_SSH_PASSPHRASE }}
           port: ${{ secrets.DO_PORT || 22 }}
           script_stop: true
           envs: GITHUB_SHA,GITHUB_REF_NAME
