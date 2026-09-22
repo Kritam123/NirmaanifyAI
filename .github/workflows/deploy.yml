@@ -132,6 +132,15 @@ jobs:
                 FLAGS="--no-cache"
             fi
 
+            # Reclaim host disk space before building containers (ENOSPC prevention)
+            echo "==> [CI/CD] Purging stale Docker build caches and system logs..."
+            docker builder prune -af 2>/dev/null || true
+            docker system prune -f 2>/dev/null || true
+            journalctl --vacuum-size=50M 2>/dev/null || true
+            apt-get clean 2>/dev/null || true
+            echo "==> [CI/CD] VPS Available Disk Space:"
+            df -h /
+
             echo "==> [CI/CD] Executing production deploy script..."
             export CI=true
             ./scripts/deploy.sh $FLAGS

@@ -11,8 +11,8 @@ ENV NODE_OPTIONS="--max-old-space-size=1024"
 # Copy repository source files (filtered by .dockerignore)
 COPY . .
 
-# Install dependencies (using --no-frozen-lockfile for cross-platform compatibility)
-RUN pnpm install --no-frozen-lockfile
+# Install workspace dependencies for worker and its dependencies only
+RUN pnpm --filter worker... install --no-frozen-lockfile && pnpm store prune
 
 # Generate Prisma client
 RUN pnpm --filter @nirmaanify/database generate

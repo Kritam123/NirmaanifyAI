@@ -140,10 +140,12 @@ set -a
 [ -f .env ] && . ./.env
 set +a
 
-# Pre-build cleanup: prune dangling builder cache to guarantee available disk space
-echo -e "${CYAN}Pruning stale Docker build cache to prevent disk exhaustion (ENOSPC)...${NC}"
-docker builder prune -f 2>/dev/null || true
-docker image prune -f 2>/dev/null || true
+# Pre-build cleanup: aggressively prune all unused builder cache to prevent ENOSPC
+echo -e "${CYAN}Purging unused Docker build cache and dangling images...${NC}"
+docker builder prune -af 2>/dev/null || true
+docker image prune -af 2>/dev/null || true
+echo -e "${CYAN}Current VPS disk space available for build:${NC}"
+df -h /
 
 # Build images sequentially to prevent memory exhaustion / OOM killer on VPS
 echo -e "${CYAN}Building API service image...${NC}"

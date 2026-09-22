@@ -11,8 +11,8 @@ ENV NODE_OPTIONS="--max-old-space-size=1536"
 # Copy repository source files (filtered by .dockerignore)
 COPY . .
 
-# Install workspace dependencies (using --no-frozen-lockfile for cross-platform compatibility)
-RUN pnpm install --no-frozen-lockfile
+# Install workspace dependencies for web and its dependencies only
+RUN pnpm --filter web... install --no-frozen-lockfile && pnpm store prune
 
 # Generate Prisma client for shared database package
 RUN pnpm --filter @nirmaanify/database generate
