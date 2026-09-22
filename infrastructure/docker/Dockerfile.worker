@@ -8,8 +8,12 @@ WORKDIR /app
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
 ENV NODE_OPTIONS="--max-old-space-size=1024"
 
-# Copy repository source files (filtered by .dockerignore)
-COPY . .
+# Copy workspace definitions
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+
+# Copy internal packages and only the worker application (apps/web is excluded!)
+COPY packages ./packages
+COPY apps/worker ./apps/worker
 
 # Install workspace dependencies for worker and its dependencies only
 RUN pnpm --filter worker... install --no-frozen-lockfile && pnpm store prune

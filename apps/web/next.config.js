@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   transpilePackages: [
     '@nirmaanify/api-client',
     '@nirmaanify/ui',
