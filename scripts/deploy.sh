@@ -100,10 +100,12 @@ fi
 if grep -q "replace_with_" .env; then
     echo -e "${YELLOW}[WARNING] Found placeholder values (replace_with_...) in .env!${NC}"
     echo -e "${YELLOW}Please replace all secrets with strong values for production safety.${NC}"
-    read -rp "Do you still want to proceed with deployment? (y/N): " CONTINUE_WITH_PLACEHOLDERS
-    if [[ ! "$CONTINUE_WITH_PLACEHOLDERS" =~ ^[Yy]$ ]]; then
-        echo "Aborting deployment. Please edit .env."
-        exit 1
+    if [ -t 0 ] && [ "${CI:-false}" != "true" ]; then
+        read -rp "Do you still want to proceed with deployment? (y/N): " CONTINUE_WITH_PLACEHOLDERS
+        if [[ ! "$CONTINUE_WITH_PLACEHOLDERS" =~ ^[Yy]$ ]]; then
+            echo "Aborting deployment. Please edit .env."
+            exit 1
+        fi
     fi
 fi
 

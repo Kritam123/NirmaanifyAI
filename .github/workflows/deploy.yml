@@ -74,24 +74,50 @@ jobs:
           envs: GITHUB_SHA,GITHUB_REF_NAME
           script: |
             set -euo pipefail
-            TARGET_DIR="${{ secrets.DO_TARGET_DIR || '/opt/apps/NirmaanifyAI' }}"
+            TARGET_DIR="${{ secrets.DO_TARGET_DIR || '' }}"
+            if [ -z "$TARGET_DIR" ]; then
+                if [ -d "/opt/nirmaanify" ]; then
+                    TARGET_DIR="/opt/nirmaanify"
+                elif [ -d "/opt/apps/NirmaanifyAI" ]; then
+                    TARGET_DIR="/opt/apps/NirmaanifyAI"
+                else
+                    TARGET_DIR="/opt/nirmaanify"
+                fi
+            fi
 
-            echo "==> [CI/CD] Navigating to deployment directory: $TARGET_DIR"
+            DEPLOY_BRANCH="${{ inputs.branch || github.ref_name }}"
+
+            echo "==> [CI/CD] Deployment directory: $TARGET_DIR"
             if [ ! -d "$TARGET_DIR" ]; then
-                echo "Error: Directory $TARGET_DIR does not exist on droplet."
-                echo "Please perform initial VPS setup on the droplet first:"
-                echo "  git clone <REPO_URL> $TARGET_DIR"
-                echo "  cd $TARGET_DIR && cp .env.production.example .env && sudo ./scripts/setup-vps.sh"
-                exit 1
+                echo "==> [CI/CD] Directory $TARGET_DIR does not exist. Auto-initializing repository on VPS..."
+                mkdir -p "$(dirname "$TARGET_DIR")"
+                git clone --branch "$DEPLOY_BRANCH" "https://github.com/${{ github.repository }}.git" "$TARGET_DIR" || \
+                git clone "https://github.com/${{ github.repository }}.git" "$TARGET_DIR"
             fi
 
             cd "$TARGET_DIR"
 
-            # Determine target branch
-            DEPLOY_BRANCH="${{ inputs.branch || github.ref_name }}"
-            echo "==> [CI/CD] Syncing branch: $DEPLOY_BRANCH"
+            # Check if Docker is installed; if not, execute automated VPS setup
+            if ! command -v docker &> /dev/null; then
+                echo "==> [CI/CD] Docker not detected on VPS. Running provisioning script..."
+                chmod +x scripts/*.sh
+                ./scripts/setup-vps.sh
+            fi
 
-            # Fetch and update git repository
+            # Check if .env exists; if not, bootstrap from template with secure keys
+            if [ ! -f .env ] && [ -f .env.production.example ]; then
+                echo "==> [CI/CD] Initializing .env configuration from template..."
+                cp .env.production.example .env
+                POSTGRES_PASS=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9')
+                JWT_SEC=$(openssl rand -hex 32)
+                AUTH_SEC=$(openssl rand -hex 32)
+                sed -i "s/replace_with_secure_postgres_password_min_32_chars/$POSTGRES_PASS/g" .env
+                sed -i "s/replace_with_super_secret_production_jwt_key_min_32_chars/$JWT_SEC/g" .env
+                sed -i "s/replace_with_random_32_character_string/$AUTH_SEC/g" .env
+                sed -i "s/replace_with_minio_root_password_min_16_chars/$POSTGRES_PASS/g" .env
+            fi
+
+            echo "==> [CI/CD] Syncing branch: $DEPLOY_BRANCH"
             git fetch origin "$DEPLOY_BRANCH"
             git checkout "$DEPLOY_BRANCH"
             git pull origin "$DEPLOY_BRANCH"
@@ -106,6 +132,7 @@ jobs:
             fi
 
             echo "==> [CI/CD] Executing production deploy script..."
+            export CI=true
             ./scripts/deploy.sh $FLAGS
 
             echo "==> [CI/CD] Deployment completed successfully on VPS!"
