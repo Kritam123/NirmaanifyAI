@@ -120,7 +120,8 @@ jobs:
             echo "==> [CI/CD] Syncing branch: $DEPLOY_BRANCH"
             git fetch origin "$DEPLOY_BRANCH"
             git checkout "$DEPLOY_BRANCH"
-            git pull origin "$DEPLOY_BRANCH"
+            git reset --hard "origin/$DEPLOY_BRANCH"
+            git clean -fd -e .env -e backups
 
             # Ensure scripts have execute permissions
             chmod +x scripts/*.sh
