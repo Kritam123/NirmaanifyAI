@@ -140,7 +140,15 @@ set -a
 [ -f .env ] && . ./.env
 set +a
 
-docker compose -f "$COMPOSE_FILE" build $NO_CACHE --parallel api web worker
+# Build images sequentially to prevent memory exhaustion / OOM killer on VPS
+echo -e "${CYAN}Building API service image...${NC}"
+docker compose -f "$COMPOSE_FILE" build $NO_CACHE api
+
+echo -e "${CYAN}Building Worker service image...${NC}"
+docker compose -f "$COMPOSE_FILE" build $NO_CACHE worker
+
+echo -e "${CYAN}Building Web frontend image...${NC}"
+docker compose -f "$COMPOSE_FILE" build $NO_CACHE web
 
 echo -e "${GREEN}✓ Docker images built successfully.${NC}"
 
