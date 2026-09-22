@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Prevent Prisma from running generate prematurely during pnpm install
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 # Copy repository source files (filtered by .dockerignore)
 COPY . .
