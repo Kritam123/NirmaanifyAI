@@ -5,17 +5,23 @@
 
 # Dependencies
 node_modules
-*/node_modules
-*/*/node_modules
+**/node_modules
 .pnpm-store
+**/.pnpm-store
 
 # Turbo & Build Outputs
 .turbo
+**/.turbo
 .next
+**/.next
 dist
+**/dist
 build
+**/build
 out
+**/out
 *.tsbuildinfo
+**/*.tsbuildinfo
 
 # Environment & Local Configuration
 .env
