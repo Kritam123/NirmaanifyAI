@@ -18,17 +18,17 @@ on:
         default: false
 
 concurrency:
-  group: production-deployment
+  group: nirmaanify-single-runner
   cancel-in-progress: false
 
 jobs:
   # ----------------------------------------------------------------------------
-  # Job 1: Build & Verify (CI Gate)
+  # Single Runner: Build Verification Gate & VPS Deployment (Strictly Sequential)
   # ----------------------------------------------------------------------------
-  verify:
-    name: Verify Code Integrity
+  deploy:
+    name: Build, Verify & Deploy to DigitalOcean VPS
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - name: Checkout Code
@@ -48,7 +48,7 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --no-frozen-lockfile
         env:
-          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+          PRISMA_SKIP_POSTINSTALL_GENERATE: '1'
 
       - name: Generate Prisma Client
         run: pnpm --filter @nirmaanify/database generate
@@ -62,16 +62,6 @@ jobs:
           pnpm --filter @nirmaanify/api-client build
           pnpm typecheck
 
-  # ----------------------------------------------------------------------------
-  # Job 2: Execute Deployment on DigitalOcean Droplet via SSH
-  # ----------------------------------------------------------------------------
-  deploy:
-    name: Deploy to DigitalOcean VPS
-    needs: verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
       - name: Deploy to Droplet via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:

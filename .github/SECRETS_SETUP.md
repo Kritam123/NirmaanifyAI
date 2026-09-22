@@ -1,6 +1,6 @@
-# GitHub Actions CI/CD Secrets Setup Guide
+# GitHub Actions CI/CD Secrets Setup & Concurrency Guide
 
-To enable automated Continuous Deployment (CD) from GitHub directly to your DigitalOcean VPS, you need to configure 3 repository secrets in GitHub.
+To enable automated Continuous Deployment (CD) from GitHub directly to your DigitalOcean VPS, you need to configure repository secrets in GitHub.
 
 ---
 
@@ -48,23 +48,25 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f ./id_deploy -N ""
 
 ---
 
-## 4. How the CI/CD Pipeline Operates
+## 4. Pipeline Concurrency & Execution Priority
+
+The CI/CD pipeline enforces **strict single-runner execution** (`concurrency.group: nirmaanify-single-runner`) to ensure no concurrent runners execute at any time.
 
 ```mermaid
-flowchart LR
-    A["Push / PR to GitHub"] --> B["CI Workflow\n(Lint, Typecheck, Build)"]
-    B -->|Passed| C{"Branch == main?"}
-    C -->|Yes| D["CD Workflow\n(SSH into Droplet)"]
-    C -->|No| E["Done (Checks Passed)"]
-    D --> F["Git Pull & scripts/deploy.sh"]
-    F --> G["Health Check Verified & Live! 🚀"]
+flowchart TD
+    subgraph PR_Phase["1. Pull Request (Highest Priority)"]
+        PR["Open / Update PR"] --> CI["CI Runner: Lint, Typecheck, Build\n(cancel-in-progress: true)"]
+        CI --> Passed["Checks Pass & PR Approved"]
+    end
+
+    subgraph Merge_Phase["2. Main Branch After Merge (Sequential Deployment)"]
+        Passed --> Merge["Merge PR into main"]
+        Merge --> CD["Deploy Runner: Verify Gate + SSH Deploy + Health Check\n(cancel-in-progress: false)"]
+        CD --> Live["Live on DigitalOcean VPS! 🚀"]
+    end
 ```
 
-### Automatic Trigger:
-- Every `git push` to `main` or `master` will run tests, verify builds, SSH into your Droplet, pull the latest code, build Docker containers, sync database schemas, and reload the platform with zero downtime!
-
-### Manual Trigger:
-- You can manually trigger a deployment to any branch at any time from GitHub:
-  1. Go to **Actions** tab in your repository.
-  2. Select **CD (Deploy to DigitalOcean VPS)**.
-  3. Click **Run workflow** and choose your branch.
+### Key Principles:
+1. **Single Runner Across Repository**: Both `ci.yml` and `deploy.yml` share the concurrency group `nirmaanify-single-runner`. GitHub guarantees that at most **one runner** executes at any time.
+2. **PR Priority**: Pull requests have immediate priority for code quality checks. When new commits are pushed to a PR, any previous in-progress run is superseded (`cancel-in-progress: true`) so developers receive rapid feedback.
+3. **Deployment After Merge**: The CD deployment workflow only triggers on `push` to `main` (after a PR is merged) or manual `workflow_dispatch`. It runs strictly on **one runner** from verification to droplet rollout, and queues safely (`cancel-in-progress: false`) to prevent deployment collisions.

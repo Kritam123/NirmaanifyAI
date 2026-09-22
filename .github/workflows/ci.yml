@@ -1,19 +1,13 @@
-name: CI (Code Quality & Build)
+name: CI (PR Code Quality & Build)
 
 on:
-  push:
-    branches:
-      - main
-      - master
-      - 'feat/**'
-      - 'fix/**'
   pull_request:
     branches:
       - main
       - master
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: nirmaanify-single-runner
   cancel-in-progress: true
 
 jobs:
@@ -40,7 +34,7 @@ jobs:
       - name: Install Workspace Dependencies
         run: pnpm install --no-frozen-lockfile
         env:
-          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+          PRISMA_SKIP_POSTINSTALL_GENERATE: '1'
 
       - name: Generate Prisma Client
         run: pnpm --filter @nirmaanify/database generate
@@ -62,6 +56,6 @@ jobs:
       - name: Build All Applications
         run: pnpm build
         env:
-          NEXT_TELEMETRY_DISABLED: "1"
-          NODE_ENV: "production"
-          NEXT_PUBLIC_API_URL: "/api/v1"
+          NEXT_TELEMETRY_DISABLED: '1'
+          NODE_ENV: 'production'
+          NEXT_PUBLIC_API_URL: '/api/v1'
