@@ -24,8 +24,6 @@ RUN pnpm --filter @nirmaanify/database generate
 # Build shared workspace packages and API application
 RUN pnpm --filter @nirmaanify/types build
 RUN pnpm --filter @nirmaanify/database build
-RUN pnpm --filter @nirmaanify/plugin-sdk build
-RUN pnpm --filter @nirmaanify/sandbox-driver build
 RUN pnpm --filter api build
 
 # Setup entrypoint script
