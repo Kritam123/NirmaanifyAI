@@ -28,4 +28,9 @@ RUN pnpm --filter worker build
 
 ENV NODE_ENV=production
 
+# Setup entrypoint script
+COPY infrastructure/docker/entrypoint-worker.sh /usr/local/bin/entrypoint-worker.sh
+RUN chmod +x /usr/local/bin/entrypoint-worker.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint-worker.sh"]
 CMD ["pnpm", "--filter", "worker", "start"]
