@@ -271,13 +271,6 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
                 <Palette className="h-3.5 w-3.5 text-slate-400" />
               </div>
 
-              {/* Permanent Dark Theme Indicator */}
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141724] border border-[#24293D]">
-                <span className="font-medium text-slate-300">Canvas Theme</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1A1E2E] border border-[#2E354F] text-[#635BFF] font-bold">
-                  Dark Mode (Permanent)
-                </span>
-              </div>
 
               {/* Grid Toggle */}
               <div className="flex items-center justify-between">
