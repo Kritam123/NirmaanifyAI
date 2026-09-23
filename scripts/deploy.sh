@@ -140,6 +140,22 @@ set -a
 [ -f .env ] && . ./.env
 set +a
 
+# Normalize DATABASE_URL and REDIS_HOST for Docker container deployment if localhost was specified
+if [ -n "${DATABASE_URL:-}" ]; then
+    case "$DATABASE_URL" in
+        *@localhost:*|*@127.0.0.1:*|*@localhost/*|*@127.0.0.1/*|*@localhost\?*|*@127.0.0.1\?*)
+            echo -e "${YELLOW}[NOTICE] DATABASE_URL points to localhost. Translating to 'postgres' container host for Docker deployment...${NC}"
+            export DATABASE_URL=$(printf '%s\n' "$DATABASE_URL" | sed -E 's/@(localhost|127\.0\.0\.1)([:/?]|$)/@postgres\2/g')
+            sed -i.bak -E 's/@(localhost|127\.0\.0\.1)([:/?]|$)/@postgres\2/g' .env 2>/dev/null || true
+            rm -f .env.bak 2>/dev/null || true
+            ;;
+    esac
+fi
+
+if [ "${REDIS_HOST:-}" = "localhost" ] || [ "${REDIS_HOST:-}" = "127.0.0.1" ]; then
+    export REDIS_HOST="redis"
+fi
+
 # Pre-build cleanup: aggressively prune all unused builder cache to prevent ENOSPC
 echo -e "${CYAN}Purging unused Docker build cache and dangling images...${NC}"
 docker builder prune -af 2>/dev/null || true

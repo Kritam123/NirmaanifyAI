@@ -112,10 +112,16 @@ jobs:
                 POSTGRES_PASS=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9')
                 JWT_SEC=$(openssl rand -hex 32)
                 AUTH_SEC=$(openssl rand -hex 32)
-                sed -i "s/replace_with_secure_postgres_password_min_32_chars/$POSTGRES_PASS/g" .env
-                sed -i "s/replace_with_super_secret_production_jwt_key_min_32_chars/$JWT_SEC/g" .env
-                sed -i "s/replace_with_random_32_character_string/$AUTH_SEC/g" .env
-                sed -i "s/replace_with_minio_root_password_min_16_chars/$POSTGRES_PASS/g" .env
+                sed -i "s/replace_with_strong_db_password_32chars/$POSTGRES_PASS/g" .env
+                sed -i "s/replace_with_random_jwt_secret_hex_32_characters/$JWT_SEC/g" .env
+                sed -i "s/replace_with_random_auth_secret_hex_32_characters/$AUTH_SEC/g" .env
+                sed -i "s/replace_with_strong_minio_password_32chars/$POSTGRES_PASS/g" .env
+                sed -i "s/replace_with_strong_redis_password_32chars/$POSTGRES_PASS/g" .env
+            fi
+
+            # Ensure .env does not point database to localhost inside Docker
+            if [ -f .env ]; then
+                sed -i -E 's/@(localhost|127\.0\.0\.1)([:/?]|$)/@postgres\2/g' .env
             fi
 
             echo "==> [CI/CD] Syncing branch: $DEPLOY_BRANCH"
