@@ -105,3 +105,18 @@ body {
     background: rgba(99, 91, 255, 0.7);
   }
 }
+
+/* React Flow marquee drag-selection box styling */
+.react-flow__selection {
+  background-color: rgba(99, 91, 255, 0.16) !important;
+  border: 1.5px dashed #635bff !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 16px rgba(99, 91, 255, 0.25) !important;
+  pointer-events: none !important;
+}
+
+.react-flow__nodesselection-rect {
+  border: 1.5px dashed #635bff !important;
+  background-color: rgba(99, 91, 255, 0.1) !important;
+  border-radius: 6px !important;
+}

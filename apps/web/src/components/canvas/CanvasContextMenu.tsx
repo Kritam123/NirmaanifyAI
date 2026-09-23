@@ -11,6 +11,8 @@ import {
   Undo2,
   Redo2,
   Eye,
+  PanelLeft,
+  PanelRight,
 } from 'lucide-react';
 import { CanvasNode, CanvasEdge } from '@nirmaanify/types';
 
@@ -38,6 +40,10 @@ interface CanvasContextMenuProps {
   onRedo?: () => void;
   onTogglePreviewMode?: () => void;
   onToggleFullscreen?: () => void;
+  isLeftSidebarOpen?: boolean;
+  onToggleLeftSidebar?: () => void;
+  isRightSidebarOpen?: boolean;
+  onToggleRightSidebar?: () => void;
 }
 
 export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
@@ -56,6 +62,10 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
   onRedo,
   onTogglePreviewMode,
   onToggleFullscreen,
+  isLeftSidebarOpen = true,
+  onToggleLeftSidebar,
+  isRightSidebarOpen = true,
+  onToggleRightSidebar,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -270,6 +280,45 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
               </div>
               <span className="text-[10px] text-slate-500 font-mono">F11</span>
             </button>
+          )}
+
+          {(onToggleLeftSidebar || onToggleRightSidebar) && (
+            <>
+              <div className="h-px bg-[#1E2337] my-1" />
+              {onToggleLeftSidebar && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleLeftSidebar();
+                    onClose();
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <PanelLeft className="h-3.5 w-3.5 text-slate-400" />
+                    <span>{isLeftSidebarOpen ? 'Hide Stencils Sidebar' : 'Show Stencils Sidebar'}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">[</span>
+                </button>
+              )}
+
+              {onToggleRightSidebar && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleRightSidebar();
+                    onClose();
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <PanelRight className="h-3.5 w-3.5 text-slate-400" />
+                    <span>{isRightSidebarOpen ? 'Hide Inspector Sidebar' : 'Show Inspector Sidebar'}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">]</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

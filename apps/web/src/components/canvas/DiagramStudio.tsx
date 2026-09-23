@@ -16,6 +16,7 @@ import {
   Edge,
   Node,
   MarkerType,
+  SelectionMode,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
@@ -225,6 +226,18 @@ function DiagramCanvasInner({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Sidebar visibility states (controlled from Quick Dock & Context Menu)
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+
+  const handleToggleLeftSidebar = useCallback(() => {
+    setIsLeftSidebarOpen((prev) => !prev);
+  }, []);
+
+  const handleToggleRightSidebar = useCallback(() => {
+    setIsRightSidebarOpen((prev) => !prev);
+  }, []);
+
   // Sync browser fullscreen state
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -329,14 +342,18 @@ function DiagramCanvasInner({
     });
   }, [takeSnapshot, selectedNodeId, selectedEdgeId, nodes, edges, setNodes, setEdges, toast]);
 
-  // Duplicate a node
+  // Duplicate a node or multiple selected nodes
   const handleDuplicateNode = useCallback(
-    (nodeId: string) => {
-      const sourceNode = nodes.find((n) => n.id === nodeId);
-      if (!sourceNode) return;
+    (nodeId?: string) => {
+      let targetNodes = nodes.filter((n) => n.selected);
+      if (targetNodes.length === 0 && (nodeId || selectedNodeId)) {
+        const single = nodes.find((n) => n.id === (nodeId || selectedNodeId));
+        if (single) targetNodes = [single];
+      }
+      if (targetNodes.length === 0) return;
 
       takeSnapshot();
-      const newNode: Node = {
+      const newClonedNodes: Node[] = targetNodes.map((sourceNode) => ({
         ...sourceNode,
         id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         position: {
@@ -348,18 +365,21 @@ function DiagramCanvasInner({
           ...sourceNode.data,
           label: `${sourceNode.data.label || 'Component'} (Copy)`,
         },
-      };
+      }));
 
-      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode as any]);
-      setSelectedNodeId(newNode.id);
+      setNodes((nds) => [
+        ...nds.map((n) => ({ ...n, selected: false })),
+        ...(newClonedNodes as any),
+      ]);
+      setSelectedNodeId(newClonedNodes[0].id);
 
       toast({
-        title: 'Component Duplicated',
-        description: `Created clone of "${sourceNode.data.label || 'Component'}".`,
+        title: `${newClonedNodes.length} Component${newClonedNodes.length > 1 ? 's' : ''} Duplicated`,
+        description: `Created clone of ${newClonedNodes.length > 1 ? `${newClonedNodes.length} components` : `"${targetNodes[0].data.label || 'Component'}"`}.`,
         type: 'success',
       });
     },
-    [takeSnapshot, nodes, setNodes, toast],
+    [takeSnapshot, nodes, selectedNodeId, setNodes, toast],
   );
 
   // Clear Canvas
@@ -508,12 +528,24 @@ function DiagramCanvasInner({
         }
       }
 
-      // Ctrl+D or Cmd+D: Duplicate selected component (disabled in preview mode)
+      // Ctrl+D or Cmd+D: Duplicate selected component(s) (disabled in preview mode)
       if (!isPreviewMode && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        if (selectedNodeId) {
+        if (selectedNodeId || nodes.some((n) => n.selected)) {
           e.preventDefault();
-          handleDuplicateNode(selectedNodeId);
+          handleDuplicateNode();
         }
+      }
+
+      // [ or Alt+[: Toggle Left Sidebar
+      if (!isPreviewMode && e.key === '[' && (e.altKey || (!e.ctrlKey && !e.metaKey))) {
+        e.preventDefault();
+        handleToggleLeftSidebar();
+      }
+
+      // ] or Alt+]: Toggle Right Sidebar
+      if (!isPreviewMode && e.key === ']' && (e.altKey || (!e.ctrlKey && !e.metaKey))) {
+        e.preventDefault();
+        handleToggleRightSidebar();
       }
 
       // Ctrl+Z or Cmd+Z: Undo (disabled in preview mode)
@@ -548,6 +580,8 @@ function DiagramCanvasInner({
     handleDuplicateNode,
     handleUndo,
     handleRedo,
+    handleToggleLeftSidebar,
+    handleToggleRightSidebar,
   ]);
 
   // Connect handler
@@ -581,6 +615,13 @@ function DiagramCanvasInner({
     () => (edges.find((e) => e.id === selectedEdgeId) as CanvasEdge) || null,
     [edges, selectedEdgeId],
   );
+
+  const totalSelectedCount = useMemo(() => {
+    const nodesCount = nodes.filter((n) => n.selected).length;
+    const edgesCount = edges.filter((e) => e.selected).length;
+    const directCount = (selectedNodeId ? 1 : 0) + (selectedEdgeId ? 1 : 0);
+    return Math.max(nodesCount + edgesCount, directCount);
+  }, [nodes, edges, selectedNodeId, selectedEdgeId]);
 
   // Node & Edge Data updates from Inspector
   const handleUpdateNodeData = useCallback(
@@ -855,8 +896,10 @@ function DiagramCanvasInner({
 
       {/* Main Studio Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Stencil Palette (hidden in presentation / preview mode) */}
-        {!isPreviewMode && <StencilSidebar />}
+        {/* Left Stencil Palette (hidden in presentation / preview mode, or when collapsed) */}
+        {!isPreviewMode && isLeftSidebarOpen && (
+          <StencilSidebar isOpen={isLeftSidebarOpen} onToggle={handleToggleLeftSidebar} />
+        )}
 
         {/* Center Vector Canvas */}
         <div className="flex-1 h-full relative" onDragOver={onDragOver} onDrop={onDrop}>
@@ -880,8 +923,11 @@ function DiagramCanvasInner({
             fitView
             minZoom={0.05}
             maxZoom={2.5}
-            panOnDrag={[0, 1, 2]}
+            panOnDrag={isPanMode || isPreviewMode ? [0, 1, 2] : [1, 2]}
             selectionOnDrag={!isPanMode && !isPreviewMode}
+            selectionMode={SelectionMode.Partial}
+            selectionKeyCode={null}
+            panActivationKeyCode="Space"
             deleteKeyCode={isPreviewMode ? [] : ['Backspace', 'Delete']}
             snapToGrid={canvasSettings.snapToGrid}
             snapGrid={[15, 15]}
@@ -913,10 +959,11 @@ function DiagramCanvasInner({
             <CanvasQuickDock
               isPanMode={isPanMode}
               onTogglePanMode={handleTogglePanMode}
-              hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
+              hasSelection={totalSelectedCount > 0}
+              selectedCount={totalSelectedCount}
               selectedType={selectedNodeId ? 'node' : selectedEdgeId ? 'edge' : null}
               onDeleteSelected={handleDeleteSelected}
-              onDuplicateSelected={() => selectedNodeId && handleDuplicateNode(selectedNodeId)}
+              onDuplicateSelected={() => handleDuplicateNode(selectedNodeId || undefined)}
               onAutoLayout={() => handleAutoLayout('LR')}
               onZoomIn={handleZoomIn}
               onZoomOut={handleZoomOut}
@@ -926,6 +973,10 @@ function DiagramCanvasInner({
               canRedo={canRedo}
               onUndo={handleUndo}
               onRedo={handleRedo}
+              isLeftSidebarOpen={isLeftSidebarOpen}
+              onToggleLeftSidebar={handleToggleLeftSidebar}
+              isRightSidebarOpen={isRightSidebarOpen}
+              onToggleRightSidebar={handleToggleRightSidebar}
             />
           )}
 
@@ -947,13 +998,19 @@ function DiagramCanvasInner({
               onRedo={handleRedo}
               onTogglePreviewMode={handleTogglePreviewMode}
               onToggleFullscreen={handleToggleFullscreen}
+              isLeftSidebarOpen={isLeftSidebarOpen}
+              onToggleLeftSidebar={handleToggleLeftSidebar}
+              isRightSidebarOpen={isRightSidebarOpen}
+              onToggleRightSidebar={handleToggleRightSidebar}
             />
           )}
         </div>
 
-        {/* Right Inspector & Eraser.io Markdown Sidecar (hidden in preview mode) */}
-        {!isPreviewMode && (
+        {/* Right Inspector & Eraser.io Markdown Sidecar (hidden in preview mode, or when collapsed) */}
+        {!isPreviewMode && isRightSidebarOpen && (
           <CanvasInspector
+            isOpen={isRightSidebarOpen}
+            onToggle={handleToggleRightSidebar}
             selectedNode={selectedNode}
             selectedEdge={selectedEdge}
             onUpdateNodeData={handleUpdateNodeData}

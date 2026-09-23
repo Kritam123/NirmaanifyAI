@@ -13,6 +13,10 @@ import {
   RotateCcw,
   Undo2,
   Redo2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 
 interface CanvasQuickDockProps {
@@ -20,6 +24,7 @@ interface CanvasQuickDockProps {
   onTogglePanMode: () => void;
   hasSelection: boolean;
   selectedType: 'node' | 'edge' | null;
+  selectedCount?: number;
   onDeleteSelected: () => void;
   onDuplicateSelected: () => void;
   onAutoLayout: () => void;
@@ -31,6 +36,10 @@ interface CanvasQuickDockProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  isLeftSidebarOpen: boolean;
+  onToggleLeftSidebar: () => void;
+  isRightSidebarOpen: boolean;
+  onToggleRightSidebar: () => void;
 }
 
 export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
@@ -38,6 +47,7 @@ export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
   onTogglePanMode,
   hasSelection,
   selectedType,
+  selectedCount = 0,
   onDeleteSelected,
   onDuplicateSelected,
   onAutoLayout,
@@ -49,9 +59,33 @@ export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
   canRedo,
   onUndo,
   onRedo,
+  isLeftSidebarOpen,
+  onToggleLeftSidebar,
+  isRightSidebarOpen,
+  onToggleRightSidebar,
 }) => {
   return (
     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 p-2 rounded-2xl bg-[#10121C]/95 backdrop-blur-md border border-[#2E354F] shadow-2xl select-none transition-all">
+      {/* Left Sidebar (Stencils) Collapse/Expand Toggle */}
+      <button
+        type="button"
+        onClick={onToggleLeftSidebar}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+          isLeftSidebarOpen
+            ? 'bg-[#141724] text-slate-200 border border-[#2E354F] hover:bg-[#1E2337] hover:text-white'
+            : 'bg-[#141724]/60 text-slate-500 border border-[#24293D] hover:text-slate-300 hover:bg-[#1E2337]'
+        }`}
+        title={isLeftSidebarOpen ? 'Collapse Left Sidebar (Stencils & Shapes)' : 'Expand Left Sidebar (Stencils & Shapes)'}
+      >
+        {isLeftSidebarOpen ? (
+          <PanelLeftClose className="h-3.5 w-3.5 text-indigo-400" />
+        ) : (
+          <PanelLeftOpen className="h-3.5 w-3.5 text-slate-400" />
+        )}
+        <span className="hidden xl:inline text-[11px]">{isLeftSidebarOpen ? 'Stencils' : 'Stencils'}</span>
+      </button>
+
+      <div className="h-4 w-px bg-[#2E354F] mx-0.5" />
       {/* Tool: Pointer vs Hand Pan */}
       <div className="flex items-center gap-0.5 bg-[#141724] p-0.5 rounded-xl border border-[#24293D]">
         <button
@@ -120,7 +154,7 @@ export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
 
       <div className="h-4 w-px bg-[#2E354F] mx-0.5" />
 
-      {/* Delete Action: Simple, clean, static (no glowing pulse or shadow) */}
+      {/* Delete Action: Simple, clean, static */}
       <button
         type="button"
         disabled={!hasSelection}
@@ -132,12 +166,14 @@ export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
         }`}
         title={
           hasSelection
-            ? `Delete Selected ${selectedType === 'node' ? 'Component' : 'Connection'} (Del / Backspace)`
+            ? selectedCount > 1
+              ? `Delete ${selectedCount} Selected Items (Del / Backspace)`
+              : `Delete Selected ${selectedType === 'node' ? 'Component' : 'Connection'} (Del / Backspace)`
             : 'Select any component or connection to delete (Del)'
         }
       >
         <Trash2 className={`h-3.5 w-3.5 ${hasSelection ? 'text-white' : 'text-red-400'}`} />
-        <span>Delete</span>
+        <span>{selectedCount > 1 ? `Delete (${selectedCount})` : 'Delete'}</span>
         <span
           className={`text-[10px] font-mono px-1 py-0.2 rounded font-bold ${
             hasSelection
@@ -152,20 +188,20 @@ export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
       {/* Duplicate / Clone Action */}
       <button
         type="button"
-        disabled={selectedType !== 'node'}
+        disabled={!hasSelection || selectedType !== 'node'}
         onClick={onDuplicateSelected}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-          selectedType === 'node'
+          hasSelection && selectedType === 'node'
             ? 'bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-500 shadow-sm'
             : 'text-slate-400 bg-[#141724] border border-[#2E354F] hover:bg-[#1E2337] hover:text-slate-200'
         }`}
-        title={selectedType === 'node' ? 'Duplicate Component (Ctrl+D)' : 'Select a component to duplicate (Ctrl+D)'}
+        title={hasSelection && selectedType === 'node' ? 'Duplicate Selected (Ctrl+D)' : 'Select a component to duplicate (Ctrl+D)'}
       >
-        <Copy className={`h-3.5 w-3.5 ${selectedType === 'node' ? 'text-white' : 'text-indigo-400'}`} />
+        <Copy className={`h-3.5 w-3.5 ${hasSelection && selectedType === 'node' ? 'text-white' : 'text-indigo-400'}`} />
         <span>Clone</span>
         <span
           className={`text-[10px] font-mono px-1 py-0.2 rounded font-bold ${
-            selectedType === 'node'
+            hasSelection && selectedType === 'node'
               ? 'bg-indigo-700 text-white'
               : 'bg-[#10121C] text-slate-400 border border-[#24293D]'
           }`}
@@ -226,6 +262,27 @@ export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
         title="Clear All Canvas Elements"
       >
         <RotateCcw className="h-4 w-4" />
+      </button>
+
+      <div className="h-4 w-px bg-[#2E354F] mx-0.5" />
+
+      {/* Right Sidebar (Inspector) Collapse/Expand Toggle */}
+      <button
+        type="button"
+        onClick={onToggleRightSidebar}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+          isRightSidebarOpen
+            ? 'bg-[#141724] text-slate-200 border border-[#2E354F] hover:bg-[#1E2337] hover:text-white'
+            : 'bg-[#141724]/60 text-slate-500 border border-[#24293D] hover:text-slate-300 hover:bg-[#1E2337]'
+        }`}
+        title={isRightSidebarOpen ? 'Collapse Right Sidebar (Inspector & Specs)' : 'Expand Right Sidebar (Inspector & Specs)'}
+      >
+        <span className="hidden xl:inline text-[11px]">{isRightSidebarOpen ? 'Inspector' : 'Inspector'}</span>
+        {isRightSidebarOpen ? (
+          <PanelRightClose className="h-3.5 w-3.5 text-indigo-400" />
+        ) : (
+          <PanelRightOpen className="h-3.5 w-3.5 text-slate-400" />
+        )}
       </button>
     </div>
   );
