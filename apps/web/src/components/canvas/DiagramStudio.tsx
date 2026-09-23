@@ -112,9 +112,6 @@ function DiagramCanvasInner({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
-  const [isZenMode, setIsZenMode] = useState(false);
   const [isPanMode, setIsPanMode] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
@@ -251,37 +248,6 @@ function DiagramCanvasInner({
     [reactFlowInstance, setNodes],
   );
 
-  // Toggle Zen Mode (Maximize Canvas: collapses both sidebars)
-  const handleToggleZenMode = useCallback(() => {
-    setIsZenMode((prev) => {
-      const next = !prev;
-      if (next) {
-        setIsLeftSidebarOpen(false);
-        setIsRightSidebarOpen(false);
-      } else {
-        setIsLeftSidebarOpen(true);
-        setIsRightSidebarOpen(true);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleToggleLeftSidebar = useCallback(() => {
-    setIsLeftSidebarOpen((prev) => {
-      const next = !prev;
-      if (next) setIsZenMode(false);
-      return next;
-    });
-  }, []);
-
-  const handleToggleRightSidebar = useCallback(() => {
-    setIsRightSidebarOpen((prev) => {
-      const next = !prev;
-      if (next) setIsZenMode(false);
-      return next;
-    });
-  }, []);
-
   const handleTogglePanMode = useCallback(() => {
     setIsPanMode((prev) => !prev);
   }, []);
@@ -351,18 +317,6 @@ function DiagramCanvasInner({
           handleDuplicateNode(selectedNodeId);
         }
       }
-
-      // Ctrl+[ : Toggle Left Stencils
-      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
-        e.preventDefault();
-        handleToggleLeftSidebar();
-      }
-
-      // Ctrl+] : Toggle Right Inspector
-      if ((e.ctrlKey || e.metaKey) && e.key === ']') {
-        e.preventDefault();
-        handleToggleRightSidebar();
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -374,8 +328,6 @@ function DiagramCanvasInner({
     edges,
     handleDeleteSelected,
     handleDuplicateNode,
-    handleToggleLeftSidebar,
-    handleToggleRightSidebar,
   ]);
 
   // Sync canvas when switching diagram tabs
@@ -647,7 +599,7 @@ function DiagramCanvasInner({
   }, [nodes, edges, toast]);
 
   return (
-    <div className="flex flex-col h-screen w-full overflow-hidden bg-slate-950 font-sans">
+    <div className="dark flex flex-col h-screen w-full overflow-hidden bg-[#090A0F] text-slate-100 font-sans select-none">
       {/* Top Navbar */}
       <CanvasTopbar
         diagram={currentDiagram}
@@ -663,23 +615,14 @@ function DiagramCanvasInner({
         isSaving={isSaving}
         onBackToProjects={onBackToProjects}
         projectName={project.name}
-        isLeftSidebarOpen={isLeftSidebarOpen}
-        onToggleLeftSidebar={handleToggleLeftSidebar}
-        isRightSidebarOpen={isRightSidebarOpen}
-        onToggleRightSidebar={handleToggleRightSidebar}
-        isZenMode={isZenMode}
-        onToggleZenMode={handleToggleZenMode}
         hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
         onDeleteSelected={handleDeleteSelected}
       />
 
       {/* Main Studio Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Stencil Palette (Collapsible) */}
-        <StencilSidebar
-          isOpen={isLeftSidebarOpen}
-          onToggle={handleToggleLeftSidebar}
-        />
+        {/* Left Stencil Palette (Permanent open, spacious) */}
+        <StencilSidebar />
 
         {/* Center Vector Canvas */}
         <div className="flex-1 h-full relative" onDragOver={onDragOver} onDrop={onDrop}>
@@ -717,7 +660,7 @@ function DiagramCanvasInner({
             <Controls className="!bg-[#141724] !border-[#24293D] !rounded-xl !shadow-lg [&>button]:!border-[#24293D] [&>button]:!text-slate-300 hover:[&>button]:!bg-[#1E2337]" />
             <MiniMap
               nodeColor="#635BFF"
-              maskColor="rgba(9, 10, 15, 0.8)"
+              maskColor="rgba(9, 10, 15, 0.85)"
               className="!bg-[#141724] !border-[#24293D] !rounded-xl !shadow-lg"
             />
           </ReactFlow>
@@ -734,12 +677,6 @@ function DiagramCanvasInner({
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
             onFitView={handleFitView}
-            isLeftSidebarOpen={isLeftSidebarOpen}
-            onToggleLeftSidebar={handleToggleLeftSidebar}
-            isRightSidebarOpen={isRightSidebarOpen}
-            onToggleRightSidebar={handleToggleRightSidebar}
-            isZenMode={isZenMode}
-            onToggleZenMode={handleToggleZenMode}
             onClearCanvas={handleClearCanvas}
           />
 
@@ -751,10 +688,7 @@ function DiagramCanvasInner({
               onDeleteNode={handleDeleteNode}
               onDeleteEdge={handleDeleteEdge}
               onDuplicateNode={handleDuplicateNode}
-              onOpenProperties={() => {
-                setIsRightSidebarOpen(true);
-                setIsZenMode(false);
-              }}
+              onOpenProperties={() => {}}
               onAutoLayout={() => handleAutoLayout('LR')}
               onFitView={handleFitView}
               onAddStickyNote={handleAddStickyNoteAt}
@@ -762,7 +696,7 @@ function DiagramCanvasInner({
           )}
         </div>
 
-        {/* Right Inspector & Eraser.io Markdown Sidecar (Collapsible) */}
+        {/* Right Inspector & Eraser.io Markdown Sidecar (Permanent open) */}
         <CanvasInspector
           selectedNode={selectedNode}
           selectedEdge={selectedEdge}
@@ -777,8 +711,6 @@ function DiagramCanvasInner({
           reviewResult={reviewResult}
           canvasSettings={canvasSettings}
           onUpdateSettings={setCanvasSettings}
-          isOpen={isRightSidebarOpen}
-          onToggle={handleToggleRightSidebar}
         />
       </div>
 

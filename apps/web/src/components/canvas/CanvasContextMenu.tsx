@@ -8,7 +8,6 @@ import {
   Zap,
   Maximize2,
   StickyNote,
-  X,
 } from 'lucide-react';
 import { CanvasNode, CanvasEdge } from '@nirmaanify/types';
 
@@ -73,11 +72,11 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
     <div
       ref={menuRef}
       style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
-      className="fixed z-50 min-w-[180px] rounded-xl border border-slate-200 dark:border-[#24293D] bg-white/95 dark:bg-[#141724]/95 backdrop-blur-md shadow-2xl p-1.5 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in zoom-in-95 duration-100 select-none"
+      className="fixed z-50 min-w-[190px] rounded-xl border border-[#2E354F] bg-[#141724]/95 backdrop-blur-md shadow-2xl p-1.5 text-xs text-slate-200 animate-in fade-in zoom-in-95 duration-100 select-none"
     >
       {menu.type === 'node' && menu.targetId && (
         <div className="space-y-0.5">
-          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-[#1E2337] mb-1">
+          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#1E2337] mb-1">
             Component Options
           </div>
           <button
@@ -86,7 +85,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
               onDuplicateNode(menu.targetId!);
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1E2337] text-left transition-colors"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
           >
             <Copy className="h-3.5 w-3.5 text-indigo-400" />
             <span>Duplicate Component</span>
@@ -97,21 +96,21 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
               onOpenProperties();
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1E2337] text-left transition-colors"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
           >
             <Sliders className="h-3.5 w-3.5 text-slate-400" />
             <span>Edit Properties</span>
           </button>
-          <div className="h-px bg-slate-100 dark:bg-[#1E2337] my-1" />
+          <div className="h-px bg-[#1E2337] my-1" />
           <button
             type="button"
             onClick={() => {
               onDeleteNode(menu.targetId!);
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 text-left font-medium transition-colors"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-950/40 text-red-400 text-left font-medium transition-colors"
           >
-            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+            <Trash2 className="h-3.5 w-3.5 text-red-400" />
             <span>Delete Component (Del)</span>
           </button>
         </div>
@@ -119,7 +118,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
 
       {menu.type === 'edge' && menu.targetId && (
         <div className="space-y-0.5">
-          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-[#1E2337] mb-1">
+          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#1E2337] mb-1">
             Connection Options
           </div>
           <button
@@ -128,21 +127,21 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
               onOpenProperties();
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1E2337] text-left transition-colors"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
           >
             <Sliders className="h-3.5 w-3.5 text-slate-400" />
             <span>Edit Connection</span>
           </button>
-          <div className="h-px bg-slate-100 dark:bg-[#1E2337] my-1" />
+          <div className="h-px bg-[#1E2337] my-1" />
           <button
             type="button"
             onClick={() => {
               onDeleteEdge(menu.targetId!);
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 text-left font-medium transition-colors"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-950/40 text-red-400 text-left font-medium transition-colors"
           >
-            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+            <Trash2 className="h-3.5 w-3.5 text-red-400" />
             <span>Delete Connection (Del)</span>
           </button>
         </div>
@@ -150,7 +149,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
 
       {menu.type === 'pane' && (
         <div className="space-y-0.5">
-          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-[#1E2337] mb-1">
+          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#1E2337] mb-1">
             Canvas Actions
           </div>
           <button
@@ -159,7 +158,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
               onAddStickyNote(menu.x, menu.y);
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1E2337] text-left transition-colors"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
           >
             <StickyNote className="h-3.5 w-3.5 text-amber-400" />
             <span>Add Sticky Note Here</span>
@@ -170,7 +169,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
               onAutoLayout();
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1E2337] text-left transition-colors"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
           >
             <Zap className="h-3.5 w-3.5 text-indigo-400" />
             <span>Auto-Layout (Dagre)</span>
@@ -181,7 +180,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
               onFitView();
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1E2337] text-left transition-colors"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
           >
             <Maximize2 className="h-3.5 w-3.5 text-emerald-400" />
             <span>Fit All to Canvas</span>
