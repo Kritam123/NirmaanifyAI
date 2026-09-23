@@ -13,6 +13,11 @@ import {
   ArrowLeft,
   Check,
   Share2,
+  Trash2,
+  Maximize2,
+  Minimize2,
+  PanelLeft,
+  PanelRight,
 } from 'lucide-react';
 import { DiagramDto } from '@nirmaanify/types';
 
@@ -30,6 +35,14 @@ interface CanvasTopbarProps {
   isSaving?: boolean;
   onBackToProjects: () => void;
   projectName: string;
+  isLeftSidebarOpen?: boolean;
+  onToggleLeftSidebar?: () => void;
+  isRightSidebarOpen?: boolean;
+  onToggleRightSidebar?: () => void;
+  isZenMode?: boolean;
+  onToggleZenMode?: () => void;
+  hasSelection?: boolean;
+  onDeleteSelected?: () => void;
 }
 
 export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
@@ -46,6 +59,14 @@ export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
   isSaving = false,
   onBackToProjects,
   projectName,
+  isLeftSidebarOpen = true,
+  onToggleLeftSidebar,
+  isRightSidebarOpen = true,
+  onToggleRightSidebar,
+  isZenMode = false,
+  onToggleZenMode,
+  hasSelection = false,
+  onDeleteSelected,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(diagram.name);
@@ -73,6 +94,22 @@ export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
+
+        {/* Toggle Stencils Sidebar */}
+        {onToggleLeftSidebar && (
+          <button
+            type="button"
+            onClick={onToggleLeftSidebar}
+            className={`p-1.5 rounded-lg border border-slate-200 dark:border-[#24293D] transition-colors ${
+              isLeftSidebarOpen
+                ? 'bg-slate-100 dark:bg-[#1A1E2E] text-[#635BFF]'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#141724]'
+            }`}
+            title={isLeftSidebarOpen ? 'Hide Stencils Palette' : 'Show Stencils Palette'}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+        )}
 
         {/* Project Breadcrumb & Inline Title */}
         <div className="flex items-center gap-1.5 min-w-0">
@@ -175,6 +212,19 @@ export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
           <History className="h-4 w-4" />
         </button>
 
+        {/* Delete Selected (when item is selected) */}
+        {hasSelection && onDeleteSelected && (
+          <button
+            type="button"
+            onClick={onDeleteSelected}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold shadow-sm transition-all animate-pulse"
+            title="Delete selected item (Del / Backspace)"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Delete</span>
+          </button>
+        )}
+
         {/* Export */}
         <button
           type="button"
@@ -185,6 +235,40 @@ export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
           <Download className="h-3.5 w-3.5" />
           <span className="hidden md:inline">Export</span>
         </button>
+
+        <div className="h-4 w-px bg-slate-200 dark:bg-[#24293D] mx-0.5" />
+
+        {/* Zen Mode: Maximize Canvas */}
+        {onToggleZenMode && (
+          <button
+            type="button"
+            onClick={onToggleZenMode}
+            className={`p-1.5 rounded-lg border border-slate-200 dark:border-[#24293D] transition-colors ${
+              isZenMode
+                ? 'bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#141724]'
+            }`}
+            title={isZenMode ? 'Exit Zen Mode (Restore Panels)' : 'Zen Mode: Maximize Canvas (Collapse Sidebars)'}
+          >
+            {isZenMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
+        )}
+
+        {/* Toggle Right Inspector */}
+        {onToggleRightSidebar && (
+          <button
+            type="button"
+            onClick={onToggleRightSidebar}
+            className={`p-1.5 rounded-lg border border-slate-200 dark:border-[#24293D] transition-colors ${
+              isRightSidebarOpen
+                ? 'bg-slate-100 dark:bg-[#1A1E2E] text-[#635BFF]'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#141724]'
+            }`}
+            title={isRightSidebarOpen ? 'Hide Properties & Specs' : 'Show Properties & Specs'}
+          >
+            <PanelRight className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </header>
   );

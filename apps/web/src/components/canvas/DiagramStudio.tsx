@@ -45,6 +45,8 @@ import { UmlEdge } from './edges/UmlEdge';
 import { StencilSidebar } from './sidebar/StencilSidebar';
 import { CanvasInspector } from './inspector/CanvasInspector';
 import { CanvasTopbar } from './topbar/CanvasTopbar';
+import { CanvasQuickDock } from './CanvasQuickDock';
+import { CanvasContextMenu, ContextMenuState } from './CanvasContextMenu';
 import { AiArchitectModal } from './ai/AiArchitectModal';
 import { ExportModal } from './export/ExportModal';
 import { RevisionHistoryModal } from './history/RevisionHistoryModal';
@@ -110,12 +112,271 @@ function DiagramCanvasInner({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [isPanMode, setIsPanMode] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewResult, setReviewResult] = useState<any>(null);
+
+  // Delete Node and any connected edges
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      if (selectedNodeId === nodeId) setSelectedNodeId(null);
+      toast({
+        title: 'Component Deleted',
+        description: 'Selected component and connected edges removed.',
+        type: 'info',
+      });
+    },
+    [setNodes, setEdges, selectedNodeId, toast],
+  );
+
+  // Delete Edge
+  const handleDeleteEdge = useCallback(
+    (edgeId: string) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+      if (selectedEdgeId === edgeId) setSelectedEdgeId(null);
+      toast({
+        title: 'Connection Deleted',
+        description: 'Selected connection removed.',
+        type: 'info',
+      });
+    },
+    [setEdges, selectedEdgeId, toast],
+  );
+
+  // Delete all currently selected items
+  const handleDeleteSelected = useCallback(() => {
+    const nodesToDelete = new Set<string>();
+    if (selectedNodeId) nodesToDelete.add(selectedNodeId);
+    nodes.forEach((n) => {
+      if (n.selected) nodesToDelete.add(n.id);
+    });
+
+    const edgesToDelete = new Set<string>();
+    if (selectedEdgeId) edgesToDelete.add(selectedEdgeId);
+    edges.forEach((e) => {
+      if (e.selected || nodesToDelete.has(e.source) || nodesToDelete.has(e.target)) {
+        edgesToDelete.add(e.id);
+      }
+    });
+
+    if (nodesToDelete.size === 0 && edgesToDelete.size === 0) return;
+
+    setNodes((nds) => nds.filter((n) => !nodesToDelete.has(n.id)));
+    setEdges((eds) => eds.filter((e) => !edgesToDelete.has(e.id)));
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+
+    toast({
+      title: 'Items Removed',
+      description: `Removed ${nodesToDelete.size} components and ${edgesToDelete.size} connections.`,
+      type: 'info',
+    });
+  }, [selectedNodeId, selectedEdgeId, nodes, edges, setNodes, setEdges, toast]);
+
+  // Duplicate a node
+  const handleDuplicateNode = useCallback(
+    (nodeId: string) => {
+      const sourceNode = nodes.find((n) => n.id === nodeId);
+      if (!sourceNode) return;
+
+      const newNode: Node = {
+        ...sourceNode,
+        id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        position: {
+          x: sourceNode.position.x + 40,
+          y: sourceNode.position.y + 40,
+        },
+        selected: true,
+        data: {
+          ...sourceNode.data,
+          label: `${sourceNode.data.label || 'Component'} (Copy)`,
+        },
+      };
+
+      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode as any]);
+      setSelectedNodeId(newNode.id);
+
+      toast({
+        title: 'Component Duplicated',
+        description: `Created clone of "${sourceNode.data.label || 'Component'}".`,
+        type: 'success',
+      });
+    },
+    [nodes, setNodes, toast],
+  );
+
+  // Clear Canvas
+  const handleClearCanvas = useCallback(() => {
+    if (nodes.length === 0 && edges.length === 0) return;
+    if (window.confirm('Are you sure you want to clear all components and connections from this diagram?')) {
+      setNodes([]);
+      setEdges([]);
+      setSelectedNodeId(null);
+      setSelectedEdgeId(null);
+      toast({
+        title: 'Canvas Cleared',
+        description: 'All elements have been removed from the canvas.',
+        type: 'info',
+      });
+    }
+  }, [nodes.length, edges.length, setNodes, setEdges, toast]);
+
+  // Add Sticky Note from Context Menu
+  const handleAddStickyNoteAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const position = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY });
+      const newNode: Node = {
+        id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        type: 'sticky-note',
+        position,
+        data: {
+          label: 'Architecture Review Note',
+          color: 'yellow',
+        },
+      };
+      setNodes((nds) => [...nds, newNode as any]);
+      setSelectedNodeId(newNode.id);
+    },
+    [reactFlowInstance, setNodes],
+  );
+
+  // Toggle Zen Mode (Maximize Canvas: collapses both sidebars)
+  const handleToggleZenMode = useCallback(() => {
+    setIsZenMode((prev) => {
+      const next = !prev;
+      if (next) {
+        setIsLeftSidebarOpen(false);
+        setIsRightSidebarOpen(false);
+      } else {
+        setIsLeftSidebarOpen(true);
+        setIsRightSidebarOpen(true);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleLeftSidebar = useCallback(() => {
+    setIsLeftSidebarOpen((prev) => {
+      const next = !prev;
+      if (next) setIsZenMode(false);
+      return next;
+    });
+  }, []);
+
+  const handleToggleRightSidebar = useCallback(() => {
+    setIsRightSidebarOpen((prev) => {
+      const next = !prev;
+      if (next) setIsZenMode(false);
+      return next;
+    });
+  }, []);
+
+  const handleTogglePanMode = useCallback(() => {
+    setIsPanMode((prev) => !prev);
+  }, []);
+
+  const handleZoomIn = useCallback(() => reactFlowInstance.zoomIn({ duration: 300 }), [reactFlowInstance]);
+  const handleZoomOut = useCallback(() => reactFlowInstance.zoomOut({ duration: 300 }), [reactFlowInstance]);
+  const handleFitView = useCallback(() => reactFlowInstance.fitView({ duration: 400, padding: 0.15 }), [reactFlowInstance]);
+
+  // Context Menu handlers
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    setSelectedNodeId(node.id);
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      type: 'node',
+      targetId: node.id,
+      targetItem: node as any,
+    });
+  }, []);
+
+  const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    setSelectedEdgeId(edge.id);
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      type: 'edge',
+      targetId: edge.id,
+      targetItem: edge as any,
+    });
+  }, []);
+
+  const onPaneContextMenu = useCallback((event: any) => {
+    event.preventDefault();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      type: 'pane',
+    });
+  }, []);
+
+  // Global Keyboard shortcuts for Delete, Duplicate, and Sidebar toggles
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Delete / Backspace: Remove selected items
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNodeId || selectedEdgeId || nodes.some((n) => n.selected) || edges.some((e) => e.selected)) {
+          e.preventDefault();
+          handleDeleteSelected();
+        }
+      }
+
+      // Ctrl+D or Cmd+D: Duplicate selected component
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        if (selectedNodeId) {
+          e.preventDefault();
+          handleDuplicateNode(selectedNodeId);
+        }
+      }
+
+      // Ctrl+[ : Toggle Left Stencils
+      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        e.preventDefault();
+        handleToggleLeftSidebar();
+      }
+
+      // Ctrl+] : Toggle Right Inspector
+      if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+        e.preventDefault();
+        handleToggleRightSidebar();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    selectedNodeId,
+    selectedEdgeId,
+    nodes,
+    edges,
+    handleDeleteSelected,
+    handleDuplicateNode,
+    handleToggleLeftSidebar,
+    handleToggleRightSidebar,
+  ]);
 
   // Sync canvas when switching diagram tabs
   const handleSelectDiagram = useCallback(
@@ -402,12 +663,23 @@ function DiagramCanvasInner({
         isSaving={isSaving}
         onBackToProjects={onBackToProjects}
         projectName={project.name}
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={handleToggleLeftSidebar}
+        isRightSidebarOpen={isRightSidebarOpen}
+        onToggleRightSidebar={handleToggleRightSidebar}
+        isZenMode={isZenMode}
+        onToggleZenMode={handleToggleZenMode}
+        hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
+        onDeleteSelected={handleDeleteSelected}
       />
 
       {/* Main Studio Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Stencil Palette */}
-        <StencilSidebar />
+        {/* Left Stencil Palette (Collapsible) */}
+        <StencilSidebar
+          isOpen={isLeftSidebarOpen}
+          onToggle={handleToggleLeftSidebar}
+        />
 
         {/* Center Vector Canvas */}
         <div className="flex-1 h-full relative" onDragOver={onDragOver} onDrop={onDrop}>
@@ -418,9 +690,17 @@ function DiagramCanvasInner({
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onSelectionChange={onSelectionChange}
+            onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
+            onPaneContextMenu={onPaneContextMenu}
             nodeTypes={nodeTypes as any}
             edgeTypes={edgeTypes as any}
             fitView
+            minZoom={0.05}
+            maxZoom={2.5}
+            panOnDrag={isPanMode ? [0, 1, 2] : [1, 2]}
+            selectionOnDrag={!isPanMode}
+            deleteKeyCode={['Backspace', 'Delete']}
             snapToGrid={canvasSettings.snapToGrid}
             snapGrid={[15, 15]}
             colorMode="dark"
@@ -441,14 +721,55 @@ function DiagramCanvasInner({
               className="!bg-[#141724] !border-[#24293D] !rounded-xl !shadow-lg"
             />
           </ReactFlow>
+
+          {/* Floating Canvas Quick Dock */}
+          <CanvasQuickDock
+            isPanMode={isPanMode}
+            onTogglePanMode={handleTogglePanMode}
+            hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
+            selectedType={selectedNodeId ? 'node' : selectedEdgeId ? 'edge' : null}
+            onDeleteSelected={handleDeleteSelected}
+            onDuplicateSelected={() => selectedNodeId && handleDuplicateNode(selectedNodeId)}
+            onAutoLayout={() => handleAutoLayout('LR')}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onFitView={handleFitView}
+            isLeftSidebarOpen={isLeftSidebarOpen}
+            onToggleLeftSidebar={handleToggleLeftSidebar}
+            isRightSidebarOpen={isRightSidebarOpen}
+            onToggleRightSidebar={handleToggleRightSidebar}
+            isZenMode={isZenMode}
+            onToggleZenMode={handleToggleZenMode}
+            onClearCanvas={handleClearCanvas}
+          />
+
+          {/* Right Click Context Menu */}
+          {contextMenu && (
+            <CanvasContextMenu
+              menu={contextMenu}
+              onClose={() => setContextMenu(null)}
+              onDeleteNode={handleDeleteNode}
+              onDeleteEdge={handleDeleteEdge}
+              onDuplicateNode={handleDuplicateNode}
+              onOpenProperties={() => {
+                setIsRightSidebarOpen(true);
+                setIsZenMode(false);
+              }}
+              onAutoLayout={() => handleAutoLayout('LR')}
+              onFitView={handleFitView}
+              onAddStickyNote={handleAddStickyNoteAt}
+            />
+          )}
         </div>
 
-        {/* Right Inspector & Eraser.io Markdown Sidecar */}
+        {/* Right Inspector & Eraser.io Markdown Sidecar (Collapsible) */}
         <CanvasInspector
           selectedNode={selectedNode}
           selectedEdge={selectedEdge}
           onUpdateNodeData={handleUpdateNodeData}
           onUpdateEdgeData={handleUpdateEdgeData}
+          onDeleteNode={handleDeleteNode}
+          onDeleteEdge={handleDeleteEdge}
           documentContent={documentContent}
           onUpdateDocument={setDocumentContent}
           onReviewArchitecture={handleReviewArchitecture}
@@ -456,6 +777,8 @@ function DiagramCanvasInner({
           reviewResult={reviewResult}
           canvasSettings={canvasSettings}
           onUpdateSettings={setCanvasSettings}
+          isOpen={isRightSidebarOpen}
+          onToggle={handleToggleRightSidebar}
         />
       </div>
 

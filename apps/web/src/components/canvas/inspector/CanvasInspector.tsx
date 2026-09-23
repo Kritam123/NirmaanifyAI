@@ -14,6 +14,7 @@ import {
   Palette,
   Activity,
   Layers,
+  Trash2,
 } from 'lucide-react';
 import { CanvasNode, CanvasEdge, CanvasSettings } from '@nirmaanify/types';
 
@@ -22,6 +23,8 @@ interface CanvasInspectorProps {
   selectedEdge: CanvasEdge | null;
   onUpdateNodeData: (nodeId: string, newData: any) => void;
   onUpdateEdgeData: (edgeId: string, newData: any) => void;
+  onDeleteNode?: (nodeId: string) => void;
+  onDeleteEdge?: (edgeId: string) => void;
   documentContent: string;
   onUpdateDocument: (doc: string) => void;
   onReviewArchitecture: () => void;
@@ -29,6 +32,8 @@ interface CanvasInspectorProps {
   reviewResult?: any;
   canvasSettings: CanvasSettings;
   onUpdateSettings: (settings: CanvasSettings) => void;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
 export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
@@ -36,6 +41,8 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
   selectedEdge,
   onUpdateNodeData,
   onUpdateEdgeData,
+  onDeleteNode,
+  onDeleteEdge,
   documentContent,
   onUpdateDocument,
   onReviewArchitecture,
@@ -43,6 +50,8 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
   reviewResult,
   canvasSettings,
   onUpdateSettings,
+  isOpen = true,
+  onToggle,
 }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'docs' | 'ai'>('properties');
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -60,16 +69,25 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
     setTimeout(() => setIsDocSaved(false), 2000);
   };
 
-  if (isCollapsed) {
+  const isHidden = !isOpen || isCollapsed;
+
+  if (isHidden) {
     return (
-      <div className="absolute right-3 top-20 z-10">
+      <div className="absolute right-0 top-16 z-20">
         <button
           type="button"
-          onClick={() => setIsCollapsed(false)}
-          className="p-2 rounded-lg border border-slate-200 dark:border-[#24293D] bg-white dark:bg-[#0F111A] text-slate-600 dark:text-slate-300 shadow-md hover:bg-slate-50 dark:hover:bg-[#141724]"
-          title="Open Inspector"
+          onClick={() => {
+            setIsCollapsed(false);
+            onToggle?.();
+          }}
+          className="flex items-center gap-2 px-3 py-2 rounded-l-xl border-y border-l border-slate-300 dark:border-[#2E354F] bg-white dark:bg-[#141724] text-slate-800 dark:text-slate-100 shadow-xl hover:bg-slate-100 dark:hover:bg-[#1E2337] hover:border-[#635BFF] transition-all group"
+          title="Expand Properties & Specs Sidebar (Ctrl+])"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 text-[#635BFF] group-hover:-translate-x-0.5 transition-transform" />
+          <Sliders className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 group-hover:text-[#635BFF] transition-colors" />
+          <span className="text-xs font-semibold tracking-tight text-slate-700 dark:text-slate-200">
+            Properties & Specs
+          </span>
         </button>
       </div>
     );
@@ -195,6 +213,21 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
                   <option value="planned">Planned Architecture</option>
                 </select>
               </div>
+
+              {/* Delete Component Button */}
+              {onDeleteNode && (
+                <div className="pt-3 border-t border-slate-100 dark:border-[#1E2337]">
+                  <button
+                    type="button"
+                    onClick={() => onDeleteNode(selectedNode.id)}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-semibold transition-colors shadow-sm"
+                    title="Delete component from canvas (Del / Backspace)"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                    <span>Delete Component</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : selectedEdge ? (
             <div className="space-y-4">
@@ -253,6 +286,21 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
                   className="h-4 w-4 rounded border-slate-300 text-[#635BFF] focus:ring-[#635BFF]"
                 />
               </div>
+
+              {/* Delete Connection Button */}
+              {onDeleteEdge && (
+                <div className="pt-3 border-t border-slate-100 dark:border-[#1E2337]">
+                  <button
+                    type="button"
+                    onClick={() => onDeleteEdge(selectedEdge.id)}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-semibold transition-colors shadow-sm"
+                    title="Delete connection from canvas (Del / Backspace)"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                    <span>Delete Connection</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
