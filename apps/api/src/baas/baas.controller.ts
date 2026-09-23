@@ -42,10 +42,9 @@ export class BaasController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get workspace standalone BaaS telemetry and status' })
   async getStatus(@Param('workspaceId') workspaceId: string): Promise<ExternalServiceStatusDto> {
-    const [collectionsCount, itemsCount] = await Promise.all([
-      this.prisma.cmsCollection.count({ where: { workspaceId } }),
-      this.prisma.cmsContentItem.count({ where: { workspaceId } }),
-    ]);
+    const diagramsCount = await this.prisma.diagram.count({
+      where: { project: { workspaceId } },
+    });
 
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -69,8 +68,8 @@ export class BaasController {
       database: {
         connected: true,
         provider: 'postgresql',
-        totalCollections: collectionsCount,
-        totalItems: itemsCount,
+        totalCollections: diagramsCount,
+        totalItems: diagramsCount,
       },
       storage: {
         driver: process.env.STORAGE_DRIVER || 'local',

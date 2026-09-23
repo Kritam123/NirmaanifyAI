@@ -3,7 +3,8 @@ export const QUEUE_NAMES = {
   AI_PLANNER: 'ai-planner',
   PROJECT_EXPORT: 'project-export',
   DATABASE_MIGRATION: 'database-migration',
-  CMS_SCHEDULED_PUBLISH: 'cms-scheduled-publish',
+  DIAGRAM_EXPORT: 'diagram-export',
+  DIAGRAM_AI_GENERATION: 'diagram-ai-generation',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -31,9 +32,14 @@ export interface ProjectExportJobData {
   destination?: string;
 }
 
-export interface CmsScheduledPublishJobData {
-  projectId?: string;
-  collectionId?: string;
-  contentItemId?: string;
-  timestamp?: string;
+export interface DiagramExportJobData {
+  diagramId: string;
+  projectId: string;
+  format: 'svg' | 'png' | 'pdf' | 'json';
+}
+
+export interface DiagramAIGenJobData {
+  projectId: string;
+  prompt: string;
+  diagramType?: string;
 }

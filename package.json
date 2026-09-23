@@ -10,6 +10,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "db:push": "pnpm --filter @nirmaanify/database exec prisma db push",
+    "db:reset": "pnpm --filter @nirmaanify/database exec prisma db push --force-reset",
     "db:generate": "pnpm --filter @nirmaanify/database exec prisma generate",
     "db:studio": "pnpm --filter @nirmaanify/database studio",
     "docker:build": "docker compose -f docker-compose.prod.yml build",

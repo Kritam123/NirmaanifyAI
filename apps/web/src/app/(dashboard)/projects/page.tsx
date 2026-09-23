@@ -38,8 +38,8 @@ export default function ProjectsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Projects & microservices"
-        description="Scaffold, develop, and deploy full-stack applications in your active workspace."
+        title="System Architecture Designs"
+        description="Design distributed system architectures, cloud topologies, and UML diagrams on an infinite vector canvas with AI scaffolding."
         actions={
           <Button
             variant="default"
@@ -47,7 +47,7 @@ export default function ProjectsPage() {
             onClick={() => setCreateOpen(true)}
             leftIcon={<Plus className="h-4 w-4" />}
           >
-            Create project
+            New Architecture Design
           </Button>
         }
       />
@@ -68,13 +68,13 @@ export default function ProjectsPage() {
       {projects.length === 0 ? (
         <EmptyState
           icon={<Boxes className="h-8 w-8 text-[#635BFF]" />}
-          title="No matching projects found"
+          title="No matching architecture designs found"
           description={
             searchQuery || filterType !== 'ALL' || archiveFilter !== 'all'
               ? 'Try changing your search, type filter, or status filter.'
-              : 'You have not created any projects in this workspace yet.'
+              : 'You have not created any architecture designs in this workspace yet.'
           }
-          actionLabel="Create project"
+          actionLabel="Create Architecture Design"
           actionIcon={<Plus className="h-3.5 w-3.5" />}
           onAction={() => setCreateOpen(true)}
         />

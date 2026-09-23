@@ -2,9 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Dialog, Button, Input, Select, Textarea, useToast } from '@nirmaanify/ui';
-import { ProjectDto, ProjectType, StorageDriverType } from '@nirmaanify/types';
+import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
-import { getProjectServerType, ProjectServerType } from '../../lib/server-architecture';
 
 interface EditProjectDialogProps {
   project: ProjectDto | null;
@@ -30,12 +29,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<ProjectType>('SAAS');
-  const [framework, setFramework] = useState('');
-  const [uiLibrary, setUiLibrary] = useState('');
-  const [storageDriver, setStorageDriver] = useState<StorageDriverType>('local');
-  const [serverType, setServerType] = useState<ProjectServerType>('cms');
-  const [isBackendEnabled, setIsBackendEnabled] = useState(true);
+  const [type, setType] = useState<ProjectType>('SYSTEM_ARCHITECTURE');
   const [slugTouched, setSlugTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,11 +39,6 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
       setSlug(project.slug);
       setDescription(project.description || '');
       setType(project.type);
-      setFramework(project.framework);
-      setUiLibrary(project.uiLibrary);
-      setStorageDriver((project.storageDriver as StorageDriverType) || 'local');
-      setServerType(getProjectServerType(project));
-      setIsBackendEnabled(project.isBackendEnabled);
       setSlugTouched(true);
     }
   }, [project]);
@@ -60,20 +49,15 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
     const finalSlug = slugTouched && slug.trim() ? slug.trim() : slugify(name) || project.slug;
     setIsLoading(true);
     try {
-      const isBackend = serverType === 'nestjs' || serverType === 'fullstack';
       await updateProject(project.id, {
         name: name.trim(),
         slug: finalSlug,
         description: description.trim(),
         type,
-        framework,
-        uiLibrary,
-        isBackendEnabled: isBackend,
-        storageDriver,
       });
       onClose();
       toast({
-        title: 'Project updated',
+        title: 'Architecture design updated',
         description: `Changes saved for "${name}"`,
         type: 'success',
       });
@@ -94,8 +78,8 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Edit project"
-      description={`Update the metadata, architecture configuration, and stack for "${project.name}".`}
+      title="Edit Architecture Design"
+      description={`Update the title, slug, and archetype for "${project.name}".`}
       className="max-w-xl"
       footer={
         <>
@@ -111,13 +95,13 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label="Project name"
+            label="Architecture Name"
             value={name}
             onChange={(e) => {
               setName(e.target.value);
               if (!slugTouched) setSlug(slugify(e.target.value));
             }}
-            placeholder="e.g. AI Video Studio"
+            placeholder="e.g. Distributed Video Streaming Architecture"
           />
           <Input
             label="Slug (URL path)"
@@ -126,77 +110,31 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
               setSlugTouched(true);
               setSlug(slugify(e.target.value));
             }}
-            placeholder="ai-video-studio"
+            placeholder="distributed-video-streaming"
             helperText="Lowercase letters, digits, and hyphens only"
           />
         </div>
 
         <Textarea
-          label="Description"
+          label="Architecture Scope & Notes"
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Short description of the project's purpose and scope."
+          placeholder="Brief description of system components, throughput requirements, or design goals..."
         />
 
         <Select
-          label="Project type"
+          label="Diagram & Canvas Type"
           value={type}
           onChange={(e) => setType(e.target.value as ProjectType)}
           options={[
-            { label: 'SaaS Platform', value: 'SAAS' },
-            { label: 'E-commerce Store', value: 'ECOMMERCE' },
-            { label: 'Blog & Publication', value: 'BLOG' },
-            { label: 'Analytics Dashboard', value: 'DASHBOARD' },
-            { label: 'Agency Portfolio', value: 'PORTFOLIO' },
-            { label: 'Marketing Website', value: 'WEBSITE' },
-            { label: 'Custom Application', value: 'CUSTOM' },
-          ]}
-        />
-
-        <div className="grid grid-cols-2 gap-3">
-          <Select
-            label="Frontend framework"
-            value={framework}
-            onChange={(e) => setFramework(e.target.value)}
-            options={[
-              { label: 'Next.js 15 App Router (Recommended)', value: 'Next.js 15 App Router' },
-              { label: 'Next.js 15 Pages Router', value: 'Next.js 15 Pages Router' },
-              { label: 'Next.js 15 Static Export', value: 'Next.js 15 Static' },
-            ]}
-          />
-          <Select
-            label="UI library"
-            value={uiLibrary}
-            onChange={(e) => setUiLibrary(e.target.value)}
-            options={[
-              { label: 'shadcn/ui + Tailwind CSS', value: 'shadcn/ui + Tailwind CSS' },
-              { label: 'Framer Motion + Tailwind', value: 'shadcn/ui + Framer Motion' },
-              { label: 'Tailwind Typography', value: 'Tailwind CSS Typography' },
-            ]}
-          />
-        </div>
-
-        <Select
-          label="Individual Storage Engine"
-          value={storageDriver}
-          onChange={(e) => setStorageDriver(e.target.value as StorageDriverType)}
-          options={[
-            { label: 'Local Filesystem — Development & local testing', value: 'local' },
-            { label: 'AWS S3 / MinIO — Production object storage', value: 's3' },
-            { label: 'Vercel Blob Storage — Global edge media CDN', value: 'vercel-blob' },
-          ]}
-        />
-
-        <Select
-          label="Server Architecture"
-          value={serverType}
-          onChange={(e) => setServerType(e.target.value as ProjectServerType)}
-          options={[
-            { label: 'Headless CMS — Dynamic content collections & delivery API', value: 'cms' },
-            { label: 'Full NestJS API — REST API, Prisma ORM, & PostgreSQL', value: 'nestjs' },
-            { label: 'Full-Stack (NestJS + CMS) — Combined custom API & CMS engine', value: 'fullstack' },
-            { label: 'Static Frontend — Client-only Next.js export, no server', value: 'static' },
+            { label: 'System Architecture & Microservices (Distributed Systems)', value: 'SYSTEM_ARCHITECTURE' },
+            { label: 'Cloud Infrastructure Topology (AWS / GCP / Azure / K8s)', value: 'CLOUD_INFRASTRUCTURE' },
+            { label: 'UML Diagram (Class Models, Sequence Flows, Components)', value: 'UML_DIAGRAM' },
+            { label: 'Database Schema & ERD (Tables, Foreign Keys, Columns)', value: 'DATABASE_ERD' },
+            { label: 'Flowchart & State Transition Machine', value: 'FLOWCHART' },
+            { label: 'Freeform Whiteboard & Wireframe Canvas', value: 'WHITEBOARD' },
+            { label: 'Custom Architecture Canvas', value: 'CUSTOM' },
           ]}
         />
       </div>

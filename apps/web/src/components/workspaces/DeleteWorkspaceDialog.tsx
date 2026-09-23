@@ -90,7 +90,7 @@ export const DeleteWorkspaceDialog: React.FC<DeleteWorkspaceDialogProps> = ({
           </p>
           <ul className="text-xs list-disc list-inside space-y-1 text-rose-700/90 dark:text-rose-300/90">
             <li className="font-semibold">
-              All {projectCount} project(s) and their full-stack scaffolds
+              All {projectCount} system architecture diagram(s) and technical specs
             </li>
             <li>All team collaborator roles and member rosters</li>
             <li>All workspace environment variables and settings</li>

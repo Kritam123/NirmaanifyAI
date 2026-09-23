@@ -19,8 +19,8 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Page Header */}
       <PageHeader
-        title={`Welcome back, ${user?.name?.split(' ')[0] || 'Developer'}`}
-        description="Manage your full-stack applications, trigger AI generations, and orchestrate workspace members."
+        title={`Welcome back, ${user?.name?.split(' ')[0] || 'Architect'}`}
+        description="Design distributed system architectures, scaffold cloud topology canvases, write Eraser specs, and collaborate with your team."
         actions={
           <div className="flex items-center gap-2.5">
             <Button
@@ -37,7 +37,7 @@ export default function DashboardPage() {
               leftIcon={<Plus className="h-4 w-4" />}
               onClick={() => setCreateProjectModal(true)}
             >
-              Create Project
+              New Architecture Design
             </Button>
           </div>
         }

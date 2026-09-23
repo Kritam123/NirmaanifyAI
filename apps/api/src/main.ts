@@ -89,8 +89,8 @@ async function bootstrap() {
   // Swagger Documentation
   const config = new DocumentBuilder()
     .setTitle('Nirmaanify AI Master API')
-    .setDescription('Core platform API engine for visual builder, CMS, backend generator, and multi-agent AI system.')
-    .setVersion('1.0.0')
+    .setDescription('System Architecture & UML Diagramming Canvas API with AI Architect Engine, Stencils, and Multi-Format Exports.')
+    .setVersion('2.0.0')
     .addBearerAuth()
     .build();
 

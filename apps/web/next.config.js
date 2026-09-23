@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  output: process.env.NEXT_OUTPUT_STANDALONE === 'true' ? 'standalone' : (process.platform === 'win32' ? undefined : 'standalone'),
   transpilePackages: [
     '@nirmaanify/api-client',
     '@nirmaanify/ui',

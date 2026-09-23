@@ -7,7 +7,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthLayoutWrapper
       title="Reset your password"
-      subtitle="We'll send you instructions to recover account access."
+      subtitle="We'll send you instructions to recover your architecture studio access."
       badgeText="Account Recovery"
     >
       <ForgotPasswordForm />

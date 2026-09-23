@@ -74,6 +74,12 @@ export type ProjectType =
   | 'PORTFOLIO'
   | 'DASHBOARD'
   | 'SAAS'
+  | 'SYSTEM_ARCHITECTURE'
+  | 'UML_DIAGRAM'
+  | 'CLOUD_INFRASTRUCTURE'
+  | 'DATABASE_ERD'
+  | 'FLOWCHART'
+  | 'WHITEBOARD'
   | 'CUSTOM';
 
 export interface ProjectDto {

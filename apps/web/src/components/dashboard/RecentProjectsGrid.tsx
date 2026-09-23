@@ -17,7 +17,6 @@ import {
 import { FolderDot, ArrowRight, Sparkles, Plus, ExternalLink, Boxes } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { ROUTES } from '../../lib/routes';
-import { getProjectServerType, SERVER_ARCHITECTURES } from '../../lib/server-architecture';
 
 interface RecentProjectsGridProps {
   onOpenCreateModal: () => void;
@@ -67,9 +66,9 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({ onOpenCr
       {projects.length === 0 ? (
         <EmptyState
           icon={<Boxes className="h-8 w-8 text-[#635BFF]" />}
-          title="No projects in this workspace yet"
-          description="Scaffold your first full-stack Next.js 15 + NestJS application or microservice."
-          actionLabel="Create First Project"
+          title="No system designs in this workspace yet"
+          description="Design your first cloud architecture, database ERD, or UML diagram on the vector canvas."
+          actionLabel="Create System Design"
           actionIcon={<Plus className="h-3.5 w-3.5" />}
           onAction={onOpenCreateModal}
         />
@@ -99,41 +98,29 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({ onOpenCr
             <CardContent className="px-5 py-0 space-y-3">
               <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#161926] border border-slate-100 dark:border-[#24293D] space-y-1 text-xs">
                 <div className="flex items-center justify-between text-slate-400">
-                  <span>Framework:</span>
+                  <span>Type:</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {proj.framework || 'Next.js 15 App Router'}
+                    {proj.type}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-400">
-                  <span>Server:</span>
-                  <Badge variant={SERVER_ARCHITECTURES[getProjectServerType(proj)].badgeVariant} size="sm">
-                    {SERVER_ARCHITECTURES[getProjectServerType(proj)].label}
-                  </Badge>
+                  <span>Status:</span>
+                  <span className="text-emerald-500 font-semibold">{proj.status || 'Active'}</span>
                 </div>
               </div>
             </CardContent>
 
-            <CardFooter className="p-5 pt-4 flex items-center justify-between border-t border-slate-100 dark:border-[#1E2337]">
-              <Link href={ROUTES.DASHBOARD.PROJECT_DETAIL(proj.id)}>
-                <Button variant="ghost" size="sm" className="text-xs">
-                  Inspect Schema
+            <CardFooter className="p-5 pt-4 flex items-center justify-end border-t border-slate-100 dark:border-[#1E2337]">
+              <Link href={ROUTES.DASHBOARD.PROJECT_DETAIL(proj.id)} className="w-full">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full text-xs"
+                  rightIcon={<ArrowRight className="h-3 w-3" />}
+                >
+                  Open Architecture Canvas
                 </Button>
               </Link>
-              <Button
-                variant="subtle"
-                size="sm"
-                className="text-xs"
-                rightIcon={<ArrowRight className="h-3 w-3" />}
-                onClick={() =>
-                  toast({
-                    title: 'Studio Launching',
-                    description: `Opened ${proj.name} canvas`,
-                    type: 'success',
-                  })
-                }
-              >
-                Launch Studio
-              </Button>
             </CardFooter>
           </Card>
         ))}
