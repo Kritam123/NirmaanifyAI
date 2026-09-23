@@ -4,8 +4,6 @@ RUN npm install -g pnpm@11.21.0 turbo
 
 WORKDIR /app
 
-# Prevent Prisma from running generate prematurely during pnpm install
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 # Copy workspace definitions
@@ -18,12 +16,8 @@ COPY apps/web ./apps/web
 # Install workspace dependencies for web and its dependencies only
 RUN pnpm --filter web... install --no-frozen-lockfile && pnpm store prune
 
-# Generate Prisma client for shared database package
-RUN pnpm --filter @nirmaanify/database generate
-
 # Build internal shared dependencies
 RUN pnpm --filter @nirmaanify/types build
-RUN pnpm --filter @nirmaanify/database build
 RUN pnpm --filter @nirmaanify/api-client build
 
 # Build arguments for Next.js public variables

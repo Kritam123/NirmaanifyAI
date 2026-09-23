@@ -15,3 +15,6 @@ export * from './topbar/CanvasTopbar';
 export * from './ai/AiArchitectModal';
 export * from './export/ExportModal';
 export * from './history/RevisionHistoryModal';
+export * from './CanvasQuickDock';
+export * from './CanvasContextMenu';
+export * from './CanvasPreviewBar';

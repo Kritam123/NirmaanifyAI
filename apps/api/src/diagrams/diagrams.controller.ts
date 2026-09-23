@@ -18,11 +18,15 @@ import {
   CanvasNode,
   CanvasEdge,
 } from '@nirmaanify/types';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { DiagramsService } from './diagrams.service';
 import { AiArchitectService } from './ai-architect.service';
 
-@Controller('v1')
+@ApiTags('Diagrams & Canvas Studio')
+@ApiBearerAuth()
+@Controller()
 export class DiagramsController {
   constructor(
     private readonly diagramsService: DiagramsService,
@@ -33,6 +37,7 @@ export class DiagramsController {
    * Get built-in architecture boilerplate templates
    */
   @Get('diagrams/templates')
+  @ApiOperation({ summary: 'Get architecture boilerplate templates' })
   getTemplates() {
     return this.diagramsService.getTemplates();
   }
@@ -41,7 +46,8 @@ export class DiagramsController {
    * List all diagrams for a project
    */
   @Get('projects/:projectId/diagrams')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'List all diagrams for a project (creates default if empty)' })
   listProjectDiagrams(
     @Param('projectId') projectId: string,
     @Req() req: any,
@@ -66,7 +72,7 @@ export class DiagramsController {
    * Get diagram by ID
    */
   @Get('diagrams/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   getDiagram(@Param('id') id: string, @Req() req: any) {
     return this.diagramsService.getDiagram(id, req.user?.id);
   }
@@ -106,7 +112,7 @@ export class DiagramsController {
    * List revisions for diagram
    */
   @Get('diagrams/:id/revisions')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   listRevisions(@Param('id') id: string, @Req() req: any) {
     return this.diagramsService.listRevisions(id, req.user?.id);
   }
