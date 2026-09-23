@@ -13,6 +13,9 @@ import {
   Trash2,
   Undo2,
   Redo2,
+  Eye,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { DiagramDto } from '@nirmaanify/types';
 
@@ -36,6 +39,10 @@ interface CanvasTopbarProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  isPreviewMode?: boolean;
+  onTogglePreviewMode?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
@@ -58,6 +65,10 @@ export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
   canRedo = false,
   onUndo,
   onRedo,
+  isPreviewMode = false,
+  onTogglePreviewMode,
+  isFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(diagram.name);
@@ -242,6 +253,41 @@ export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
           <Download className="h-3.5 w-3.5" />
           <span className="hidden md:inline">Export</span>
         </button>
+
+        <div className="h-4 w-px bg-[#24293D] mx-0.5" />
+
+        {/* Preview / Presentation Mode */}
+        {onTogglePreviewMode && (
+          <button
+            type="button"
+            onClick={onTogglePreviewMode}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+              isPreviewMode
+                ? 'bg-[#635BFF] text-white border-[#635BFF] shadow-sm'
+                : 'border-[#24293D] bg-[#141724] text-slate-300 hover:text-white hover:border-[#635BFF]'
+            }`}
+            title="Enter Presentation / Preview Mode (P)"
+          >
+            <Eye className="h-3.5 w-3.5 text-sky-400" />
+            <span className="hidden sm:inline">Preview</span>
+          </button>
+        )}
+
+        {/* Fullscreen Toggle */}
+        {onToggleFullscreen && (
+          <button
+            type="button"
+            onClick={onToggleFullscreen}
+            className={`p-1.5 rounded-lg border transition-colors ${
+              isFullscreen
+                ? 'bg-[#635BFF] text-white border-[#635BFF]'
+                : 'border-[#24293D] text-slate-400 hover:text-slate-100 hover:bg-[#141724]'
+            }`}
+            title={isFullscreen ? 'Exit Fullscreen Mode (F11)' : 'Enter Fullscreen Mode (F11)'}
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
+        )}
       </div>
     </header>
   );

@@ -50,6 +50,7 @@ import { CanvasContextMenu, ContextMenuState } from './CanvasContextMenu';
 import { AiArchitectModal } from './ai/AiArchitectModal';
 import { ExportModal } from './export/ExportModal';
 import { RevisionHistoryModal } from './history/RevisionHistoryModal';
+import { CanvasPreviewBar } from './CanvasPreviewBar';
 
 interface DiagramStudioProps {
   project: ProjectDto;
@@ -219,6 +220,45 @@ function DiagramCanvasInner({
 
   const [isPanMode, setIsPanMode] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  // Preview Mode & Fullscreen Mode
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync browser fullscreen state
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error('Fullscreen request failed:', err);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  }, []);
+
+  const handleTogglePreviewMode = useCallback(() => {
+    setIsPreviewMode((prev) => {
+      const next = !prev;
+      if (next) {
+        setSelectedNodeId(null);
+        setSelectedEdgeId(null);
+        setTimeout(() => {
+          reactFlowInstance.fitView({ duration: 500, padding: 0.18 });
+        }, 50);
+      }
+      return next;
+    });
+  }, [reactFlowInstance]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -401,63 +441,6 @@ function DiagramCanvasInner({
     });
   }, []);
 
-  // Global Keyboard shortcuts for Delete, Duplicate, and Sidebar toggles
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        return;
-      }
-
-      // Delete / Backspace: Remove selected items
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedNodeId || selectedEdgeId || nodes.some((n) => n.selected) || edges.some((e) => e.selected)) {
-          e.preventDefault();
-          handleDeleteSelected();
-        }
-      }
-
-      // Ctrl+D or Cmd+D: Duplicate selected component
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        if (selectedNodeId) {
-          e.preventDefault();
-          handleDuplicateNode(selectedNodeId);
-        }
-      }
-
-      // Ctrl+Z or Cmd+Z: Undo
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-      }
-
-      // Ctrl+Y or Cmd+Y or Ctrl+Shift+Z: Redo
-      if (
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
-      ) {
-        e.preventDefault();
-        handleRedo();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    selectedNodeId,
-    selectedEdgeId,
-    nodes,
-    edges,
-    handleDeleteSelected,
-    handleDuplicateNode,
-    handleUndo,
-    handleRedo,
-  ]);
-
   // Sync canvas when switching diagram tabs
   const handleSelectDiagram = useCallback(
     (diagramId: string) => {
@@ -478,6 +461,94 @@ function DiagramCanvasInner({
     },
     [diagramsList, setNodes, setEdges],
   );
+
+  // Global Keyboard shortcuts for Delete, Duplicate, and Sidebar toggles
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // In preview mode: Escape exits preview
+      if (isPreviewMode && e.key === 'Escape') {
+        e.preventDefault();
+        setIsPreviewMode(false);
+        return;
+      }
+
+      // In preview mode: Arrow keys navigate between diagrams
+      if (isPreviewMode && diagramsList.length > 1) {
+        const curIndex = diagramsList.findIndex((d) => d.id === currentDiagram.id);
+        if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+          e.preventDefault();
+          if (curIndex < diagramsList.length - 1) {
+            handleSelectDiagram(diagramsList[curIndex + 1].id);
+          }
+          return;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          e.preventDefault();
+          if (curIndex > 0) {
+            handleSelectDiagram(diagramsList[curIndex - 1].id);
+          }
+          return;
+        }
+      }
+
+      // Delete / Backspace: Remove selected items (disabled in preview mode)
+      if (!isPreviewMode && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (selectedNodeId || selectedEdgeId || nodes.some((n) => n.selected) || edges.some((e) => e.selected)) {
+          e.preventDefault();
+          handleDeleteSelected();
+        }
+      }
+
+      // Ctrl+D or Cmd+D: Duplicate selected component (disabled in preview mode)
+      if (!isPreviewMode && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        if (selectedNodeId) {
+          e.preventDefault();
+          handleDuplicateNode(selectedNodeId);
+        }
+      }
+
+      // Ctrl+Z or Cmd+Z: Undo (disabled in preview mode)
+      if (!isPreviewMode && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+
+      // Ctrl+Y or Cmd+Y or Ctrl+Shift+Z: Redo (disabled in preview mode)
+      if (
+        !isPreviewMode &&
+        (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z'))
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isPreviewMode,
+    diagramsList,
+    currentDiagram.id,
+    handleSelectDiagram,
+    selectedNodeId,
+    selectedEdgeId,
+    nodes,
+    edges,
+    handleDeleteSelected,
+    handleDuplicateNode,
+    handleUndo,
+    handleRedo,
+  ]);
 
   // Connect handler
   const onConnect = useCallback(
@@ -739,57 +810,79 @@ function DiagramCanvasInner({
   }, [nodes, edges, toast]);
 
   return (
-    <div className="dark flex flex-col h-screen w-full overflow-hidden bg-[#090A0F] text-slate-100 font-sans select-none">
-      {/* Top Navbar */}
-      <CanvasTopbar
-        diagram={currentDiagram}
-        diagramsList={diagramsList}
-        onSelectDiagram={handleSelectDiagram}
-        onCreateDiagram={handleCreateDiagram}
-        onUpdateTitle={handleUpdateTitle}
-        onAutoLayout={handleAutoLayout}
-        onOpenAiModal={() => setIsAiModalOpen(true)}
-        onOpenExportModal={() => setIsExportModalOpen(true)}
-        onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
-        onSave={handleSave}
-        isSaving={isSaving}
-        onBackToProjects={onBackToProjects}
-        projectName={project.name}
-        hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
-        onDeleteSelected={handleDeleteSelected}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-      />
+    <div className="dark flex flex-col h-screen w-full overflow-hidden bg-[#090A0F] text-slate-100 font-sans select-none relative">
+      {/* Top Navbar or Floating Presentation Bar */}
+      {isPreviewMode ? (
+        <CanvasPreviewBar
+          projectName={project.name}
+          currentDiagram={currentDiagram}
+          diagramsList={diagramsList}
+          onSelectDiagram={handleSelectDiagram}
+          onExitPreview={() => setIsPreviewMode(false)}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onFitView={handleFitView}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={handleToggleFullscreen}
+        />
+      ) : (
+        <CanvasTopbar
+          diagram={currentDiagram}
+          diagramsList={diagramsList}
+          onSelectDiagram={handleSelectDiagram}
+          onCreateDiagram={handleCreateDiagram}
+          onUpdateTitle={handleUpdateTitle}
+          onAutoLayout={handleAutoLayout}
+          onOpenAiModal={() => setIsAiModalOpen(true)}
+          onOpenExportModal={() => setIsExportModalOpen(true)}
+          onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
+          onSave={handleSave}
+          isSaving={isSaving}
+          onBackToProjects={onBackToProjects}
+          projectName={project.name}
+          hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
+          onDeleteSelected={handleDeleteSelected}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          isPreviewMode={isPreviewMode}
+          onTogglePreviewMode={handleTogglePreviewMode}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={handleToggleFullscreen}
+        />
+      )}
 
       {/* Main Studio Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Stencil Palette (Permanent open, spacious) */}
-        <StencilSidebar />
+        {/* Left Stencil Palette (hidden in presentation / preview mode) */}
+        {!isPreviewMode && <StencilSidebar />}
 
         {/* Center Vector Canvas */}
         <div className="flex-1 h-full relative" onDragOver={onDragOver} onDrop={onDrop}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onSelectionChange={onSelectionChange}
-            onNodeContextMenu={onNodeContextMenu}
-            onEdgeContextMenu={onEdgeContextMenu}
+            onNodesChange={isPreviewMode ? undefined : onNodesChange}
+            onEdgesChange={isPreviewMode ? undefined : onEdgesChange}
+            onConnect={isPreviewMode ? undefined : onConnect}
+            onSelectionChange={isPreviewMode ? undefined : onSelectionChange}
+            onNodeContextMenu={isPreviewMode ? undefined : onNodeContextMenu}
+            onEdgeContextMenu={isPreviewMode ? undefined : onEdgeContextMenu}
             onPaneContextMenu={onPaneContextMenu}
-            onNodeDragStart={onNodeDragStart}
-            onNodeDragStop={onNodeDragStop}
+            onNodeDragStart={isPreviewMode ? undefined : onNodeDragStart}
+            onNodeDragStop={isPreviewMode ? undefined : onNodeDragStop}
+            nodesDraggable={!isPreviewMode}
+            nodesConnectable={!isPreviewMode}
+            elementsSelectable={!isPreviewMode}
             nodeTypes={nodeTypes as any}
             edgeTypes={edgeTypes as any}
             fitView
             minZoom={0.05}
             maxZoom={2.5}
-            panOnDrag={isPanMode ? [0, 1, 2] : [1, 2]}
-            selectionOnDrag={!isPanMode}
-            deleteKeyCode={['Backspace', 'Delete']}
+            panOnDrag={[0, 1, 2]}
+            selectionOnDrag={!isPanMode && !isPreviewMode}
+            deleteKeyCode={isPreviewMode ? [] : ['Backspace', 'Delete']}
             snapToGrid={canvasSettings.snapToGrid}
             snapGrid={[15, 15]}
             colorMode="dark"
@@ -803,32 +896,38 @@ function DiagramCanvasInner({
                 color="#24293D"
               />
             )}
-            <Controls className="!bg-[#141724] !border-[#24293D] !rounded-xl !shadow-lg [&>button]:!border-[#24293D] [&>button]:!text-slate-300 hover:[&>button]:!bg-[#1E2337]" />
-            <MiniMap
-              nodeColor="#635BFF"
-              maskColor="rgba(9, 10, 15, 0.85)"
-              className="!bg-[#141724] !border-[#24293D] !rounded-xl !shadow-lg"
-            />
+            {!isPreviewMode && (
+              <Controls className="!bg-[#141724] !border-[#24293D] !rounded-xl !shadow-lg [&>button]:!border-[#24293D] [&>button]:!text-slate-300 hover:[&>button]:!bg-[#1E2337]" />
+            )}
+            {!isPreviewMode && (
+              <MiniMap
+                nodeColor="#635BFF"
+                maskColor="rgba(9, 10, 15, 0.85)"
+                className="!bg-[#141724] !border-[#24293D] !rounded-xl !shadow-lg"
+              />
+            )}
           </ReactFlow>
 
-          {/* Floating Canvas Quick Dock */}
-          <CanvasQuickDock
-            isPanMode={isPanMode}
-            onTogglePanMode={handleTogglePanMode}
-            hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
-            selectedType={selectedNodeId ? 'node' : selectedEdgeId ? 'edge' : null}
-            onDeleteSelected={handleDeleteSelected}
-            onDuplicateSelected={() => selectedNodeId && handleDuplicateNode(selectedNodeId)}
-            onAutoLayout={() => handleAutoLayout('LR')}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onFitView={handleFitView}
-            onClearCanvas={handleClearCanvas}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-          />
+          {/* Floating Canvas Quick Dock (hidden in preview mode) */}
+          {!isPreviewMode && (
+            <CanvasQuickDock
+              isPanMode={isPanMode}
+              onTogglePanMode={handleTogglePanMode}
+              hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
+              selectedType={selectedNodeId ? 'node' : selectedEdgeId ? 'edge' : null}
+              onDeleteSelected={handleDeleteSelected}
+              onDuplicateSelected={() => selectedNodeId && handleDuplicateNode(selectedNodeId)}
+              onAutoLayout={() => handleAutoLayout('LR')}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onFitView={handleFitView}
+              onClearCanvas={handleClearCanvas}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+            />
+          )}
 
           {/* Right Click Context Menu */}
           {contextMenu && (
@@ -846,26 +945,30 @@ function DiagramCanvasInner({
               canRedo={canRedo}
               onUndo={handleUndo}
               onRedo={handleRedo}
+              onTogglePreviewMode={handleTogglePreviewMode}
+              onToggleFullscreen={handleToggleFullscreen}
             />
           )}
         </div>
 
-        {/* Right Inspector & Eraser.io Markdown Sidecar (Permanent open) */}
-        <CanvasInspector
-          selectedNode={selectedNode}
-          selectedEdge={selectedEdge}
-          onUpdateNodeData={handleUpdateNodeData}
-          onUpdateEdgeData={handleUpdateEdgeData}
-          onDeleteNode={handleDeleteNode}
-          onDeleteEdge={handleDeleteEdge}
-          documentContent={documentContent}
-          onUpdateDocument={setDocumentContent}
-          onReviewArchitecture={handleReviewArchitecture}
-          isReviewing={isReviewing}
-          reviewResult={reviewResult}
-          canvasSettings={canvasSettings}
-          onUpdateSettings={setCanvasSettings}
-        />
+        {/* Right Inspector & Eraser.io Markdown Sidecar (hidden in preview mode) */}
+        {!isPreviewMode && (
+          <CanvasInspector
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            onUpdateNodeData={handleUpdateNodeData}
+            onUpdateEdgeData={handleUpdateEdgeData}
+            onDeleteNode={handleDeleteNode}
+            onDeleteEdge={handleDeleteEdge}
+            documentContent={documentContent}
+            onUpdateDocument={setDocumentContent}
+            onReviewArchitecture={handleReviewArchitecture}
+            isReviewing={isReviewing}
+            reviewResult={reviewResult}
+            canvasSettings={canvasSettings}
+            onUpdateSettings={setCanvasSettings}
+          />
+        )}
       </div>
 
       {/* Modals */}

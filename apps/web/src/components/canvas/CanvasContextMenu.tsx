@@ -10,6 +10,7 @@ import {
   StickyNote,
   Undo2,
   Redo2,
+  Eye,
 } from 'lucide-react';
 import { CanvasNode, CanvasEdge } from '@nirmaanify/types';
 
@@ -35,6 +36,8 @@ interface CanvasContextMenuProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  onTogglePreviewMode?: () => void;
+  onToggleFullscreen?: () => void;
 }
 
 export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
@@ -51,6 +54,8 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
   canRedo = false,
   onUndo,
   onRedo,
+  onTogglePreviewMode,
+  onToggleFullscreen,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +87,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
     <div
       ref={menuRef}
       style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
-      className="fixed z-50 min-w-[190px] rounded-xl border border-[#2E354F] bg-[#141724]/95 backdrop-blur-md shadow-2xl p-1.5 text-xs text-slate-200 animate-in fade-in zoom-in-95 duration-100 select-none"
+      className="fixed z-50 min-w-[200px] rounded-xl border border-[#2E354F] bg-[#141724]/95 backdrop-blur-md shadow-2xl p-1.5 text-xs text-slate-200 animate-in fade-in zoom-in-95 duration-100 select-none"
     >
       {menu.type === 'node' && menu.targetId && (
         <div className="space-y-0.5">
@@ -230,6 +235,42 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
             <Maximize2 className="h-3.5 w-3.5 text-emerald-400" />
             <span>Fit All to Canvas</span>
           </button>
+
+          {(onTogglePreviewMode || onToggleFullscreen) && <div className="h-px bg-[#1E2337] my-1" />}
+
+          {onTogglePreviewMode && (
+            <button
+              type="button"
+              onClick={() => {
+                onTogglePreviewMode();
+                onClose();
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
+            >
+              <div className="flex items-center gap-2 text-sky-400">
+                <Eye className="h-3.5 w-3.5" />
+                <span className="font-semibold text-slate-200">Preview / Present</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">P</span>
+            </button>
+          )}
+
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleFullscreen();
+                onClose();
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Maximize2 className="h-3.5 w-3.5 text-slate-400" />
+                <span>Fullscreen</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">F11</span>
+            </button>
+          )}
         </div>
       )}
     </div>
