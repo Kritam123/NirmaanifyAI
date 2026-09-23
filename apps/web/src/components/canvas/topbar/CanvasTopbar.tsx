@@ -11,6 +11,8 @@ import {
   ArrowLeft,
   Check,
   Trash2,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { DiagramDto } from '@nirmaanify/types';
 
@@ -30,6 +32,10 @@ interface CanvasTopbarProps {
   projectName: string;
   hasSelection?: boolean;
   onDeleteSelected?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
@@ -48,6 +54,10 @@ export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
   projectName,
   hasSelection = false,
   onDeleteSelected,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(diagram.name);
@@ -134,6 +144,38 @@ export const CanvasTopbar: React.FC<CanvasTopbarProps> = ({
 
       {/* Right: Actions */}
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Undo & Redo */}
+        {onUndo && onRedo && (
+          <div className="flex items-center gap-0.5 bg-[#141724] p-0.5 rounded-lg border border-[#24293D] mr-1">
+            <button
+              type="button"
+              disabled={!canUndo}
+              onClick={onUndo}
+              className={`p-1.5 rounded-md transition-colors ${
+                canUndo
+                  ? 'text-slate-300 hover:text-white hover:bg-[#1E2337] cursor-pointer'
+                  : 'text-slate-600 cursor-not-allowed opacity-35'
+              }`}
+              title="Undo Canvas Change (Ctrl+Z)"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={!canRedo}
+              onClick={onRedo}
+              className={`p-1.5 rounded-md transition-colors ${
+                canRedo
+                  ? 'text-slate-300 hover:text-white hover:bg-[#1E2337] cursor-pointer'
+                  : 'text-slate-600 cursor-not-allowed opacity-35'
+              }`}
+              title="Redo Canvas Change (Ctrl+Y / Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Auto-Layout */}
         <button
           type="button"

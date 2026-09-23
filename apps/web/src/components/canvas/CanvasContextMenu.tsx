@@ -8,6 +8,8 @@ import {
   Zap,
   Maximize2,
   StickyNote,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { CanvasNode, CanvasEdge } from '@nirmaanify/types';
 
@@ -29,6 +31,10 @@ interface CanvasContextMenuProps {
   onAutoLayout: () => void;
   onFitView: () => void;
   onAddStickyNote: (x: number, y: number) => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
@@ -41,6 +47,10 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
   onAutoLayout,
   onFitView,
   onAddStickyNote,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -152,6 +162,41 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
           <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#1E2337] mb-1">
             Canvas Actions
           </div>
+          {onUndo && (
+            <button
+              type="button"
+              disabled={!canUndo}
+              onClick={() => {
+                onUndo();
+                onClose();
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors disabled:opacity-35 disabled:pointer-events-none"
+            >
+              <div className="flex items-center gap-2">
+                <Undo2 className="h-3.5 w-3.5 text-slate-400" />
+                <span>Undo</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">Ctrl+Z</span>
+            </button>
+          )}
+          {onRedo && (
+            <button
+              type="button"
+              disabled={!canRedo}
+              onClick={() => {
+                onRedo();
+                onClose();
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors disabled:opacity-35 disabled:pointer-events-none"
+            >
+              <div className="flex items-center gap-2">
+                <Redo2 className="h-3.5 w-3.5 text-slate-400" />
+                <span>Redo</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">Ctrl+Y</span>
+            </button>
+          )}
+          {(onUndo || onRedo) && <div className="h-px bg-[#1E2337] my-1" />}
           <button
             type="button"
             onClick={() => {

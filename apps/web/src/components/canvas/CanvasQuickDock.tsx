@@ -11,6 +11,8 @@ import {
   ZoomOut,
   Maximize2,
   RotateCcw,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 
 interface CanvasQuickDockProps {
@@ -25,6 +27,10 @@ interface CanvasQuickDockProps {
   onZoomOut: () => void;
   onFitView: () => void;
   onClearCanvas: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
@@ -39,6 +45,10 @@ export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
   onZoomOut,
   onFitView,
   onClearCanvas,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }) => {
   return (
     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 p-2 rounded-2xl bg-[#10121C]/95 backdrop-blur-md border border-[#2E354F] shadow-2xl select-none transition-all">
@@ -70,6 +80,41 @@ export const CanvasQuickDock: React.FC<CanvasQuickDockProps> = ({
         >
           <Hand className="h-3.5 w-3.5" />
           <span className="hidden md:inline">Pan</span>
+        </button>
+      </div>
+
+      <div className="h-4 w-px bg-[#2E354F] mx-0.5" />
+
+      {/* Undo & Redo History Controls */}
+      <div className="flex items-center gap-0.5 bg-[#141724] p-0.5 rounded-xl border border-[#24293D]">
+        <button
+          type="button"
+          disabled={!canUndo}
+          onClick={onUndo}
+          className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            canUndo
+              ? 'text-slate-300 hover:text-white hover:bg-[#1E2337] cursor-pointer'
+              : 'text-slate-600 cursor-not-allowed opacity-35'
+          }`}
+          title="Undo Canvas Change (Ctrl+Z)"
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline text-[11px]">Undo</span>
+        </button>
+
+        <button
+          type="button"
+          disabled={!canRedo}
+          onClick={onRedo}
+          className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            canRedo
+              ? 'text-slate-300 hover:text-white hover:bg-[#1E2337] cursor-pointer'
+              : 'text-slate-600 cursor-not-allowed opacity-35'
+          }`}
+          title="Redo Canvas Change (Ctrl+Y / Ctrl+Shift+Z)"
+        >
+          <Redo2 className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline text-[11px]">Redo</span>
         </button>
       </div>
 

@@ -74,6 +74,11 @@ const edgeTypes = {
   uml: UmlEdge,
 };
 
+interface HistorySnapshot {
+  nodes: Node[];
+  edges: Edge[];
+}
+
 function DiagramCanvasInner({
   project,
   initialDiagrams,
@@ -102,6 +107,106 @@ function DiagramCanvasInner({
   const [nodes, setNodes, onNodesChange] = useNodesState(currentDiagram.nodes as any);
   const [edges, setEdges, onEdgesChange] = useEdgesState(currentDiagram.edges as any);
 
+  // Undo / Redo History Tracking
+  const pastRef = useRef<HistorySnapshot[]>([]);
+  const futureRef = useRef<HistorySnapshot[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const nodesRef = useRef<Node[]>(nodes);
+  nodesRef.current = nodes;
+  const edgesRef = useRef<Edge[]>(edges);
+  edgesRef.current = edges;
+
+  const takeSnapshot = useCallback(() => {
+    const snap: HistorySnapshot = {
+      nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+      edges: JSON.parse(JSON.stringify(edgesRef.current)),
+    };
+    pastRef.current.push(snap);
+    if (pastRef.current.length > 50) {
+      pastRef.current.shift();
+    }
+    futureRef.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (pastRef.current.length === 0) return;
+    const previous = pastRef.current.pop();
+    if (!previous) return;
+
+    futureRef.current.push({
+      nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+      edges: JSON.parse(JSON.stringify(edgesRef.current)),
+    });
+
+    setNodes(previous.nodes);
+    setEdges(previous.edges);
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+
+    setCanUndo(pastRef.current.length > 0);
+    setCanRedo(true);
+
+    toast({
+      title: 'Undo (Ctrl+Z)',
+      description: 'Reverted canvas change.',
+      type: 'info',
+    });
+  }, [setNodes, setEdges, toast]);
+
+  const handleRedo = useCallback(() => {
+    if (futureRef.current.length === 0) return;
+    const next = futureRef.current.pop();
+    if (!next) return;
+
+    pastRef.current.push({
+      nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+      edges: JSON.parse(JSON.stringify(edgesRef.current)),
+    });
+
+    setNodes(next.nodes);
+    setEdges(next.edges);
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+
+    setCanUndo(true);
+    setCanRedo(futureRef.current.length > 0);
+
+    toast({
+      title: 'Redo (Ctrl+Y)',
+      description: 'Restored canvas change.',
+      type: 'info',
+    });
+  }, [setNodes, setEdges, toast]);
+
+  // Track node drag for history
+  const dragStartSnapshotRef = useRef<HistorySnapshot | null>(null);
+
+  const onNodeDragStart = useCallback(() => {
+    dragStartSnapshotRef.current = {
+      nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+      edges: JSON.parse(JSON.stringify(edgesRef.current)),
+    };
+  }, []);
+
+  const onNodeDragStop = useCallback(() => {
+    if (dragStartSnapshotRef.current) {
+      const initial = JSON.stringify(dragStartSnapshotRef.current.nodes);
+      const current = JSON.stringify(nodesRef.current);
+      if (initial !== current) {
+        pastRef.current.push(dragStartSnapshotRef.current);
+        if (pastRef.current.length > 50) pastRef.current.shift();
+        futureRef.current = [];
+        setCanUndo(true);
+        setCanRedo(false);
+      }
+      dragStartSnapshotRef.current = null;
+    }
+  }, []);
+
   const [documentContent, setDocumentContent] = useState<string>(
     currentDiagram.document || '',
   );
@@ -125,6 +230,7 @@ function DiagramCanvasInner({
   // Delete Node and any connected edges
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
+      takeSnapshot();
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
@@ -134,12 +240,13 @@ function DiagramCanvasInner({
         type: 'info',
       });
     },
-    [setNodes, setEdges, selectedNodeId, toast],
+    [takeSnapshot, setNodes, setEdges, selectedNodeId, toast],
   );
 
   // Delete Edge
   const handleDeleteEdge = useCallback(
     (edgeId: string) => {
+      takeSnapshot();
       setEdges((eds) => eds.filter((e) => e.id !== edgeId));
       if (selectedEdgeId === edgeId) setSelectedEdgeId(null);
       toast({
@@ -148,7 +255,7 @@ function DiagramCanvasInner({
         type: 'info',
       });
     },
-    [setEdges, selectedEdgeId, toast],
+    [takeSnapshot, setEdges, selectedEdgeId, toast],
   );
 
   // Delete all currently selected items
@@ -169,6 +276,7 @@ function DiagramCanvasInner({
 
     if (nodesToDelete.size === 0 && edgesToDelete.size === 0) return;
 
+    takeSnapshot();
     setNodes((nds) => nds.filter((n) => !nodesToDelete.has(n.id)));
     setEdges((eds) => eds.filter((e) => !edgesToDelete.has(e.id)));
     setSelectedNodeId(null);
@@ -179,7 +287,7 @@ function DiagramCanvasInner({
       description: `Removed ${nodesToDelete.size} components and ${edgesToDelete.size} connections.`,
       type: 'info',
     });
-  }, [selectedNodeId, selectedEdgeId, nodes, edges, setNodes, setEdges, toast]);
+  }, [takeSnapshot, selectedNodeId, selectedEdgeId, nodes, edges, setNodes, setEdges, toast]);
 
   // Duplicate a node
   const handleDuplicateNode = useCallback(
@@ -187,6 +295,7 @@ function DiagramCanvasInner({
       const sourceNode = nodes.find((n) => n.id === nodeId);
       if (!sourceNode) return;
 
+      takeSnapshot();
       const newNode: Node = {
         ...sourceNode,
         id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -210,13 +319,14 @@ function DiagramCanvasInner({
         type: 'success',
       });
     },
-    [nodes, setNodes, toast],
+    [takeSnapshot, nodes, setNodes, toast],
   );
 
   // Clear Canvas
   const handleClearCanvas = useCallback(() => {
     if (nodes.length === 0 && edges.length === 0) return;
     if (window.confirm('Are you sure you want to clear all components and connections from this diagram?')) {
+      takeSnapshot();
       setNodes([]);
       setEdges([]);
       setSelectedNodeId(null);
@@ -227,11 +337,12 @@ function DiagramCanvasInner({
         type: 'info',
       });
     }
-  }, [nodes.length, edges.length, setNodes, setEdges, toast]);
+  }, [takeSnapshot, nodes.length, edges.length, setNodes, setEdges, toast]);
 
   // Add Sticky Note from Context Menu
   const handleAddStickyNoteAt = useCallback(
     (clientX: number, clientY: number) => {
+      takeSnapshot();
       const position = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY });
       const newNode: Node = {
         id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -245,7 +356,7 @@ function DiagramCanvasInner({
       setNodes((nds) => [...nds, newNode as any]);
       setSelectedNodeId(newNode.id);
     },
-    [reactFlowInstance, setNodes],
+    [takeSnapshot, reactFlowInstance, setNodes],
   );
 
   const handleTogglePanMode = useCallback(() => {
@@ -317,6 +428,21 @@ function DiagramCanvasInner({
           handleDuplicateNode(selectedNodeId);
         }
       }
+
+      // Ctrl+Z or Cmd+Z: Undo
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+
+      // Ctrl+Y or Cmd+Y or Ctrl+Shift+Z: Redo
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -328,6 +454,8 @@ function DiagramCanvasInner({
     edges,
     handleDeleteSelected,
     handleDuplicateNode,
+    handleUndo,
+    handleRedo,
   ]);
 
   // Sync canvas when switching diagram tabs
@@ -335,6 +463,12 @@ function DiagramCanvasInner({
     (diagramId: string) => {
       const selected = diagramsList.find((d) => d.id === diagramId);
       if (selected) {
+        // Reset undo/redo history for new diagram tab
+        pastRef.current = [];
+        futureRef.current = [];
+        setCanUndo(false);
+        setCanRedo(false);
+
         setCurrentDiagram(selected);
         setNodes(selected.nodes as any);
         setEdges(selected.edges as any);
@@ -348,6 +482,7 @@ function DiagramCanvasInner({
   // Connect handler
   const onConnect = useCallback(
     (connection: Connection) => {
+      takeSnapshot();
       const newEdge: Edge = {
         ...connection,
         id: `edge-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -357,7 +492,7 @@ function DiagramCanvasInner({
       };
       setEdges((eds) => addEdge(newEdge, eds));
     },
-    [setEdges],
+    [takeSnapshot, setEdges],
   );
 
   // Selection handlers
@@ -379,15 +514,17 @@ function DiagramCanvasInner({
   // Node & Edge Data updates from Inspector
   const handleUpdateNodeData = useCallback(
     (nodeId: string, newData: any) => {
+      takeSnapshot();
       setNodes((nds) =>
         nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...newData } } : n)),
       );
     },
-    [setNodes],
+    [takeSnapshot, setNodes],
   );
 
   const handleUpdateEdgeData = useCallback(
     (edgeId: string, newData: any) => {
+      takeSnapshot();
       setEdges((eds) =>
         eds.map((e) => {
           if (e.id === edgeId) {
@@ -402,7 +539,7 @@ function DiagramCanvasInner({
         }),
       );
     },
-    [setEdges],
+    [takeSnapshot, setEdges],
   );
 
   // HTML5 Drag and Drop from StencilSidebar
@@ -432,17 +569,19 @@ function DiagramCanvasInner({
           data: stencil.data,
         };
 
-        setNodes((nds) => nds.concat(newNode));
+        takeSnapshot();
+        setNodes((nds) => [...nds, newNode as any]);
       } catch (err) {
         console.error('Failed to parse dropped stencil:', err);
       }
     },
-    [reactFlowInstance, setNodes],
+    [takeSnapshot, reactFlowInstance, setNodes],
   );
 
   // Auto-Layout via Dagre
   const handleAutoLayout = useCallback(
     (direction: 'LR' | 'TB' = 'LR') => {
+      takeSnapshot();
       const g = new dagre.graphlib.Graph();
       g.setGraph({ rankdir: direction, nodesep: 70, ranksep: 100 });
       g.setDefaultEdgeLabel(() => ({}));
@@ -562,6 +701,7 @@ function DiagramCanvasInner({
   // Apply AI Scaffold to Canvas
   const handleApplyScaffold = useCallback(
     (result: { nodes: CanvasNode[]; edges: CanvasEdge[]; document: string; title: string }) => {
+      takeSnapshot();
       setNodes(result.nodes as any);
       setEdges(result.edges as any);
       setDocumentContent(result.document);
@@ -577,7 +717,7 @@ function DiagramCanvasInner({
         type: 'success',
       });
     },
-    [setNodes, setEdges, handleUpdateTitle, reactFlowInstance, toast],
+    [takeSnapshot, setNodes, setEdges, handleUpdateTitle, reactFlowInstance, toast],
   );
 
   // Run AI Architecture Review
@@ -617,6 +757,10 @@ function DiagramCanvasInner({
         projectName={project.name}
         hasSelection={Boolean(selectedNodeId || selectedEdgeId)}
         onDeleteSelected={handleDeleteSelected}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
       />
 
       {/* Main Studio Area */}
@@ -636,6 +780,8 @@ function DiagramCanvasInner({
             onNodeContextMenu={onNodeContextMenu}
             onEdgeContextMenu={onEdgeContextMenu}
             onPaneContextMenu={onPaneContextMenu}
+            onNodeDragStart={onNodeDragStart}
+            onNodeDragStop={onNodeDragStop}
             nodeTypes={nodeTypes as any}
             edgeTypes={edgeTypes as any}
             fitView
@@ -678,6 +824,10 @@ function DiagramCanvasInner({
             onZoomOut={handleZoomOut}
             onFitView={handleFitView}
             onClearCanvas={handleClearCanvas}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
           />
 
           {/* Right Click Context Menu */}
@@ -692,6 +842,10 @@ function DiagramCanvasInner({
               onAutoLayout={() => handleAutoLayout('LR')}
               onFitView={handleFitView}
               onAddStickyNote={handleAddStickyNoteAt}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
             />
           )}
         </div>
