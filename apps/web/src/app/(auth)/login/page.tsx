@@ -7,8 +7,8 @@ export default function LoginPage() {
   return (
     <AuthLayoutWrapper
       title="Welcome back"
-      subtitle="Sign in to your account and continue building."
-      badgeText="Platform Authentication"
+      subtitle="Sign in to your account and continue designing system architectures."
+      badgeText="Architecture Studio Sign In"
     >
       <LoginForm />
     </AuthLayoutWrapper>

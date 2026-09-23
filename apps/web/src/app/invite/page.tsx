@@ -199,7 +199,7 @@ function InviteContent() {
               <NirmaanLogo size="md" showTagline />
             </Link>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Multi-Tenant Cloud Workspace Invitation
+              System Architecture Workspace Invitation
             </p>
           </div>
 
@@ -279,7 +279,7 @@ function InviteContent() {
                   router.push(ROUTES.DASHBOARD.OVERVIEW);
                 }}
               >
-                Go to Studio
+                Go to Architecture Studio
               </Button>
 
               <Link href={ROUTES.DASHBOARD.WORKSPACES} className="block">
@@ -371,7 +371,7 @@ function InviteContent() {
             <NirmaanLogo size="md" showTagline />
           </Link>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Multi-Tenant Cloud Workspace Invitation
+            System Architecture Workspace Invitation
           </p>
         </div>
 
@@ -380,7 +380,7 @@ function InviteContent() {
           {/* Header Badge & Title */}
           <div className="space-y-2 text-center pb-4 border-b border-slate-100 dark:border-[#1E2337]">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD] text-xs font-bold border border-[#635BFF]/20 mb-1">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500 dark:text-amber-300" /> Workspace Collaboration
+              <Sparkles className="h-3.5 w-3.5 text-amber-500 dark:text-amber-300" /> Architecture Collaboration
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
               Join <span className="text-[#635BFF]">{invitation.workspace.name}</span>
@@ -452,7 +452,7 @@ function InviteContent() {
               </div>
               <Link href={ROUTES.DASHBOARD.OVERVIEW} className="block">
                 <Button variant="default" size="lg" className="w-full font-semibold">
-                  Go to Dashboard Studio
+                  Go to Architecture Studio
                 </Button>
               </Link>
             </div>

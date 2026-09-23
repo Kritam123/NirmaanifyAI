@@ -8,8 +8,8 @@ export default function VerifyEmailPage() {
   return (
     <AuthLayoutWrapper
       title="Verify your email"
-      subtitle="Confirm your identity to unlock all platform capabilities."
-      badgeText="Email Verification"
+      subtitle="Confirm your identity to collaborate on system design canvases."
+      badgeText="Identity Verification"
     >
       <Suspense
         fallback={

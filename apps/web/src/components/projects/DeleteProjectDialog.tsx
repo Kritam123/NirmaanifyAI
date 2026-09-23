@@ -60,8 +60,8 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Delete project permanently"
-      description="This action is irreversible. All generated files, route definitions, and database schemas for this project will be removed."
+      title="Delete architecture permanently"
+      description="This action is irreversible. All vector diagrams, UML models, cloud stencils, and architecture specifications for this design will be removed."
       className="max-w-md"
       footer={
         <>
@@ -86,7 +86,7 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
             <p className="font-bold">You are about to delete:</p>
             <p className="mt-0.5 text-rose-700/80 dark:text-rose-400/80">
               <span className="font-mono font-bold">{project.name}</span>
-              {' '}— and any associated AI plans, schema configurations, and member assignments.
+              {' '}— and any associated vector diagrams, AI blueprints, and Eraser architecture specs.
             </p>
           </div>
         </div>

@@ -28,7 +28,7 @@ export default function WorkspacesPage() {
     <div className="space-y-8">
       <PageHeader
         title="Workspaces & Team Management"
-        description="Organize multi-tenant developer teams, manage role permissions (Owner, Admin, Developer, Editor, Viewer)."
+        description="Organize system design teams, collaborate on architecture canvases, and manage role-based permissions."
         actions={
           <div className="flex items-center gap-2.5">
             <Button

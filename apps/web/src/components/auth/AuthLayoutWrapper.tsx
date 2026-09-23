@@ -17,7 +17,7 @@ export const AuthLayoutWrapper: React.FC<AuthLayoutWrapperProps> = ({
   children,
   title,
   subtitle,
-  badgeText = 'Nirmaanify Platform v1.0',
+  badgeText = 'Architecture Studio v2.0',
 }) => {
   const { theme, setTheme } = useTheme();
 
@@ -56,19 +56,19 @@ export const AuthLayoutWrapper: React.FC<AuthLayoutWrapperProps> = ({
         {/* Center Graphic Showcase */}
         <div className="space-y-6 max-w-lg my-auto py-8">
           <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.15]">
-            Architect, Generate & Deploy Full-Stack Apps in Seconds.
+            Design, Spec & Visualize Complex Systems in Seconds.
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            Nirmaanify combines visual design system intelligence, multi-driver cloud storage, dynamic NestJS API generation, and Next.js 15 App Router scaffolding into one unified developer platform.
+            Nirmaanify combines Draw.io visual canvas flexibility and Eraser.io markdown architecture specs with AI-driven diagram scaffolding and cloud topology stencils.
           </p>
 
           {/* Feature Badges */}
           <div className="grid grid-cols-2 gap-3 pt-2">
             {[
-              { icon: <Zap className="h-4 w-4 text-[#635BFF]" />, label: 'Instant Scaffolding' },
-              { icon: <ShieldCheck className="h-4 w-4 text-emerald-500" />, label: 'Enterprise Security' },
-              { icon: <Code2 className="h-4 w-4 text-[#22D3EE]" />, label: 'Full TypeScript SDK' },
-              { icon: <Layers className="h-4 w-4 text-violet-500" />, label: 'Multi-Driver Storage' },
+              { icon: <Zap className="h-4 w-4 text-[#635BFF]" />, label: 'Infinite Vector Canvas' },
+              { icon: <ShieldCheck className="h-4 w-4 text-emerald-500" />, label: 'AWS, GCP & K8s Stencils' },
+              { icon: <Code2 className="h-4 w-4 text-[#22D3EE]" />, label: 'UML Class & Sequences' },
+              { icon: <Layers className="h-4 w-4 text-violet-500" />, label: 'Eraser Markdown Specs' },
             ].map((f) => (
               <div
                 key={f.label}
@@ -92,7 +92,7 @@ export const AuthLayoutWrapper: React.FC<AuthLayoutWrapperProps> = ({
               ))}
             </div>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Trusted by 10,000+ full-stack engineers and teams
+              Trusted by 10,000+ software architects and engineering teams
             </span>
           </div>
         </div>
@@ -124,7 +124,7 @@ export const AuthLayoutWrapper: React.FC<AuthLayoutWrapperProps> = ({
 
           {/* Footer Terms */}
           <div className="text-center text-xs text-slate-400">
-            Protected by enterprise RBAC encryption. &copy; {new Date().getFullYear()} Nirmaanify AI Inc.
+            Protected by workspace RBAC & vector blueprint encryption. &copy; {new Date().getFullYear()} Nirmaanify AI Inc.
           </div>
         </div>
       </div>

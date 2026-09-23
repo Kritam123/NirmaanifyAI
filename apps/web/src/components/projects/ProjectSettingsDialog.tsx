@@ -74,8 +74,8 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Project settings"
-      description={`Manage configuration, inspect the live schema, and handle lifecycle actions for "${project.name}".`}
+      title="Architecture design settings"
+      description={`Manage configuration, inspect blueprint AST, and handle lifecycle actions for "${project.name}".`}
       className="max-w-3xl"
       footer={
         <Button variant="outline" onClick={onClose}>
@@ -120,7 +120,7 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
           <div className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <Card className="p-3 space-y-1">
-                <span className="text-slate-400">Project ID</span>
+                <span className="text-slate-400">Design ID</span>
                 <p className="font-mono text-[11px] font-bold text-slate-800 dark:text-slate-200 break-all">
                   {project.id}
                 </p>
@@ -149,43 +149,35 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
 
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900 dark:text-white">Architecture & stack</span>
+                <span className="font-bold text-slate-900 dark:text-white">Canvas Capabilities</span>
                 <Button size="sm" variant="outline" onClick={onEdit}>
-                  Edit configuration
+                  Edit metadata
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-[#24293D] text-[11px]">
                 <div>
-                  <span className="text-slate-400">Frontend framework</span>
-                  <p className="font-semibold text-slate-800 dark:text-slate-100">{project.framework}</p>
+                  <span className="text-slate-400">Vector Engine</span>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">React Flow 12 Studio</p>
                 </div>
                 <div>
-                  <span className="text-slate-400">UI design system</span>
-                  <p className="font-semibold text-slate-800 dark:text-slate-100">{project.uiLibrary}</p>
+                  <span className="text-slate-400">Stencils Palette</span>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">AWS, GCP, Azure, K8s, UML, ERD</p>
                 </div>
                 <div>
-                  <span className="text-slate-400">Server Architecture</span>
+                  <span className="text-slate-400">Auto-Layout Engine</span>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">Dagre Hierarchical Layout</p>
+                </div>
+                <div>
+                  <span className="text-slate-400">Architecture Spec</span>
                   <div className="pt-0.5">
-                    <Badge variant={SERVER_ARCHITECTURES[getProjectServerType(project)].badgeVariant} size="sm">
-                      {SERVER_ARCHITECTURES[getProjectServerType(project)].label}
+                    <Badge variant="indigo" size="sm">
+                      Eraser.io Markdown Sidecar
                     </Badge>
                   </div>
                 </div>
                 <div>
-                  <span className="text-slate-400">Database &amp; Store</span>
-                  <p className="font-semibold text-slate-800 dark:text-slate-100">
-                    {SERVER_ARCHITECTURES[getProjectServerType(project)].hasNestJs || SERVER_ARCHITECTURES[getProjectServerType(project)].hasCms
-                      ? 'PostgreSQL 16'
-                      : 'None (client-side)'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-slate-400">Storage Engine</span>
-                  <div className="pt-0.5">
-                    <Badge variant={project.storageDriver === 's3' ? 'indigo' : project.storageDriver === 'vercel-blob' ? 'cyan' : 'secondary'} size="sm">
-                      {(project.storageDriver || 'local').toUpperCase()}
-                    </Badge>
-                  </div>
+                  <span className="text-slate-400">Export Suite</span>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">Draw.io XML, 2x PNG, SVG, Mermaid</p>
                 </div>
               </div>
             </Card>
@@ -265,9 +257,9 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
           <div className="space-y-3 text-xs">
             <Card className="p-4 flex items-center justify-between">
               <div>
-                <h5 className="font-bold text-slate-900 dark:text-white">Duplicate project</h5>
+                <h5 className="font-bold text-slate-900 dark:text-white">Duplicate architecture design</h5>
                 <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 max-w-md">
-                  Clone all configuration, page routes, schemas, and the AI blueprint into a new project record.
+                  Clone all vector canvases, UML models, cloud stencils, and Eraser architecture specs into a new design record.
                 </p>
               </div>
               <Button
@@ -283,12 +275,12 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
             <Card className="p-4 flex items-center justify-between">
               <div>
                 <h5 className="font-bold text-slate-900 dark:text-white">
-                  {project.isArchived ? 'Restore project' : 'Archive project'}
+                  {project.isArchived ? 'Restore design' : 'Archive design'}
                 </h5>
                 <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 max-w-md">
                   {project.isArchived
-                    ? 'Restore this project to the active workspace view.'
-                    : 'Hide from the active listing. All data and configurations remain intact.'}
+                    ? 'Restore this design canvas to the active workspace view.'
+                    : 'Hide from the active listing. All diagram data and specifications remain intact.'}
                 </p>
               </div>
               <Button
@@ -312,11 +304,11 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
                 <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <h5 className="font-bold text-rose-600 dark:text-rose-400">
-                    Delete project permanently
+                    Delete architecture permanently
                   </h5>
                   <p className="mt-1 text-slate-500 dark:text-slate-400 max-w-md">
                     Use the card menu's "Delete project" action to start a slug-typed confirmation dialog.
-                    Deletion is irreversible and removes all generated files, schemas, and AI blueprints.
+                    Deletion is irreversible and removes all vector diagrams, stencils, and Eraser architecture specs.
                   </p>
                 </div>
               </div>

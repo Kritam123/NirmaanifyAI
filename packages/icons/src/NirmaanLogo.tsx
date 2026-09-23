@@ -41,7 +41,7 @@ export const NirmaanLogo: React.FC<NirmaanLogoProps> = ({
         </div>
         {showTagline && (
           <span className={`font-medium tracking-wide uppercase mt-1 ${taglineSizes[size]} text-slate-500 dark:text-slate-400`}>
-            Imagine. Build. Launch.
+            Design. Spec. Visualize.
           </span>
         )}
       </div>

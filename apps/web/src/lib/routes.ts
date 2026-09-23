@@ -18,8 +18,6 @@ export const ROUTES = {
     WORKSPACES: '/workspaces',
     WORKSPACE_DETAIL: (id: string) => `/workspaces/${id}`,
     STORAGE: '/storage',
-    CMS: '/cms',
-    BACKEND_SERVICES: '/backend',
   },
   EXTERNAL: {
     API_DOCS: 'http://localhost:4000/api/docs',

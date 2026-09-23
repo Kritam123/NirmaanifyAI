@@ -15,8 +15,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: 'Nirmaanify AI — Imagine. Build. Launch.',
-  description: 'AI-first full-stack application builder platform.',
+  title: 'Nirmaanify AI — System Architecture & UML Canvas Studio',
+  description: 'AI-powered system design canvas, cloud architecture stencils, UML sequence & class diagrams, and Eraser-style technical specs.',
   icons: {
     icon: '/favicon.svg',
   },

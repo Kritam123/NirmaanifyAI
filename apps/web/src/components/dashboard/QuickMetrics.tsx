@@ -6,19 +6,10 @@ import { Card } from '@nirmaanify/ui';
 import { Boxes, Globe, Users, Building2, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { ROUTES } from '../../lib/routes';
-import { getProjectServerType } from '../../lib/server-architecture';
 
 export const QuickMetrics: React.FC = () => {
   const { projects, activeWorkspace, workspaces } = useAuth();
 
-  const activeBackends = projects.filter((p) => {
-    const s = getProjectServerType(p);
-    return s === 'nestjs' || s === 'fullstack';
-  }).length;
-  const activeCms = projects.filter((p) => {
-    const s = getProjectServerType(p);
-    return s === 'cms' || s === 'fullstack';
-  }).length;
   const memberCount = activeWorkspace?.isPersonal
     ? 1
     : activeWorkspace?.memberCount || 1;
@@ -32,10 +23,10 @@ export const QuickMetrics: React.FC = () => {
       href: ROUTES.DASHBOARD.PROJECTS,
     },
     {
-      label: 'Servers & CMS',
-      val: activeBackends + activeCms,
+      label: 'Architecture Diagrams',
+      val: projects.length,
       icon: <Globe className="h-5 w-5 text-[#22D3EE]" />,
-      sub: `${activeCms} CMS · ${activeBackends} NestJS API`,
+      sub: 'System Blueprints & Canvases',
       href: ROUTES.DASHBOARD.PROJECTS,
     },
     {

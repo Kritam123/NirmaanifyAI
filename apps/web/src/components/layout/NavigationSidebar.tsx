@@ -13,8 +13,6 @@ import {
   Building2,
   LogOut,
   ChevronRight,
-  Database,
-  Server,
 } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import { useWorkspaceModal } from '../../context/workspace-modal-context';
@@ -52,7 +50,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
     },
     {
       id: 'projects',
-      label: 'Projects',
+      label: 'System Designs',
       href: ROUTES.DASHBOARD.PROJECTS,
       icon: <Boxes className="h-4 w-4 shrink-0" />,
       badge: String(projects.length),
@@ -64,23 +62,6 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
       href: ROUTES.DASHBOARD.WORKSPACES,
       icon: <Users className="h-4 w-4 shrink-0" />,
       active: pathname.startsWith(ROUTES.DASHBOARD.WORKSPACES),
-    },
-  ];
-
-  const servicesNavItems = [
-    {
-      id: 'cms',
-      label: 'Content (CMS)',
-      href: ROUTES.DASHBOARD.CMS,
-      icon: <Database className="h-4 w-4 shrink-0" />,
-      active: pathname.startsWith(ROUTES.DASHBOARD.CMS),
-    },
-    {
-      id: 'backend',
-      label: 'Backend & APIs',
-      href: ROUTES.DASHBOARD.BACKEND_SERVICES,
-      icon: <Server className="h-4 w-4 shrink-0" />,
-      active: pathname.startsWith(ROUTES.DASHBOARD.BACKEND_SERVICES),
     },
   ];
 
@@ -157,39 +138,6 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
               {isCollapsed && item.badge && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#635BFF] animate-pulse" />
               )}
-            </Link>
-          ))}
-        </div>
-
-        {/* Services & BaaS Section */}
-        <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-[#1E2333]">
-          {!isCollapsed && (
-            <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Services & BaaS
-            </div>
-          )}
-          {servicesNavItems.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              onClick={onClose}
-              title={isCollapsed ? item.label : undefined}
-              className={`w-full flex items-center rounded-lg text-xs font-semibold transition-all group relative ${
-                isCollapsed
-                  ? 'justify-center p-2.5'
-                  : 'justify-between px-3 py-2'
-              } ${
-                item.active
-                  ? 'bg-[#635BFF]/10 text-[#635BFF] dark:text-[#A5AEFD]'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#161926] hover:text-slate-900 dark:hover:text-slate-100'
-              }`}
-            >
-              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
-                <span className={item.active ? 'text-[#635BFF]' : 'text-slate-400'}>
-                  {item.icon}
-                </span>
-                {!isCollapsed && <span>{item.label}</span>}
-              </div>
             </Link>
           ))}
         </div>

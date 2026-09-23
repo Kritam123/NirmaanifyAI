@@ -30,7 +30,6 @@ import { ProjectDto, ProjectType } from '@nirmaanify/types';
 import { useAuth } from '../../context/auth-context';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/routes';
-import { getProjectServerType, SERVER_ARCHITECTURES } from '../../lib/server-architecture';
 
 interface ProjectCardProps {
   project: ProjectDto;
@@ -47,6 +46,12 @@ const TYPE_BADGE: Record<ProjectType, { variant: 'indigo' | 'violet' | 'cyan' | 
   DASHBOARD: { variant: 'warning', label: 'Dashboard' },
   PORTFOLIO: { variant: 'success', label: 'Portfolio' },
   WEBSITE: { variant: 'secondary', label: 'Marketing' },
+  SYSTEM_ARCHITECTURE: { variant: 'indigo', label: 'System Arch' },
+  CLOUD_INFRASTRUCTURE: { variant: 'cyan', label: 'Cloud Infra' },
+  UML_DIAGRAM: { variant: 'violet', label: 'UML Diagram' },
+  DATABASE_ERD: { variant: 'warning', label: 'Database ERD' },
+  FLOWCHART: { variant: 'success', label: 'Flowchart' },
+  WHITEBOARD: { variant: 'secondary', label: 'Whiteboard' },
   CUSTOM: { variant: 'secondary', label: 'Custom' },
 };
 
@@ -336,55 +341,50 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         <div className="p-3 rounded-lg border border-slate-200 dark:border-[#24293D] bg-slate-50 dark:bg-[#141724] space-y-1.5 text-[11px]">
           <div className="flex items-center justify-between text-slate-400">
             <span className="flex items-center gap-1.5">
-              <Layout className="h-3 w-3" /> Frontend
+              <Layout className="h-3 w-3" /> Canvas Mode
             </span>
-            <span className="font-mono font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[60%] text-right">
-              {project.framework}
+            <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
+              Interactive Vector Studio
             </span>
           </div>
           <div className="flex items-center justify-between text-slate-400">
-            <span className="flex items-center gap-1.5">Server</span>
-            <Badge variant={SERVER_ARCHITECTURES[getProjectServerType(project)].badgeVariant} size="sm">
-              {SERVER_ARCHITECTURES[getProjectServerType(project)].label}
+            <span className="flex items-center gap-1.5">Architecture Spec</span>
+            <Badge variant="indigo" size="sm">
+              Eraser Spec Ready
             </Badge>
           </div>
           <div className="flex items-center justify-between text-slate-400">
             <span className="flex items-center gap-1.5">
-              <Database className="h-3 w-3" /> Storage
+              <Database className="h-3 w-3" /> Stencils
             </span>
-            <Badge variant={project.storageDriver === 's3' ? 'indigo' : project.storageDriver === 'vercel-blob' ? 'cyan' : 'secondary'} size="sm">
-              {(project.storageDriver || 'local').toUpperCase()}
-            </Badge>
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              AWS · GCP · Azure · UML
+            </span>
           </div>
-          {routeCount > 0 && (
-            <div className="flex items-center justify-between text-slate-400">
-              <span>Routes</span>
-              <span className="font-mono font-semibold text-[#635BFF]">
-                {routeCount} {routeCount === 1 ? 'page' : 'pages'}
-              </span>
-            </div>
-          )}
         </div>
       </CardContent>
 
       <CardFooter className="px-5 py-3 border-t border-slate-100 dark:border-[#1E2337] flex items-center justify-between">
         <Button
-          variant="default"
+          variant="outline"
           size="sm"
-          onClick={handleOpenStudio}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(project);
+          }}
         >
-          Open studio
+          Edit
         </Button>
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
           rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
           onClick={(e) => {
             e.stopPropagation();
-            handleCardOpen();
+            router.push(ROUTES.DASHBOARD.PROJECT_DETAIL(project.id));
           }}
         >
-          Open
+          Open Canvas
         </Button>
       </CardFooter>
     </Card>

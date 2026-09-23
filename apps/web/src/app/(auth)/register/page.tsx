@@ -7,8 +7,8 @@ export default function RegisterPage() {
   return (
     <AuthLayoutWrapper
       title="Create your account"
-      subtitle="Start building intelligent full-stack apps with Nirmaanify."
-      badgeText="Developer Onboarding"
+      subtitle="Start designing system architectures, cloud topologies, and UML diagrams."
+      badgeText="Architect Onboarding"
     >
       <RegisterForm />
     </AuthLayoutWrapper>

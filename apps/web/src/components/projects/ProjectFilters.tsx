@@ -17,13 +17,13 @@ interface ProjectFiltersProps {
 }
 
 const TYPES = [
-  { id: 'ALL', label: 'All projects' },
-  { id: 'SAAS', label: 'SaaS' },
-  { id: 'ECOMMERCE', label: 'E-commerce' },
-  { id: 'BLOG', label: 'Blog & docs' },
-  { id: 'DASHBOARD', label: 'Dashboard' },
-  { id: 'PORTFOLIO', label: 'Portfolio' },
-  { id: 'WEBSITE', label: 'Marketing' },
+  { id: 'ALL', label: 'All designs' },
+  { id: 'SYSTEM_ARCHITECTURE', label: 'System Arch' },
+  { id: 'CLOUD_INFRASTRUCTURE', label: 'Cloud Infra' },
+  { id: 'UML_DIAGRAM', label: 'UML & Sequence' },
+  { id: 'DATABASE_ERD', label: 'Database ERD' },
+  { id: 'FLOWCHART', label: 'Flowcharts' },
+  { id: 'WHITEBOARD', label: 'Whiteboard' },
   { id: 'CUSTOM', label: 'Custom' },
 ];
 

@@ -3,8 +3,7 @@
 import React, { useState } from 'react';
 import { Dialog, Input, Select, Button, Textarea, useToast } from '@nirmaanify/ui';
 import { useAuth } from '../../context/auth-context';
-import { ProjectType, StorageDriverType } from '@nirmaanify/types';
-import { ProjectServerType } from '../../lib/server-architecture';
+import { ProjectType } from '@nirmaanify/types';
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -17,11 +16,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<ProjectType>('SAAS');
-  const [framework, setFramework] = useState('Next.js 15 App Router');
-  const [uiLibrary, setUiLibrary] = useState('shadcn/ui + Tailwind CSS');
-  const [storageDriver, setStorageDriver] = useState<StorageDriverType>('local');
-  const [serverType, setServerType] = useState<ProjectServerType>('cms');
+  const [type, setType] = useState<ProjectType>('SYSTEM_ARCHITECTURE');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,20 +25,19 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
 
     setIsSubmitting(true);
     try {
-      const isBackend = serverType === 'nestjs' || serverType === 'fullstack';
       await createProject({
-        name,
-        description: description || `Scaffolded ${type} application`,
+        name: name.trim(),
+        description: description.trim() || `${type} system design architecture`,
         type,
-        framework,
-        uiLibrary,
-        isBackendEnabled: isBackend,
-        storageDriver,
+        framework: 'React Flow Vector Canvas',
+        uiLibrary: 'Tailwind CSS + SVG Stencils',
+        isBackendEnabled: true,
+        storageDriver: 'local',
       });
 
       toast({
-        title: 'Project Created Successfully',
-        description: `${name} has been added to ${activeWorkspace?.name}`,
+        title: 'Architecture Canvas Created',
+        description: `"${name}" is ready for system design and diagramming.`,
         type: 'success',
       });
 
@@ -52,7 +46,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
       onClose();
     } catch (err: any) {
       toast({
-        title: 'Failed to create project',
+        title: 'Failed to create system design',
         description: err?.message || 'Please try again',
         type: 'error',
       });
@@ -65,8 +59,8 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Create Full-Stack Project"
-      description="Scaffold a modern Next.js 15 application with connected NestJS API backend."
+      title="Create System Design Architecture"
+      description="Create a new visual architecture canvas with UML, cloud stencils, and spec sidecars."
       footer={
         <>
           <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
@@ -78,88 +72,39 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen
             isLoading={isSubmitting}
             onClick={handleSubmit}
           >
-            Create Project
+            Create Architecture
           </Button>
         </>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4 py-2">
         <Input
-          label="Project Name"
-          placeholder="e.g. AI Customer Service Agent"
+          label="Architecture Title"
+          placeholder="e.g. Distributed Video Streaming Architecture"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
 
         <Textarea
-          label="Description"
-          placeholder="Brief description of application goals and features..."
+          label="Architecture Scope & Notes"
+          placeholder="Brief description of system components, throughput requirements, or design goals..."
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={2}
+          rows={3}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select
-            label="Application Archetype"
-            value={type}
-            onChange={(e) => setType(e.target.value as ProjectType)}
-            options={[
-              { label: 'SaaS Platform', value: 'SAAS' },
-              { label: 'E-commerce Store', value: 'ECOMMERCE' },
-              { label: 'Developer Blog / CMS', value: 'BLOG' },
-              { label: 'Analytics Dashboard', value: 'DASHBOARD' },
-              { label: 'Marketing Website', value: 'WEBSITE' },
-              { label: 'Custom App', value: 'CUSTOM' },
-            ]}
-          />
-
-          <Select
-            label="Frontend Framework"
-            value={framework}
-            onChange={(e) => setFramework(e.target.value)}
-            options={[
-              { label: 'Next.js 15 App Router (Recommended)', value: 'Next.js 15 App Router' },
-              { label: 'Next.js 15 Pages Router', value: 'Next.js 15 Pages Router' },
-              { label: 'Next.js Static Export', value: 'Next.js 15 Static' },
-            ]}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select
-            label="UI Component Engine"
-            value={uiLibrary}
-            onChange={(e) => setUiLibrary(e.target.value)}
-            options={[
-              { label: 'shadcn/ui + Tailwind CSS', value: 'shadcn/ui + Tailwind CSS' },
-              { label: 'Framer Motion + Tailwind', value: 'shadcn/ui + Framer Motion' },
-              { label: 'Tailwind Typography', value: 'Tailwind CSS Typography' },
-            ]}
-          />
-
-          <Select
-            label="Server Architecture"
-            value={serverType}
-            onChange={(e) => setServerType(e.target.value as ProjectServerType)}
-            options={[
-              { label: 'Headless CMS — Dynamic content collections & delivery API', value: 'cms' },
-              { label: 'Full NestJS API — REST API, Prisma ORM, & PostgreSQL', value: 'nestjs' },
-              { label: 'Full-Stack (NestJS + CMS) — Combined custom API & CMS engine', value: 'fullstack' },
-              { label: 'Static Frontend — Client-only Next.js export, no server', value: 'static' },
-            ]}
-          />
-        </div>
-
         <Select
-          label="Individual Storage Engine"
-          value={storageDriver}
-          onChange={(e) => setStorageDriver(e.target.value as StorageDriverType)}
+          label="Diagram & Canvas Type"
+          value={type}
+          onChange={(e) => setType(e.target.value as ProjectType)}
           options={[
-            { label: 'Local Filesystem — Development & local testing', value: 'local' },
-            { label: 'AWS S3 / MinIO — Production object storage', value: 's3' },
-            { label: 'Vercel Blob Storage — Global edge media CDN', value: 'vercel-blob' },
+            { label: 'System Architecture & Microservices (Distributed Systems)', value: 'SYSTEM_ARCHITECTURE' },
+            { label: 'Cloud Infrastructure Topology (AWS / GCP / Azure / K8s)', value: 'CLOUD_INFRASTRUCTURE' },
+            { label: 'UML Diagram (Class Models, Sequence Flows, Components)', value: 'UML_DIAGRAM' },
+            { label: 'Database Schema & ERD (Tables, Foreign Keys, Columns)', value: 'DATABASE_ERD' },
+            { label: 'Flowchart & State Transition Machine', value: 'FLOWCHART' },
+            { label: 'Freeform Whiteboard & Wireframe Canvas', value: 'WHITEBOARD' },
           ]}
         />
       </form>

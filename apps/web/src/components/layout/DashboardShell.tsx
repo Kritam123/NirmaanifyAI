@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { NavigationSidebar } from './NavigationSidebar';
 import { TopNavbar } from './TopNavbar';
 import { AuthGuard } from '../auth/AuthGuard';
@@ -69,6 +70,11 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const pathname = usePathname();
+  const isCanvasPage = Boolean(
+    pathname && pathname.startsWith('/projects/') && pathname !== '/projects'
+  );
+
   return (
     <AuthGuard>
       <WorkspaceModalProvider>
@@ -77,39 +83,48 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
         <CreateWorkspaceModal />
 
         <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors duration-200 font-sans">
-          {/* Desktop Navigation Sidebar */}
-          <div className="hidden md:block shrink-0">
-            <NavigationSidebar isCollapsed={isSidebarCollapsed} />
-          </div>
+          {isCanvasPage ? (
+            /* Dedicated Full-Screen Canvas Studio Viewport (Draw.io / Eraser.io style) */
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen w-full">
+              {children}
+            </div>
+          ) : (
+            <>
+              {/* Desktop Navigation Sidebar */}
+              <div className="hidden md:block shrink-0">
+                <NavigationSidebar isCollapsed={isSidebarCollapsed} />
+              </div>
 
-          {/* Mobile Drawer Navigation Sidebar */}
-          <Drawer
-            isOpen={mobileMenuOpen}
-            onClose={() => setMobileMenuOpen(false)}
-            title="Navigation"
-            position="left"
-            className="w-72 p-0 max-w-[85vw]"
-          >
-            <NavigationSidebar
-              isCollapsed={false}
-              onClose={() => setMobileMenuOpen(false)}
-              className="h-full border-r-0 w-full"
-            />
-          </Drawer>
+              {/* Mobile Drawer Navigation Sidebar */}
+              <Drawer
+                isOpen={mobileMenuOpen}
+                onClose={() => setMobileMenuOpen(false)}
+                title="Navigation"
+                position="left"
+                className="w-72 p-0 max-w-[85vw]"
+              >
+                <NavigationSidebar
+                  isCollapsed={false}
+                  onClose={() => setMobileMenuOpen(false)}
+                  className="h-full border-r-0 w-full"
+                />
+              </Drawer>
 
-          {/* Content Viewport */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {/* Top Navbar with the single collapse/toggle button */}
-            <TopNavbar
-              onToggleSidebar={handleToggleSidebar}
-              isSidebarCollapsed={isSidebarCollapsed}
-            />
+              {/* Content Viewport */}
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                {/* Top Navbar with the single collapse/toggle button */}
+                <TopNavbar
+                  onToggleSidebar={handleToggleSidebar}
+                  isSidebarCollapsed={isSidebarCollapsed}
+                />
 
-            {/* Scrollable Page Body */}
-            <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 space-y-6 md:space-y-8">
-              <div className="max-w-7xl mx-auto w-full space-y-6 md:space-y-8">{children}</div>
-            </main>
-          </div>
+                {/* Scrollable Page Body */}
+                <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 space-y-6 md:space-y-8">
+                  <div className="max-w-7xl mx-auto w-full space-y-6 md:space-y-8">{children}</div>
+                </main>
+              </div>
+            </>
+          )}
         </div>
       </WorkspaceModalProvider>
     </AuthGuard>
