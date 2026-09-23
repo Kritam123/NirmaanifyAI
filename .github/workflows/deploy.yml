@@ -28,7 +28,7 @@ jobs:
   deploy:
     name: Build, Verify & Deploy to DigitalOcean VPS
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 50
 
     steps:
       - name: Checkout Code
@@ -70,6 +70,7 @@ jobs:
           key: ${{ secrets.DO_SSH_KEY }}
           passphrase: ${{ secrets.DO_SSH_PASSPHRASE }}
           port: ${{ secrets.DO_PORT || 22 }}
+          command_timeout: 45m
           script_stop: true
           envs: GITHUB_SHA,GITHUB_REF_NAME
           script: |

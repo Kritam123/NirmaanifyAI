@@ -15,8 +15,8 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages ./packages
 COPY apps/worker ./apps/worker
 
-# Install workspace dependencies for worker and its dependencies only
-RUN pnpm --filter worker... install --no-frozen-lockfile && pnpm store prune
+# Install workspace dependencies for worker and its dependencies only (skips Next.js optional SWC binaries)
+RUN pnpm --filter worker... install --no-frozen-lockfile --no-optional && pnpm store prune
 
 # Generate Prisma client
 RUN pnpm --filter @nirmaanify/database generate
