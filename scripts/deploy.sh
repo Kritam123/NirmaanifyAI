@@ -205,6 +205,53 @@ fi
 # 5. Rolling Start of All Containers
 # ------------------------------------------------------------------------------
 echo -e "\n${BLUE}==> [5/6] Launching all production services...${NC}"
+
+# Ensure host ports 80 & 443 are free for Docker Nginx
+echo -e "${CYAN}Ensuring host web ports (80/443) are free for Docker Nginx...${NC}"
+
+# 1. Stop host systemd web servers (nginx, apache2, httpd, lighttpd) if active
+if command -v systemctl &>/dev/null; then
+    for srv in nginx apache2 httpd lighttpd; do
+        if systemctl is-active --quiet "$srv" 2>/dev/null; then
+            echo -e "${YELLOW}[NOTICE] Stopping native host service '$srv' (occupying port 80/443)...${NC}"
+            systemctl stop "$srv" 2>/dev/null || true
+            systemctl disable "$srv" 2>/dev/null || true
+        fi
+    done
+fi
+
+# 2. Stop any rogue non-compose Docker containers listening on ports 80 or 443
+for port in 80 443; do
+    CONFLICT_CONTAINERS=$(docker ps -q --filter "publish=$port" 2>/dev/null || true)
+    for cid in $CONFLICT_CONTAINERS; do
+        cname=$(docker inspect --format '{{.Name}}' "$cid" 2>/dev/null | sed 's/^\///')
+        if [ "$cname" != "nirmaanify-nginx" ]; then
+            echo -e "${YELLOW}[NOTICE] Stopping conflicting container '$cname' ($cid) listening on port $port...${NC}"
+            docker stop "$cid" 2>/dev/null || true
+        fi
+    done
+done
+
+# 3. If port 80 or 443 is still held by a lingering non-docker process, terminate it
+if command -v fuser &>/dev/null; then
+    for port in 80 443; do
+        PIDS=$(fuser "${port}/tcp" 2>/dev/null || true)
+        for pid in $PIDS; do
+            pname=$(ps -p "$pid" -o comm= 2>/dev/null || true)
+            if [ "$pname" != "docker-proxy" ] && [ "$pname" != "dockerd" ] && [ -n "$pname" ]; then
+                echo -e "${YELLOW}[NOTICE] Terminating host process '$pname' (PID $pid) listening on port $port...${NC}"
+                kill -9 "$pid" 2>/dev/null || true
+            fi
+        done
+    done
+fi
+
+# 4. Remove any stale nirmaanify-nginx container before starting to avoid network endpoint conflicts
+if docker ps -a --format '{{.Names}}' | grep -Eq "^nirmaanify-nginx$"; then
+    echo -e "${CYAN}Resetting nirmaanify-nginx container for clean port binding...${NC}"
+    docker rm -f nirmaanify-nginx 2>/dev/null || true
+fi
+
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
 # ------------------------------------------------------------------------------

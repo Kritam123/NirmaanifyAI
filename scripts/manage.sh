@@ -39,9 +39,23 @@ case "$COMMAND" in
     restart)
         if [ -n "$SERVICE" ]; then
             echo "Restarting $SERVICE..."
+            if [ "$SERVICE" = "nginx" ]; then
+                if command -v systemctl &>/dev/null; then
+                    for srv in nginx apache2 httpd lighttpd; do
+                        systemctl stop "$srv" 2>/dev/null || true
+                    done
+                fi
+                docker rm -f nirmaanify-nginx 2>/dev/null || true
+            fi
             docker compose -f "$COMPOSE_FILE" restart "$SERVICE"
         else
             echo "Restarting all services..."
+            if command -v systemctl &>/dev/null; then
+                for srv in nginx apache2 httpd lighttpd; do
+                    systemctl stop "$srv" 2>/dev/null || true
+                done
+            fi
+            docker rm -f nirmaanify-nginx 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" restart
         fi
         ;;
@@ -51,7 +65,36 @@ case "$COMMAND" in
         ;;
     start)
         echo "Starting all services..."
+        if command -v systemctl &>/dev/null; then
+            for srv in nginx apache2 httpd lighttpd; do
+                systemctl stop "$srv" 2>/dev/null || true
+            done
+        fi
+        docker rm -f nirmaanify-nginx 2>/dev/null || true
         docker compose -f "$COMPOSE_FILE" up -d
+        ;;
+    fix-ports)
+        echo "Ensuring host web ports (80/443) are free..."
+        if command -v systemctl &>/dev/null; then
+            for srv in nginx apache2 httpd lighttpd; do
+                if systemctl is-active --quiet "$srv" 2>/dev/null; then
+                    echo "Stopping host service '$srv'..."
+                    systemctl stop "$srv" 2>/dev/null || true
+                    systemctl disable "$srv" 2>/dev/null || true
+                fi
+            done
+        fi
+        for p in 80 443; do
+            for cid in $(docker ps -q --filter "publish=$p" 2>/dev/null || true); do
+                cname=$(docker inspect --format '{{.Name}}' "$cid" 2>/dev/null | sed 's/^\///')
+                if [ "$cname" != "nirmaanify-nginx" ]; then
+                    echo "Stopping container '$cname' on port $p..."
+                    docker stop "$cid" 2>/dev/null || true
+                fi
+            done
+        done
+        docker rm -f nirmaanify-nginx 2>/dev/null || true
+        echo "Ports 80/443 checked and ready."
         ;;
     db-shell)
         echo "Connecting to PostgreSQL database '${POSTGRES_DB:-nirmaanify}'..."
