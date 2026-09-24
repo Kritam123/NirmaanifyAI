@@ -148,6 +148,32 @@ jobs:
             echo "==> [CI/CD] VPS Available Disk Space:"
             df -h /
 
+            # Free up port 80 and 443 from host-level services (e.g. system nginx/apache2)
+            echo "==> [CI/CD] Ensuring host ports 80/443 are free for Docker Nginx..."
+            if command -v systemctl &>/dev/null; then
+                for srv in nginx apache2 httpd lighttpd; do
+                    if systemctl is-active --quiet "$srv" 2>/dev/null; then
+                        echo "==> [CI/CD] Stopping and disabling host service '$srv'..."
+                        systemctl stop "$srv" 2>/dev/null || true
+                        systemctl disable "$srv" 2>/dev/null || true
+                    fi
+                done
+            fi
+
+            # Stop any non-nirmaanify containers bound to 80/443
+            for port in 80 443; do
+                for cid in $(docker ps -q --filter "publish=$port" 2>/dev/null || true); do
+                    cname=$(docker inspect --format '{{.Name}}' "$cid" 2>/dev/null | sed 's/^\///')
+                    if [ "$cname" != "nirmaanify-nginx" ]; then
+                        echo "==> [CI/CD] Stopping conflicting container '$cname' ($cid) on port $port..."
+                        docker stop "$cid" 2>/dev/null || true
+                    fi
+                done
+            done
+
+            # Reset stuck nirmaanify-nginx container before deployment
+            docker rm -f nirmaanify-nginx 2>/dev/null || true
+
             echo "==> [CI/CD] Executing production deploy script..."
             export CI=true
             ./scripts/deploy.sh $FLAGS

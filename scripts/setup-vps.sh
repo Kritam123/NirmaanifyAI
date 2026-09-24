@@ -148,6 +148,14 @@ systemctl enable fail2ban
 systemctl start fail2ban
 echo -e "${GREEN}✓ Firewall and Fail2ban configured.${NC}"
 
+# Disable native web servers to avoid port 80/443 conflicts with Dockerized Nginx
+if command -v systemctl &>/dev/null; then
+    for srv in nginx apache2 httpd lighttpd; do
+        systemctl stop "$srv" 2>/dev/null || true
+        systemctl disable "$srv" 2>/dev/null || true
+    done
+fi
+
 # ------------------------------------------------------------------------------
 # 7. Setup Application Deployment Directory
 # ------------------------------------------------------------------------------
