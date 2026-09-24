@@ -52,7 +52,7 @@ export class NirmaanifyApiClient {
   /**
    * Set base URL for API requests
    */
-  public setBaseUrl(url: string): void {
+  public setBaseUrl(url: string | (() => string)): void {
     this.http.setBaseUrl(url);
   }
 

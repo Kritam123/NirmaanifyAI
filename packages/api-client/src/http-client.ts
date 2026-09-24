@@ -3,7 +3,7 @@ import { ApiResponse, ApiErrorResponse } from '@nirmaanify/types';
 declare const process: any;
 
 export interface HttpClientConfig {
-  baseUrl?: string;
+  baseUrl?: string | (() => string);
   getToken?: () => string | null | undefined;
   setToken?: (token: string | null) => void;
   onError?: (error: ErrorResponse) => void;
@@ -24,24 +24,25 @@ export class ErrorResponse extends Error {
 }
 
 export class HttpClient {
-  private baseUrl: string;
+  private baseUrl: string | (() => string);
   private getToken?: () => string | null | undefined;
   private token: string | null = null;
   private onError?: (error: ErrorResponse) => void;
 
   constructor(config: HttpClientConfig = {}) {
     const envUrl = typeof process !== 'undefined' && process?.env ? process.env.NEXT_PUBLIC_API_URL : undefined;
-    this.baseUrl = (config.baseUrl || envUrl || 'http://localhost:4000').replace(/\/$/, '');
+    this.baseUrl = config.baseUrl !== undefined ? config.baseUrl : (envUrl || '');
     this.getToken = config.getToken;
     this.onError = config.onError;
   }
 
-  public setBaseUrl(url: string): void {
-    this.baseUrl = url.replace(/\/$/, '');
+  public setBaseUrl(url: string | (() => string)): void {
+    this.baseUrl = url;
   }
 
   public getBaseUrl(): string {
-    return this.baseUrl;
+    const raw = typeof this.baseUrl === 'function' ? this.baseUrl() : this.baseUrl;
+    return (raw || '').trim().replace(/\/+$/, '');
   }
 
   public setToken(token: string | null): void {
@@ -78,7 +79,35 @@ export class HttpClient {
       return endpoint;
     }
 
-    let cleanBase = this.baseUrl.replace(/\/+$/, '');
+    let base = this.getBaseUrl();
+
+    // Guard against malformed protocols (e.g. https:/// or http:///)
+    if (base.startsWith('https:///')) {
+      base = base.replace(/^https:\/\/\//, '/');
+    } else if (base.startsWith('http:///')) {
+      base = base.replace(/^http:\/\/\//, '/');
+    }
+
+    // In browser, if base is relative or empty, dynamically anchor to window.location.origin
+    if (typeof window !== 'undefined') {
+      if (!base || base.startsWith('/')) {
+        const path = base ? (base.startsWith('/') ? base : `/${base}`) : '/api/v1';
+        base = `${window.location.origin}${path}`;
+      }
+    } else {
+      // In Node.js / SSR environments, relative URLs cannot be fetched
+      if (!base || base.startsWith('/')) {
+        const path = base ? (base.startsWith('/') ? base : `/${base}`) : '/api/v1';
+        const serverHost =
+          (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+          (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production'
+            ? 'http://api:4000'
+            : 'http://localhost:4000');
+        base = `${serverHost.replace(/\/+$/, '')}${path}`;
+      }
+    }
+
+    let cleanBase = base.replace(/\/+$/, '');
     let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
     // Avoid duplicate /api/v1 prefix if both base and endpoint have it
