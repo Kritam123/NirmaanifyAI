@@ -53,12 +53,18 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm --filter @nirmaanify/database generate
 
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
       - name: Verify Types & Build Packages
         run: |
           pnpm --filter @nirmaanify/types build
           pnpm --filter @nirmaanify/database build
-          pnpm --filter @nirmaanify/plugin-sdk build
-          pnpm --filter @nirmaanify/sandbox-driver build
           pnpm --filter @nirmaanify/api-client build
           pnpm typecheck
 
@@ -139,10 +145,11 @@ jobs:
                 FLAGS="--no-cache"
             fi
 
-            # Reclaim host disk space before building containers (ENOSPC prevention)
-            echo "==> [CI/CD] Purging stale Docker build caches and system logs..."
-            docker builder prune -af 2>/dev/null || true
-            docker system prune -af 2>/dev/null || true
+            # Reclaim host disk space before building containers while preserving active layer cache
+            echo "==> [CI/CD] Managing VPS disk space while preserving active build cache..."
+            docker image prune -f 2>/dev/null || true
+            docker builder prune -f --keep-storage 5GB --filter "until=72h" 2>/dev/null || \
+            docker builder prune -f --filter "until=72h" 2>/dev/null || true
             journalctl --vacuum-size=50M 2>/dev/null || true
             apt-get clean 2>/dev/null || true
             echo "==> [CI/CD] VPS Available Disk Space:"

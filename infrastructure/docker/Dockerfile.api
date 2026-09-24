@@ -8,20 +8,30 @@ WORKDIR /app
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
 ENV NODE_OPTIONS="--max-old-space-size=1024"
 
-# Copy workspace definitions
+# 1. Copy workspace manifests first to maximize Docker layer caching
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+COPY packages/config/package.json ./packages/config/
+COPY packages/database/package.json ./packages/database/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/icons/package.json ./packages/icons/
+COPY packages/design-tokens/package.json ./packages/design-tokens/
+COPY packages/api-client/package.json ./packages/api-client/
+COPY apps/api/package.json ./apps/api/
 
-# Copy internal packages and only the api application (apps/web is excluded!)
+# 2. Install workspace dependencies using BuildKit persistent cache mount
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm --filter api... install --no-frozen-lockfile --no-optional
+
+# 3. Copy Prisma schema and generate client
+COPY packages/database/prisma ./packages/database/prisma/
+RUN pnpm --filter @nirmaanify/database generate
+
+# 4. Copy actual source code (only invalidates from here down when source code changes!)
 COPY packages ./packages
 COPY apps/api ./apps/api
 
-# Install workspace dependencies for api and its dependencies only (skips Next.js optional SWC binaries)
-RUN pnpm --filter api... install --no-frozen-lockfile --no-optional && pnpm store prune
-
-# Generate Prisma client for Linux container
-RUN pnpm --filter @nirmaanify/database generate
-
-# Build shared workspace packages and API application
+# 5. Build internal packages and API application
 RUN pnpm --filter @nirmaanify/types build
 RUN pnpm --filter @nirmaanify/database build
 RUN pnpm --filter api build

@@ -156,10 +156,11 @@ if [ "${REDIS_HOST:-}" = "localhost" ] || [ "${REDIS_HOST:-}" = "127.0.0.1" ]; t
     export REDIS_HOST="redis"
 fi
 
-# Pre-build cleanup: aggressively prune all unused builder cache to prevent ENOSPC
-echo -e "${CYAN}Purging unused Docker build cache and dangling images...${NC}"
-docker builder prune -af 2>/dev/null || true
-docker image prune -af 2>/dev/null || true
+# Pre-build cleanup: clean dangling images and stale builder cache older than 72h while preserving active layer cache
+echo -e "${CYAN}Managing VPS disk space while preserving active build cache...${NC}"
+docker image prune -f 2>/dev/null || true
+docker builder prune -f --keep-storage 5GB --filter "until=72h" 2>/dev/null || \
+docker builder prune -f --filter "until=72h" 2>/dev/null || true
 echo -e "${CYAN}Current VPS disk space available for build:${NC}"
 df -h /
 

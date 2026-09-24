@@ -7,16 +7,25 @@ WORKDIR /app
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 # Copy workspace definitions
+# 1. Copy workspace manifests first to maximize Docker layer caching
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/icons/package.json ./packages/icons/
+COPY packages/design-tokens/package.json ./packages/design-tokens/
+COPY packages/api-client/package.json ./packages/api-client/
+COPY apps/web/package.json ./apps/web/
 
-# Copy internal packages and only the web application (apps/api and apps/worker are excluded!)
+# 2. Install workspace dependencies using BuildKit persistent cache mount
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm --filter web... install --no-frozen-lockfile
+
+# 3. Copy source code (only invalidates from here down when source code changes!)
 COPY packages ./packages
 COPY apps/web ./apps/web
 
-# Install workspace dependencies for web and its dependencies only
-RUN pnpm --filter web... install --no-frozen-lockfile && pnpm store prune
-
-# Build internal shared dependencies
+# 4. Build internal shared dependencies
 RUN pnpm --filter @nirmaanify/types build
 RUN pnpm --filter @nirmaanify/api-client build
 
@@ -27,8 +36,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Build Next.js application
-RUN pnpm --filter web build
+# 5. Build Next.js application with BuildKit cache mount for Next.js compilation cache
+RUN --mount=type=cache,id=nextjs-build-cache,target=/app/apps/web/.next/cache \
+    pnpm --filter web build
 
 EXPOSE 3000
 
