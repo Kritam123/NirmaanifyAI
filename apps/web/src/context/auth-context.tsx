@@ -43,7 +43,8 @@ interface AuthContextType {
   inviteMember: (email: string, role: UserRole) => Promise<void>;
   updateMemberRole: (userId: string, role: UserRole) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
-  forgotPassword: (email: string) => Promise<{ message: string }>;
+  forgotPassword: (email: string) => Promise<{ success?: boolean; delivered?: boolean; message: string }>;
+  resendPasswordReset: (email: string) => Promise<{ success?: boolean; delivered?: boolean; message: string }>;
   resetPassword: (token: string, newPassword: string) => Promise<{ message: string }>;
   verifyEmail: (dtoOrToken: string | { token?: string; otp?: string; email?: string }) => Promise<{ success: boolean; message: string; user?: UserDto; accessToken?: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; message: string }>;
@@ -337,9 +338,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     slug?: string,
     isPersonal?: boolean
   ): Promise<WorkspaceDto> => {
+    const cleanSlug = (slug || name)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
     const created = await apiClient.workspaces.createWorkspace({
-      name,
-      slug: slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      name: name.trim(),
+      slug: cleanSlug,
       isPersonal: Boolean(isPersonal),
     });
     setWorkspaces((prev) => [created, ...prev.filter((w) => w.id !== created.id)]);
@@ -496,6 +503,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return await apiClient.auth.forgotPassword({ email });
   };
 
+  const resendPasswordReset = async (email: string) => {
+    return await apiClient.auth.resendPasswordReset(email);
+  };
+
   const resetPassword = async (token: string, newPassword: string) => {
     return await apiClient.auth.resetPassword({ token, newPassword });
   };
@@ -551,6 +562,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateMemberRole,
         removeMember,
         forgotPassword,
+        resendPasswordReset,
         resetPassword,
         verifyEmail,
         resendVerification,

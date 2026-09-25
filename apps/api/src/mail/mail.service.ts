@@ -21,6 +21,13 @@ export interface EmailVerificationOptions {
   expiresAt: Date;
 }
 
+export interface PasswordResetEmailOptions {
+  to: string;
+  name?: string;
+  token: string;
+  expiresAt: Date;
+}
+
 export interface EmailSendResult {
   success: boolean;
   delivered: boolean;
@@ -28,6 +35,7 @@ export interface EmailSendResult {
   messageId?: string;
   inviteLink?: string;
   verifyLink?: string;
+  resetLink?: string;
   otp?: string;
 }
 
@@ -36,6 +44,7 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly appUrl: string;
   private readonly fromAddress: string;
+  private transporter: nodemailer.Transporter | null = null;
 
   constructor(private readonly configService: ConfigService) {
     const rawAppUrl = (this.configService.get<string>('APP_URL') || process.env.APP_URL || 'http://localhost:3000').trim();
@@ -56,6 +65,35 @@ export class MailService {
         '⚠️ SMTP_USER / SMTP_PASS not configured in .env. Real emails require Gmail App Password.'
       );
     }
+  }
+
+  /**
+   * Formats the sender From header cleanly with brand name
+   */
+  public getFromHeader(): string {
+    const user = (this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || '').trim();
+    const rawFrom = (this.configService.get<string>('SMTP_FROM') || process.env.SMTP_FROM || '').trim();
+
+    if (rawFrom.includes('<') && rawFrom.includes('>')) {
+      return rawFrom;
+    }
+    if (rawFrom.includes('@')) {
+      return `"Nirmaanify AI" <${rawFrom}>`;
+    }
+    if (user) {
+      return `"Nirmaanify AI" <${user}>`;
+    }
+    return '"Nirmaanify AI" <noreply@nirmaanify.ai>';
+  }
+
+  /**
+   * Returns active cached or freshly built transporter
+   */
+  public getTransporter(): nodemailer.Transporter | null {
+    if (!this.transporter) {
+      this.transporter = this.createTransporter();
+    }
+    return this.transporter;
   }
 
   /**
@@ -141,13 +179,11 @@ If you did not expect this invitation, you can safely ignore this email.
 — The Nirmaanify AI Team
     `.trim();
 
-    const transporter = this.createTransporter();
+    const transporter = this.getTransporter();
 
     if (transporter) {
       try {
-        const fromHeader = this.fromAddress.includes('@')
-          ? this.fromAddress
-          : `"Nirmaanify AI" <${(this.configService.get<string>('SMTP_USER') || '').trim()}>`;
+        const fromHeader = this.getFromHeader();
 
         const info = await transporter.sendMail({
           from: fromHeader,
@@ -230,13 +266,11 @@ If you did not create an account on Nirmaanify AI, please ignore this email.
 — The Nirmaanify AI Team
     `.trim();
 
-    const transporter = this.createTransporter();
+    const transporter = this.getTransporter();
 
     if (transporter) {
       try {
-        const fromHeader = this.fromAddress.includes('@')
-          ? this.fromAddress
-          : `"Nirmaanify AI" <${(this.configService.get<string>('SMTP_USER') || '').trim()}>`;
+        const fromHeader = this.getFromHeader();
 
         const info = await transporter.sendMail({
           from: fromHeader,
@@ -280,6 +314,93 @@ If you did not create an account on Nirmaanify AI, please ignore this email.
         message: `Verification code generated. Set SMTP_USER and SMTP_PASS in .env to deliver real Gmail messages.`,
         verifyLink,
         otp: options.otp,
+      };
+    }
+  }
+
+  /**
+   * Send a secure, real password reset email with recovery link
+   */
+  async sendPasswordReset(options: PasswordResetEmailOptions): Promise<EmailSendResult> {
+    const resetLink = `${this.appUrl}/reset-password?token=${encodeURIComponent(options.token)}`;
+    const formattedExpiry = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      timeZoneName: 'short',
+    }).format(options.expiresAt);
+
+    const displayName = options.name || options.to.split('@')[0];
+    const subject = 'Reset your Nirmaanify AI password';
+    const htmlContent = this.generatePasswordResetHtml({
+      to: options.to,
+      name: displayName,
+      token: options.token,
+      resetLink,
+      formattedExpiry,
+    });
+    const textContent = `
+Hello ${displayName},
+
+We received a request to reset the password for your Nirmaanify AI account.
+
+Click the link below to securely choose a new password:
+${resetLink}
+
+This password reset link will expire on ${formattedExpiry} (valid for 1 hour).
+
+If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+
+— The Nirmaanify AI Team
+    `.trim();
+
+    const transporter = this.getTransporter();
+
+    if (transporter) {
+      try {
+        const fromHeader = this.getFromHeader();
+
+        const info = await transporter.sendMail({
+          from: fromHeader,
+          to: options.to,
+          subject,
+          text: textContent,
+          html: htmlContent,
+        });
+
+        this.logger.log(
+          `✉️ Real Gmail password reset email sent to ${options.to} (Message ID: ${info.messageId})`
+        );
+        return {
+          success: true,
+          delivered: true,
+          message: `Password reset email delivered to ${options.to}`,
+          messageId: info.messageId,
+          resetLink,
+        };
+      } catch (error: any) {
+        this.logger.error(
+          `❌ Gmail SMTP error sending password reset to ${options.to}: ${error?.message}`,
+          error?.stack
+        );
+        return {
+          success: false,
+          delivered: false,
+          message: `Gmail SMTP Error: ${error?.message || 'Failed to authenticate or send email'}`,
+          resetLink,
+        };
+      }
+    } else {
+      this.logger.warn(
+        `\n=======================================================\n✉️ [DEV EMAIL SIMULATOR] Password Reset\nTo: ${options.to} (${displayName})\nSubject: ${subject}\nReset Link: ${resetLink}\nExpires: ${formattedExpiry}\n⚠️ Note: To send via real Gmail inbox, configure SMTP_USER & SMTP_PASS in .env\n=======================================================\n`
+      );
+      return {
+        success: true,
+        delivered: false,
+        message: `Password reset link generated. Set SMTP_USER and SMTP_PASS in .env to deliver real Gmail messages.`,
+        resetLink,
       };
     }
   }
@@ -677,4 +798,181 @@ If you did not create an account on Nirmaanify AI, please ignore this email.
 </html>
     `.trim();
   }
+
+  /**
+   * Generates a modern, responsive HTML email template for password reset requests
+   */
+  private generatePasswordResetHtml(data: {
+    to: string;
+    name: string;
+    token: string;
+    resetLink: string;
+    formattedExpiry: string;
+  }): string {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset your Nirmaanify AI Password</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #090A0F;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #F8FAFC;
+    }
+    .container {
+      max-width: 580px;
+      margin: 40px auto;
+      background: #0F111A;
+      border: 1px solid #24293D;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .header-bar {
+      height: 6px;
+      background: linear-gradient(90deg, #635BFF 0%, #8B5CF6 50%, #22D3EE 100%);
+    }
+    .content {
+      padding: 40px 36px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #635BFF, #22D3EE);
+      border-radius: 10px;
+      display: inline-block;
+      text-align: center;
+      line-height: 36px;
+      font-weight: 900;
+      color: #FFFFFF;
+      font-size: 18px;
+    }
+    .brand-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #FFFFFF;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #FFFFFF;
+      margin: 0 0 12px 0;
+      line-height: 1.3;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #94A3B8;
+      margin: 0 0 24px 0;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 28px 0;
+    }
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%);
+      color: #FFFFFF !important;
+      font-weight: 700;
+      font-size: 15px;
+      text-decoration: none;
+      padding: 16px 36px;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px -5px rgba(99, 91, 255, 0.4);
+    }
+    .notice-box {
+      background: #161926;
+      border: 1px solid #24293D;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 24px 0;
+      font-size: 13px;
+      color: #94A3B8;
+    }
+    .link-fallback {
+      background: #141724;
+      border-radius: 10px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #818CF8;
+      word-break: break-all;
+      margin-top: 12px;
+    }
+    .footer {
+      padding: 24px 36px;
+      background: #090A0F;
+      border-top: 1px solid #1E2337;
+      text-align: center;
+      font-size: 12px;
+      color: #475569;
+    }
+    .footer p {
+      margin: 4px 0;
+      color: #475569;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-bar"></div>
+    <div class="content">
+      <div class="brand">
+        <span class="brand-logo">N</span>
+        <span class="brand-name">Nirmaanify AI</span>
+      </div>
+
+      <h1>Password Reset Request</h1>
+      <p>
+        Hello ${data.name}, we received a request to reset your password for your Nirmaanify AI account.
+      </p>
+
+      <div class="btn-container">
+        <a href="${data.resetLink}" class="btn-primary" target="_blank">
+          Reset Your Password 🔐
+        </a>
+      </div>
+
+      <div class="notice-box">
+        ⏱️ This password reset link will expire on <strong>${data.formattedExpiry}</strong> (valid for 1 hour).
+      </div>
+
+      <p style="font-size: 12px; color: #64748B; margin-top: 24px; margin-bottom: 6px;">
+        Button not working? Copy and paste this URL directly into your browser:
+      </p>
+      <div class="link-fallback">
+        ${data.resetLink}
+      </div>
+
+      <p style="font-size: 12px; color: #64748B; margin-top: 24px;">
+        If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>© ${new Date().getFullYear()} Nirmaanify AI Inc. Multi-Tenant Cloud Architecture.</p>
+      <p>Secure Enterprise Developer Cloud Platform.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
 }
+

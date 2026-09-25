@@ -85,13 +85,19 @@ export class AuthService {
     });
 
     // 3. Dispatch real verification email using Nodemailer / Gmail SMTP
-    await this.mailService.sendEmailVerification({
+    const emailResult = await this.mailService.sendEmailVerification({
       to: email,
       name: dto.name,
       token,
       otp,
       expiresAt,
     });
+
+    if (emailResult.delivered) {
+      this.logger.log(`✉️ Real verification email delivered to ${email}`);
+    } else {
+      this.logger.warn(`⚠️ Verification email delivery warning for ${email}: ${emailResult.message}`);
+    }
 
     const accessToken = this.jwtService.sign({
       sub: createdUser.id,
@@ -396,7 +402,7 @@ export class AuthService {
   }
 
   /**
-   * Create password reset token in database
+   * Create password reset token in database and dispatch real recovery email
    */
   async forgotPassword(dto: ForgotPasswordDto) {
     const email = dto.email.toLowerCase().trim();
@@ -405,6 +411,17 @@ export class AuthService {
     });
 
     if (user) {
+      // Invalidate existing unused reset tokens for this user
+      await this.prisma.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          isUsed: false,
+        },
+        data: {
+          isUsed: true,
+        },
+      });
+
       const token = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 3600000); // 1 hour expiration
       await this.prisma.passwordResetToken.create({
@@ -414,11 +431,32 @@ export class AuthService {
           expiresAt,
         },
       });
-      this.logger.log(`🔑 Password reset token recorded in DB for ${email}`);
+
+      // Dispatch real email with reset link via Nodemailer / Gmail SMTP
+      const emailResult = await this.mailService.sendPasswordReset({
+        to: email,
+        name: user.name,
+        token,
+        expiresAt,
+      });
+
+      this.logger.log(
+        `🔑 Real password reset email sent to ${email} (Delivered: ${emailResult.delivered})`
+      );
+
+      return {
+        success: true,
+        delivered: emailResult.delivered,
+        message: emailResult.delivered
+          ? 'Password reset instructions have been sent to your registered email address.'
+          : emailResult.message,
+      };
     }
 
     return {
-      message: 'Password reset link sent to your registered email address.',
+      success: true,
+      delivered: true,
+      message: 'If an account exists with this email address, password reset instructions have been sent.',
     };
   }
 
@@ -594,7 +632,7 @@ export class AuthService {
       },
     });
 
-    await this.mailService.sendEmailVerification({
+    const emailResult = await this.mailService.sendEmailVerification({
       to: email,
       name: user.name,
       token,
@@ -602,11 +640,14 @@ export class AuthService {
       expiresAt,
     });
 
-    this.logger.log(`✉️ Resent verification email to: ${email}`);
+    this.logger.log(`✉️ Resent verification email to: ${email} (Delivered: ${emailResult.delivered})`);
 
     return {
       success: true,
-      message: `A fresh verification code has been sent to ${email}.`,
+      delivered: emailResult.delivered,
+      message: emailResult.delivered
+        ? `A fresh verification code has been sent to ${email}.`
+        : emailResult.message,
     };
   }
 }

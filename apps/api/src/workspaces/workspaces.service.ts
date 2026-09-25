@@ -138,7 +138,58 @@ export class WorkspacesService {
   }
 
   /**
-   * Create workspace in PostgreSQL with owner membership
+   * Clean and sanitize base slug string
+   */
+  private generateBaseSlug(raw: string): string {
+    const sanitized = (raw || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    return sanitized || 'workspace';
+  }
+
+  /**
+   * Check PostgreSQL database to resolve a collision-free workspace slug
+   */
+  private async resolveUniqueSlug(requestedSlug: string): Promise<string> {
+    const baseSlug = this.generateBaseSlug(requestedSlug);
+
+    // 1. Check if exact baseSlug is free
+    const existing = await this.prisma.workspace.findUnique({
+      where: { slug: baseSlug },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return baseSlug;
+    }
+
+    // 2. Fetch existing slugs matching `${baseSlug}%` to find next available index
+    const conflicts = await this.prisma.workspace.findMany({
+      where: {
+        slug: {
+          startsWith: baseSlug,
+        },
+      },
+      select: { slug: true },
+    });
+
+    const takenSlugs = new Set(conflicts.map((c) => c.slug));
+
+    for (let i = 2; i <= 100; i++) {
+      const candidate = `${baseSlug}-${i}`;
+      if (!takenSlugs.has(candidate)) {
+        return candidate;
+      }
+    }
+
+    return `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
+  }
+
+  /**
+   * Create workspace in PostgreSQL with owner membership and unique slug guarantee
    */
   async createWorkspace(dto: CreateWorkspaceDto, ownerId: string): Promise<WorkspaceDto> {
     if (!ownerId) {
@@ -146,32 +197,59 @@ export class WorkspacesService {
     }
 
     const name = dto.name.trim();
-    const slug = (dto.slug || name).toLowerCase().replace(/[^a-z0-9]/g, '-');
+    let slug = await this.resolveUniqueSlug(dto.slug || name);
 
-    const newWs = await this.prisma.workspace.create({
-      data: {
-        name,
-        slug,
-        isPersonal: Boolean(dto.isPersonal),
-        ownerId,
-        members: {
-          create: {
-            userId: ownerId,
-            role: 'OWNER',
+    let newWs: any;
+    let attempts = 0;
+
+    while (attempts < 3) {
+      try {
+        newWs = await this.prisma.workspace.create({
+          data: {
+            name,
+            slug,
+            isPersonal: Boolean(dto.isPersonal),
+            ownerId,
+            members: {
+              create: {
+                userId: ownerId,
+                role: 'OWNER',
+              },
+            },
           },
-        },
-      },
-      include: {
-        projects: true,
-        members: {
           include: {
-            user: true,
+            projects: true,
+            members: {
+              include: {
+                user: true,
+              },
+            },
           },
-        },
-      },
-    });
+        });
+        break;
+      } catch (err: any) {
+        if (
+          err?.code === 'P2002' &&
+          (err?.meta?.target?.includes('slug') || String(err?.message).includes('slug'))
+        ) {
+          attempts++;
+          this.logger.warn(
+            `Workspace slug collision for "${slug}", retrying with unique suffix (attempt ${attempts})...`
+          );
+          slug = `${this.generateBaseSlug(dto.slug || name)}-${crypto.randomBytes(2).toString('hex')}`;
+        } else {
+          throw err;
+        }
+      }
+    }
 
-    this.logger.log(`✓ Workspace created: ${newWs.name} (${newWs.id}) for owner ${ownerId}`);
+    if (!newWs) {
+      throw new ConflictException(
+        'Unable to generate a unique workspace slug. Please try again with a different name or slug.'
+      );
+    }
+
+    this.logger.log(`✓ Workspace created: ${newWs.name} (${newWs.id}) [slug: ${newWs.slug}] for owner ${ownerId}`);
 
     return {
       id: newWs.id,

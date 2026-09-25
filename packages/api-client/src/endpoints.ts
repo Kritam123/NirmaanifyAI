@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
     ME: `${API_PREFIX}/auth/me`,
     FORGOT_PASSWORD: `${API_PREFIX}/auth/forgot-password`,
     RESET_PASSWORD: `${API_PREFIX}/auth/reset-password`,
+    RESEND_PASSWORD_RESET: `${API_PREFIX}/auth/resend-password-reset`,
     VERIFY_EMAIL: `${API_PREFIX}/auth/verify-email`,
     RESEND_VERIFICATION: `${API_PREFIX}/auth/resend-verification`,
   },

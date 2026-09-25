@@ -46,10 +46,20 @@ export class AuthService {
   /**
    * Request a password reset link for the provided email
    */
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    return this.http.post<{ message: string }>(
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ success?: boolean; delivered?: boolean; message: string }> {
+    return this.http.post<{ success?: boolean; delivered?: boolean; message: string }>(
       API_ENDPOINTS.AUTH.FORGOT_PASSWORD,
       dto
+    );
+  }
+
+  /**
+   * Resend password reset email
+   */
+  async resendPasswordReset(email: string): Promise<{ success?: boolean; delivered?: boolean; message: string }> {
+    return this.http.post<{ success?: boolean; delivered?: boolean; message: string }>(
+      API_ENDPOINTS.AUTH.RESEND_PASSWORD_RESET,
+      { email }
     );
   }
 

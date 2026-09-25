@@ -33,11 +33,15 @@ export const CreateWorkspaceModal: React.FC = () => {
   } = useWorkspaceModal();
   const { toast } = useToast();
 
+  const sanitizeSlug = (val: string) =>
+    val
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
   const defaultName = user?.name ? `${user.name.split(' ')[0]}'s Studio` : 'My Studio';
   const [name, setName] = useState(defaultName);
-  const [slug, setSlug] = useState(
-    defaultName.toLowerCase().replace(/[^a-z0-9]/g, '-')
-  );
+  const [slug, setSlug] = useState(sanitizeSlug(defaultName));
   const [type, setType] = useState<'personal' | 'team'>('personal');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -49,7 +53,7 @@ export const CreateWorkspaceModal: React.FC = () => {
     if (isOpen) {
       const initName = user?.name ? `${user.name.split(' ')[0]}'s Studio` : 'My Studio';
       setName(initName);
-      setSlug(initName.toLowerCase().replace(/[^a-z0-9]/g, '-'));
+      setSlug(sanitizeSlug(initName));
       setType('personal');
       setIsSuccess(false);
       setShowBirthdayCrackers(false);
@@ -60,7 +64,7 @@ export const CreateWorkspaceModal: React.FC = () => {
 
   const handleNameChange = (val: string) => {
     setName(val);
-    setSlug(val.toLowerCase().replace(/[^a-z0-9]/g, '-'));
+    setSlug(sanitizeSlug(val));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -203,7 +207,7 @@ export const CreateWorkspaceModal: React.FC = () => {
                       <input
                         type="text"
                         value={slug}
-                        onChange={(e) => setSlug(e.target.value)}
+                        onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                         className="bg-transparent font-semibold text-slate-900 dark:text-white focus:outline-none w-full ml-0.5"
                         placeholder="my-workspace"
                         disabled={isLoading}

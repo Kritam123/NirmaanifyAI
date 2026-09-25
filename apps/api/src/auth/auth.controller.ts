@@ -62,6 +62,13 @@ export class AuthController {
     return this.authService.forgotPassword(dto);
   }
 
+  @Post('resend-password-reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend password reset link to user email' })
+  async resendPasswordReset(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset user password with reset token' })
