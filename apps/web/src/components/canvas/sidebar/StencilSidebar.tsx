@@ -46,6 +46,14 @@ const STENCILS: Record<string, { title: string; icon: any; items: StencilItem[] 
     icon: Cloud,
     items: [
       {
+        id: 'st-server',
+        label: 'Compute Server',
+        type: 'cloud-service',
+        icon: 'server',
+        category: 'compute',
+        data: { label: 'Application Server', subtitle: 'Linux VM / EC2 / Web Server', provider: 'generic', icon: 'server' },
+      },
+      {
         id: 'st-client',
         label: 'Client Web/Mobile',
         type: 'cloud-service',
@@ -266,12 +274,13 @@ const STENCILS: Record<string, { title: string; icon: any; items: StencilItem[] 
 
 const getStencilIcon = (item: StencilItem) => {
   switch (item.icon) {
+    case 'server': return Server;
     case 'client': return Laptop;
     case 'api-gateway': return Radio;
     case 'lambda': return Zap;
     case 's3': return HardDrive;
     case 'postgres': return Database;
-    case 'redis': return Server;
+    case 'redis': return Database;
     case 'kafka': return Workflow;
     case 'k8s': return Boxes;
     case 'uml': return Layers;

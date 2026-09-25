@@ -13,6 +13,7 @@ import {
   Eye,
   PanelLeft,
   PanelRight,
+  Unlink,
 } from 'lucide-react';
 import { CanvasNode, CanvasEdge } from '@nirmaanify/types';
 
@@ -29,6 +30,7 @@ interface CanvasContextMenuProps {
   onClose: () => void;
   onDeleteNode: (id: string) => void;
   onDeleteEdge: (id: string) => void;
+  onDetachNodeEdges?: (id: string, specificEdgeId?: string) => void;
   onDuplicateNode: (id: string) => void;
   onOpenProperties: () => void;
   onAutoLayout: () => void;
@@ -44,6 +46,8 @@ interface CanvasContextMenuProps {
   onToggleLeftSidebar?: () => void;
   isRightSidebarOpen?: boolean;
   onToggleRightSidebar?: () => void;
+  allNodes?: CanvasNode[];
+  allEdges?: CanvasEdge[];
 }
 
 export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
@@ -51,6 +55,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
   onClose,
   onDeleteNode,
   onDeleteEdge,
+  onDetachNodeEdges,
   onDuplicateNode,
   onOpenProperties,
   onAutoLayout,
@@ -66,6 +71,8 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
   onToggleLeftSidebar,
   isRightSidebarOpen = true,
   onToggleRightSidebar,
+  allNodes = [],
+  allEdges = [],
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -99,47 +106,66 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
       style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
       className="fixed z-50 min-w-[200px] rounded-xl border border-[#2E354F] bg-[#141724]/95 backdrop-blur-md shadow-2xl p-1.5 text-xs text-slate-200 animate-in fade-in zoom-in-95 duration-100 select-none"
     >
-      {menu.type === 'node' && menu.targetId && (
-        <div className="space-y-0.5">
-          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#1E2337] mb-1">
-            Component Options
+      {menu.type === 'node' && menu.targetId && (() => {
+        const nodeConnections = allEdges.filter(
+          (e) => e.source === menu.targetId || e.target === menu.targetId,
+        );
+        return (
+          <div className="space-y-0.5">
+            <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#1E2337] mb-1">
+              Component Options
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onDuplicateNode(menu.targetId!);
+                onClose();
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
+            >
+              <Copy className="h-3.5 w-3.5 text-indigo-400" />
+              <span>Duplicate Component</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onOpenProperties();
+                onClose();
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
+            >
+              <Sliders className="h-3.5 w-3.5 text-slate-400" />
+              <span>Edit Properties</span>
+            </button>
+            {nodeConnections.length > 0 && onDetachNodeEdges && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDetachNodeEdges(menu.targetId!);
+                  onClose();
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-amber-950/30 text-amber-300 text-left transition-colors"
+                title="Detach all connections attached to this component"
+              >
+                <Unlink className="h-3.5 w-3.5 text-amber-400" />
+                <span>Detach Connection{nodeConnections.length > 1 ? `s (${nodeConnections.length})` : ''}</span>
+              </button>
+            )}
+            <div className="h-px bg-[#1E2337] my-1" />
+            <button
+              type="button"
+              onClick={() => {
+                onDeleteNode(menu.targetId!);
+                onClose();
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-950/40 text-red-400 text-left font-medium transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-red-400" />
+              <span>Delete Component (Del)</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              onDuplicateNode(menu.targetId!);
-              onClose();
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
-          >
-            <Copy className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Duplicate Component</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onOpenProperties();
-              onClose();
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2337] text-left transition-colors"
-          >
-            <Sliders className="h-3.5 w-3.5 text-slate-400" />
-            <span>Edit Properties</span>
-          </button>
-          <div className="h-px bg-[#1E2337] my-1" />
-          <button
-            type="button"
-            onClick={() => {
-              onDeleteNode(menu.targetId!);
-              onClose();
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-950/40 text-red-400 text-left font-medium transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5 text-red-400" />
-            <span>Delete Component (Del)</span>
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {menu.type === 'edge' && menu.targetId && (
         <div className="space-y-0.5">
@@ -165,9 +191,10 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
               onClose();
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-950/40 text-red-400 text-left font-medium transition-colors"
+            title="Detach connection between services (Del)"
           >
-            <Trash2 className="h-3.5 w-3.5 text-red-400" />
-            <span>Delete Connection (Del)</span>
+            <Unlink className="h-3.5 w-3.5 text-red-400" />
+            <span>Detach Connection (Del)</span>
           </button>
         </div>
       )}

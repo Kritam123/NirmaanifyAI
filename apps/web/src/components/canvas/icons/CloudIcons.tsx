@@ -82,6 +82,9 @@ export const CloudIconRenderer: React.FC<IconProps> = ({ name = 'server', classN
   if (n === 'client' || n === 'web' || n === 'browser') {
     return <Laptop className={`${className} text-slate-400`} />;
   }
+  if (n === 'server' || n === 'ec2' || n === 'vm' || n === 'compute-server' || n === 'host' || n === 'instance') {
+    return <Server className={`${className} text-indigo-400`} />;
+  }
   if (n === 'compute') {
     return <Cpu className={`${className} text-amber-400`} />;
   }

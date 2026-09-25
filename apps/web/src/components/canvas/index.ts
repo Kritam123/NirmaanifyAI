@@ -18,3 +18,4 @@ export * from './history/RevisionHistoryModal';
 export * from './CanvasQuickDock';
 export * from './CanvasContextMenu';
 export * from './CanvasPreviewBar';
+export * from './CanvasActionsContext';

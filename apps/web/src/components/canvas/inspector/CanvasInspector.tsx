@@ -11,16 +11,25 @@ import {
   Palette,
   Activity,
   Trash2,
+  Unlink,
+  Link2,
+  ArrowRight,
+  ArrowLeft,
+  Server,
 } from 'lucide-react';
 import { CanvasNode, CanvasEdge, CanvasSettings } from '@nirmaanify/types';
 
 interface CanvasInspectorProps {
   selectedNode: CanvasNode | null;
   selectedEdge: CanvasEdge | null;
+  allNodes?: CanvasNode[];
+  allEdges?: CanvasEdge[];
   onUpdateNodeData: (nodeId: string, newData: any) => void;
   onUpdateEdgeData: (edgeId: string, newData: any) => void;
   onDeleteNode?: (nodeId: string) => void;
   onDeleteEdge?: (edgeId: string) => void;
+  onDetachEdge?: (edgeId: string) => void;
+  onDetachNodeEdges?: (nodeId: string, specificEdgeId?: string) => void;
   documentContent: string;
   onUpdateDocument: (doc: string) => void;
   onReviewArchitecture: () => void;
@@ -35,10 +44,14 @@ interface CanvasInspectorProps {
 export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
   selectedNode,
   selectedEdge,
+  allNodes = [],
+  allEdges = [],
   onUpdateNodeData,
   onUpdateEdgeData,
   onDeleteNode,
   onDeleteEdge,
+  onDetachEdge,
+  onDetachNodeEdges,
   documentContent,
   onUpdateDocument,
   onReviewArchitecture,
@@ -50,6 +63,21 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
   const [activeTab, setActiveTab] = useState<'properties' | 'docs' | 'ai'>('properties');
   const [docDraft, setDocDraft] = useState(documentContent);
   const [isDocSaved, setIsDocSaved] = useState(false);
+
+  // Compute connections for selectedNode
+  const outgoingEdges = React.useMemo(() => {
+    if (!selectedNode || !allEdges) return [];
+    return allEdges.filter((e) => e.source === selectedNode.id);
+  }, [selectedNode, allEdges]);
+
+  const incomingEdges = React.useMemo(() => {
+    if (!selectedNode || !allEdges) return [];
+    return allEdges.filter((e) => e.target === selectedNode.id);
+  }, [selectedNode, allEdges]);
+
+  const connectedEdges = React.useMemo(() => {
+    return [...outgoingEdges, ...incomingEdges];
+  }, [outgoingEdges, incomingEdges]);
 
   // Sync draft when documentContent changes from external (e.g. AI scaffold)
   React.useEffect(() => {
@@ -140,6 +168,28 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
                 />
               </div>
 
+              {/* Service Icon / Type */}
+              {selectedNode.type === 'cloud-service' && (
+                <div className="space-y-1.5">
+                  <label className="font-medium text-slate-400">Service Stencil & Icon</label>
+                  <select
+                    value={selectedNode.data.icon || 'server'}
+                    onChange={(e) => onUpdateNodeData(selectedNode.id, { icon: e.target.value })}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#24293D] bg-[#141724] text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#635BFF]"
+                  >
+                    <option value="server">Compute Server (EC2 / VM / Web)</option>
+                    <option value="client">Client Web / Mobile Device</option>
+                    <option value="api-gateway">API Gateway / Envoy / Kong</option>
+                    <option value="lambda">Serverless Handler (Lambda / Worker)</option>
+                    <option value="s3">Object Storage (S3 / Blob)</option>
+                    <option value="postgres">PostgreSQL / Relational DB</option>
+                    <option value="redis">Redis Cache / In-Memory</option>
+                    <option value="kafka">Kafka / Message Queue</option>
+                    <option value="k8s">Kubernetes Pod / Container</option>
+                  </select>
+                </div>
+              )}
+
               {/* Provider */}
               {selectedNode.type === 'cloud-service' && (
                 <div className="space-y-1.5">
@@ -174,6 +224,116 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
                 </select>
               </div>
 
+              {/* Connected Services / Attachments with Detach Option */}
+              <div className="space-y-2 pt-3 border-t border-[#1E2337]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Link2 className="h-3.5 w-3.5 text-indigo-400" />
+                    <span className="font-bold text-slate-200 uppercase tracking-wider text-[10px]">
+                      Attached Connections ({connectedEdges.length})
+                    </span>
+                  </div>
+                  {connectedEdges.length > 1 && onDetachNodeEdges && (
+                    <button
+                      type="button"
+                      onClick={() => onDetachNodeEdges(selectedNode.id)}
+                      className="text-[10px] text-red-400 hover:text-red-300 font-semibold transition-colors hover:underline"
+                      title="Detach all connections attached to this service"
+                    >
+                      Detach All
+                    </button>
+                  )}
+                </div>
+
+                {connectedEdges.length === 0 ? (
+                  <div className="p-2 rounded-lg border border-dashed border-[#24293D] bg-[#141724]/40 text-slate-500 text-[11px] leading-relaxed">
+                    No attached connections. Drag handles from this service to point to another service.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                    {outgoingEdges.map((edge) => {
+                      const targetNode = allNodes?.find((n) => n.id === edge.target);
+                      const targetLabel = targetNode?.data?.label || edge.target;
+                      return (
+                        <div
+                          key={edge.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-[#141724] border border-[#24293D] hover:border-[#3E4766] transition-colors"
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <div className="flex items-center gap-1 text-[10px] text-indigo-400 font-semibold mb-0.5">
+                              <ArrowRight className="h-3 w-3 shrink-0" />
+                              <span>Pointing to:</span>
+                            </div>
+                            <div className="text-xs font-semibold text-slate-100 truncate">
+                              {targetLabel}
+                            </div>
+                            {targetNode?.data?.subtitle && (
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {targetNode.data.subtitle}
+                              </div>
+                            )}
+                            {edge.data?.label && (
+                              <div className="text-[9px] font-mono text-slate-500 mt-0.5">
+                                Protocol: {edge.data.label}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onDetachEdge?.(edge.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/25 text-red-400 border border-red-500/30 text-xs font-semibold transition-colors shrink-0 shadow-sm"
+                            title={`Detach connection pointing to "${targetLabel}"`}
+                          >
+                            <Unlink className="h-3 w-3" />
+                            <span>Detach</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {incomingEdges.map((edge) => {
+                      const sourceNode = allNodes?.find((n) => n.id === edge.source);
+                      const sourceLabel = sourceNode?.data?.label || edge.source;
+                      return (
+                        <div
+                          key={edge.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-[#141724] border border-[#24293D] hover:border-[#3E4766] transition-colors"
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-semibold mb-0.5">
+                              <ArrowLeft className="h-3 w-3 shrink-0" />
+                              <span>Pointed from:</span>
+                            </div>
+                            <div className="text-xs font-semibold text-slate-100 truncate">
+                              {sourceLabel}
+                            </div>
+                            {sourceNode?.data?.subtitle && (
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {sourceNode.data.subtitle}
+                              </div>
+                            )}
+                            {edge.data?.label && (
+                              <div className="text-[9px] font-mono text-slate-500 mt-0.5">
+                                Protocol: {edge.data.label}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onDetachEdge?.(edge.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/25 text-red-400 border border-red-500/30 text-xs font-semibold transition-colors shrink-0 shadow-sm"
+                            title={`Detach connection from "${sourceLabel}"`}
+                          >
+                            <Unlink className="h-3 w-3" />
+                            <span>Detach</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* Delete Component Button (Simple, clean, static) */}
               {onDeleteNode && (
                 <div className="pt-3 border-t border-[#1E2337]">
@@ -196,6 +356,22 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
                   Connection / Edge Properties
                 </span>
                 <span className="font-mono text-[10px] text-slate-400">{selectedEdge.type}</span>
+              </div>
+
+              {/* Attached Endpoints */}
+              <div className="p-2.5 rounded-lg bg-[#141724] border border-[#24293D] space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">From (Source):</span>
+                  <span className="font-semibold text-slate-200">
+                    {allNodes.find((n) => n.id === selectedEdge.source)?.data?.label || selectedEdge.source}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">To (Target):</span>
+                  <span className="font-semibold text-slate-200">
+                    {allNodes.find((n) => n.id === selectedEdge.target)?.data?.label || selectedEdge.target}
+                  </span>
+                </div>
               </div>
 
               {/* Label */}
@@ -247,17 +423,17 @@ export const CanvasInspector: React.FC<CanvasInspectorProps> = ({
                 />
               </div>
 
-              {/* Delete Connection Button (Simple, clean, static) */}
-              {onDeleteEdge && (
+              {/* Delete / Detach Connection Button */}
+              {(onDetachEdge || onDeleteEdge) && (
                 <div className="pt-3 border-t border-[#1E2337]">
                   <button
                     type="button"
-                    onClick={() => onDeleteEdge(selectedEdge.id)}
+                    onClick={() => (onDetachEdge || onDeleteEdge)!(selectedEdge.id)}
                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold transition-colors shadow-sm"
-                    title="Delete connection from canvas (Del / Backspace)"
+                    title="Detach connection from canvas (Del / Backspace)"
                   >
-                    <Trash2 className="h-3.5 w-3.5 text-red-400" />
-                    <span>Delete Connection</span>
+                    <Unlink className="h-3.5 w-3.5 text-red-400" />
+                    <span>Detach Connection</span>
                   </button>
                 </div>
               )}
