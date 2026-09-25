@@ -67,6 +67,8 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.api
     container_name: nirmaanify-api
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       PORT: 4000
@@ -86,6 +88,13 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       E2B_API_KEY: ${E2B_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-"Nirmaanify AI" <noreply@nirmaanify.ai>}
+      APP_URL: ${APP_URL:-https://${APP_DOMAIN:-localhost}}
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,6 +115,8 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.worker
     container_name: nirmaanify-worker
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/${POSTGRES_DB:-nirmaanify}?schema=public}
@@ -116,6 +127,13 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       E2B_API_KEY: ${E2B_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-"Nirmaanify AI" <noreply@nirmaanify.ai>}
+      APP_URL: ${APP_URL:-https://${APP_DOMAIN:-localhost}}
     depends_on:
       postgres:
         condition: service_healthy

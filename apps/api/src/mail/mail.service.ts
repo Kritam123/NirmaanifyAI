@@ -55,8 +55,8 @@ export class MailService {
       this.configService.get<string>('SMTP_FROM') ||
       '"Nirmaanify AI" <noreply@nirmaanify.ai>';
 
-    const user = this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER;
-    const pass = this.configService.get<string>('SMTP_PASS') || process.env.SMTP_PASS;
+    const user = (this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || '').replace(/^["']|["']$/g, '').trim();
+    const pass = (this.configService.get<string>('SMTP_PASS') || process.env.SMTP_PASS || '').replace(/^["']|["']$/g, '').trim();
 
     if (user && pass) {
       this.logger.log(`✓ Real Gmail / SMTP mailer ready for user: ${user}`);
@@ -71,8 +71,8 @@ export class MailService {
    * Formats the sender From header cleanly with brand name
    */
   public getFromHeader(): string {
-    const user = (this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || '').trim();
-    const rawFrom = (this.configService.get<string>('SMTP_FROM') || process.env.SMTP_FROM || '').trim();
+    const user = (this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || '').replace(/^["']|["']$/g, '').trim();
+    const rawFrom = (this.configService.get<string>('SMTP_FROM') || process.env.SMTP_FROM || '').replace(/^["']|["']$/g, '').trim();
 
     if (rawFrom.includes('<') && rawFrom.includes('>')) {
       return rawFrom;
@@ -100,10 +100,11 @@ export class MailService {
    * Builds an active nodemailer Transporter
    */
   private createTransporter(): nodemailer.Transporter | null {
-    const user = (this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || '').trim();
+    const rawUser = (this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || '').trim();
     const rawPass = (this.configService.get<string>('SMTP_PASS') || process.env.SMTP_PASS || '').trim();
-    const pass = rawPass.replace(/\s+/g, ''); // Strip spaces from Gmail 16-character App Passwords
-    const host = this.configService.get<string>('SMTP_HOST') || process.env.SMTP_HOST || 'smtp.gmail.com';
+    const user = rawUser.replace(/^["']|["']$/g, '').trim();
+    const pass = rawPass.replace(/^["']|["']$/g, '').replace(/\s+/g, ''); // Strip quotes and spaces from Gmail App Passwords
+    const host = (this.configService.get<string>('SMTP_HOST') || process.env.SMTP_HOST || 'smtp.gmail.com').replace(/^["']|["']$/g, '').trim();
     const port = Number(this.configService.get<number>('SMTP_PORT') || process.env.SMTP_PORT || 465);
 
     if (!user || !pass) {
