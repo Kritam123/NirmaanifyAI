@@ -68,6 +68,44 @@ const TEMPLATES: ArchitectureTemplate[] = [
   },
 ];
 
+const inferDiagramType = (p: string): DiagramType => {
+  const s = p.toLowerCase();
+  if (s.includes('uml') || s.includes('class diagram') || s.includes('clean architecture') || s.includes('domain model')) {
+    return 'UML_CLASS';
+  }
+  if (s.includes('sequence') || s.includes('flow of') || s.includes('auth flow') || s.includes('interaction') || s.includes('oauth') || s.includes('pkce')) {
+    return 'UML_SEQUENCE';
+  }
+  if (s.includes('erd') || s.includes('database schema') || s.includes('tables') || s.includes('sql') || s.includes('relational')) {
+    return 'DATABASE_ERD';
+  }
+  if (s.includes('aws') || s.includes('gcp') || s.includes('azure') || s.includes('cloud') || s.includes('serverless')) {
+    return 'CLOUD_INFRASTRUCTURE';
+  }
+  return 'SYSTEM_ARCHITECTURE';
+};
+
+const mapDiagramTypeToProjectType = (type?: DiagramType | string): ProjectType => {
+  switch (type) {
+    case 'UML_CLASS':
+    case 'UML_SEQUENCE':
+      return 'UML_DIAGRAM';
+    case 'CLOUD_INFRASTRUCTURE':
+      return 'CLOUD_INFRASTRUCTURE';
+    case 'DATABASE_ERD':
+      return 'DATABASE_ERD';
+    case 'FLOWCHART':
+      return 'FLOWCHART';
+    case 'WHITEBOARD':
+      return 'WHITEBOARD';
+    case 'NETWORK_TOPOLOGY':
+      return 'SYSTEM_ARCHITECTURE';
+    case 'SYSTEM_ARCHITECTURE':
+    default:
+      return 'SYSTEM_ARCHITECTURE';
+  }
+};
+
 export const AiPlannerBar: React.FC = () => {
   const router = useRouter();
   const { toast } = useToast();
@@ -98,12 +136,13 @@ export const AiPlannerBar: React.FC = () => {
       // 1. Create Architecture Project
       const projectName = prompt.slice(0, 35).trim().replace(/[^a-zA-Z0-9 ]/g, '') || 'Architecture Design';
       const selectedTemplate = TEMPLATES.find((t) => t.prompt === prompt);
-      const diagramType = selectedTemplate?.diagramType || 'SYSTEM_ARCHITECTURE';
+      const diagramType = selectedTemplate?.diagramType || inferDiagramType(prompt);
+      const projectType = mapDiagramTypeToProjectType(diagramType);
 
       const project = await apiClient.projects.createProject({
         workspaceId: activeWorkspace.id,
         name: projectName,
-        type: diagramType as any,
+        type: projectType,
         description: prompt.trim(),
       });
 
@@ -119,6 +158,7 @@ export const AiPlannerBar: React.FC = () => {
       if (diagrams.length > 0) {
         await apiClient.diagrams.updateDiagram(diagrams[0].id, {
           name: scaffold.name || projectName,
+          type: scaffold.diagramType || diagramType,
           nodes: scaffold.nodes,
           edges: scaffold.edges,
           document: scaffold.document,

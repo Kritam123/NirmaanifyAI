@@ -98,7 +98,7 @@ export class AiArchitectService {
     if (p.includes('uml') || p.includes('class diagram') || p.includes('clean architecture') || p.includes('domain model')) {
       return 'UML_CLASS';
     }
-    if (p.includes('sequence') || p.includes('flow of') || p.includes('auth flow') || p.includes('interaction')) {
+    if (p.includes('sequence') || p.includes('flow of') || p.includes('auth flow') || p.includes('interaction') || p.includes('oauth') || p.includes('pkce')) {
       return 'UML_SEQUENCE';
     }
     if (p.includes('erd') || p.includes('database schema') || p.includes('tables') || p.includes('sql') || p.includes('relational')) {
@@ -379,7 +379,133 @@ Domain-Driven Design (DDD) model generated for: **${prompt}**.
       };
     }
 
-    // 3. Default System Architecture flow (Cloud / Microservices)
+    // 3. UML Sequence Diagram flow (OAuth2 / Authentication / Service Interactions)
+    if (diagramType === 'UML_SEQUENCE' || p.includes('sequence') || p.includes('oauth') || p.includes('pkce')) {
+      const isOAuth = p.includes('oauth') || p.includes('auth') || p.includes('token') || p.includes('pkce') || p.includes('login');
+      if (isOAuth) {
+        return {
+          name: 'OAuth 2.0 Authorization Flow with PKCE',
+          description: `OAuth 2.0 sequence diagram generated for: "${prompt}"`,
+          diagramType: 'UML_SEQUENCE',
+          layoutTiers: ['Resource Owner', 'Client SPA', 'Authorization Server', 'Resource API'],
+          summary: 'Cryptographically secured OAuth 2.0 Authorization Code flow with Proof Key for Code Exchange (PKCE).',
+          document: `# OAuth 2.0 + PKCE Authorization Code Flow Specification
+
+## Protocol Overview
+Designed for Single Page Applications (SPAs) and public mobile clients where client secrets cannot be securely stored.
+
+### Sequence Steps:
+1. **Initiate Authentication**: The User triggers login. The SPA generates a cryptographic \`code_verifier\` and derives the SHA-256 \`code_challenge\`.
+2. **Authorization Request**: Client redirects User to \`/authorize?response_type=code&code_challenge=...&code_challenge_method=S256\`.
+3. **Authentication & Consent**: Authorization Server prompts User for credentials and scope consents.
+4. **Authorization Code Callback**: Auth Server redirects back to SPA redirect URI with a short-lived authorization code.
+5. **Token Exchange**: SPA issues POST to \`/oauth/token\` transmitting the authorization code and original \`code_verifier\`.
+6. **PKCE Verification & Token Issuance**: Auth Server computes SHA-256 on verifier, matches original challenge, and returns Access & ID Tokens (JWT).
+7. **Resource Access**: Client accesses Resource Server supplying \`Authorization: Bearer <token>\`.
+8. **Protected Response**: Resource API validates signature against Auth Server JWKS and serves protected resource.
+`,
+          nodes: [
+            {
+              id: 'seq-user',
+              type: 'uml-sequence',
+              position: { x: 60, y: 140 },
+              data: {
+                label: 'User / Browser',
+                stereotype: '<<actor>>',
+                category: 'compute',
+              },
+            },
+            {
+              id: 'seq-client',
+              type: 'uml-sequence',
+              position: { x: 340, y: 140 },
+              data: {
+                label: 'SPA Client (Next.js)',
+                stereotype: '<<participant>>',
+                category: 'compute',
+              },
+            },
+            {
+              id: 'seq-auth-server',
+              type: 'uml-sequence',
+              position: { x: 640, y: 140 },
+              data: {
+                label: 'Auth Server (IdP)',
+                stereotype: '<<participant>>',
+                category: 'security',
+              },
+            },
+            {
+              id: 'seq-resource-api',
+              type: 'uml-sequence',
+              position: { x: 940, y: 140 },
+              data: {
+                label: 'Resource API',
+                stereotype: '<<participant>>',
+                category: 'compute',
+              },
+            },
+          ],
+          edges: [
+            { id: 'seq-e1', source: 'seq-user', target: 'seq-client', type: 'smoothstep', data: { label: '1. Click Login (PKCE Challenge)', animated: true } },
+            { id: 'seq-e2', source: 'seq-client', target: 'seq-auth-server', type: 'smoothstep', data: { label: '2. /authorize?code_challenge=...', animated: true } },
+            { id: 'seq-e3', source: 'seq-auth-server', target: 'seq-user', type: 'smoothstep', data: { label: '3. Prompt Credentials & Consent' } },
+            { id: 'seq-e4', source: 'seq-user', target: 'seq-auth-server', type: 'smoothstep', data: { label: '4. Submit Credentials' } },
+            { id: 'seq-e5', source: 'seq-auth-server', target: 'seq-client', type: 'smoothstep', data: { label: '5. Redirect with ?code=xyz', animated: true } },
+            { id: 'seq-e6', source: 'seq-client', target: 'seq-auth-server', type: 'smoothstep', data: { label: '6. POST /token (code + code_verifier)', animated: true } },
+            { id: 'seq-e7', source: 'seq-auth-server', target: 'seq-client', type: 'smoothstep', data: { label: '7. Return JWT Access & ID Token' } },
+            { id: 'seq-e8', source: 'seq-client', target: 'seq-resource-api', type: 'smoothstep', data: { label: '8. Request with Bearer Token', animated: true } },
+            { id: 'seq-e9', source: 'seq-resource-api', target: 'seq-client', type: 'smoothstep', data: { label: '9. Return Protected Data' } },
+          ],
+        };
+      }
+
+      // Generic sequence interaction flow
+      return {
+        name: 'Sequence Interaction Flow',
+        description: `Sequence diagram generated for: "${prompt}"`,
+        diagramType: 'UML_SEQUENCE',
+        layoutTiers: ['Caller', 'API Gateway', 'Core Service', 'Database'],
+        summary: 'Synchronous and asynchronous message exchange sequence with lifeline activations.',
+        document: `# Sequence Flow Specification\n\n${prompt}\n\n## Participants\n- **Client / Actor**: Initiator of execution cycle.\n- **Gateway / Controller**: Validation and routing layer.\n- **Domain Service**: Business logic execution.\n- **Data Store**: Persistence layer.\n`,
+        nodes: [
+          {
+            id: 'seq-caller',
+            type: 'uml-sequence',
+            position: { x: 80, y: 140 },
+            data: { label: 'Client / Actor', stereotype: '<<actor>>', category: 'compute' },
+          },
+          {
+            id: 'seq-gateway',
+            type: 'uml-sequence',
+            position: { x: 380, y: 140 },
+            data: { label: 'API Gateway', stereotype: '<<participant>>', category: 'networking' },
+          },
+          {
+            id: 'seq-service',
+            type: 'uml-sequence',
+            position: { x: 680, y: 140 },
+            data: { label: 'Domain Service', stereotype: '<<participant>>', category: 'compute' },
+          },
+          {
+            id: 'seq-db',
+            type: 'uml-sequence',
+            position: { x: 980, y: 140 },
+            data: { label: 'Database', stereotype: '<<participant>>', category: 'database' },
+          },
+        ],
+        edges: [
+          { id: 'gseq-1', source: 'seq-caller', target: 'seq-gateway', type: 'smoothstep', data: { label: '1. HTTP Request', animated: true } },
+          { id: 'gseq-2', source: 'seq-gateway', target: 'seq-service', type: 'smoothstep', data: { label: '2. Route Dispatched', animated: true } },
+          { id: 'gseq-3', source: 'seq-service', target: 'seq-db', type: 'smoothstep', data: { label: '3. Query Record' } },
+          { id: 'gseq-4', source: 'seq-db', target: 'seq-service', type: 'smoothstep', data: { label: '4. Row Dataset' } },
+          { id: 'gseq-5', source: 'seq-service', target: 'seq-gateway', type: 'smoothstep', data: { label: '5. Response Entity' } },
+          { id: 'gseq-6', source: 'seq-gateway', target: 'seq-caller', type: 'smoothstep', data: { label: '6. 200 OK Payload' } },
+        ],
+      };
+    }
+
+    // 4. Default System Architecture flow (Cloud / Microservices)
     const hasKafka = p.includes('kafka') || p.includes('stream') || p.includes('queue') || p.includes('event');
     const hasRedis = p.includes('redis') || p.includes('cache') || p.includes('fast');
 

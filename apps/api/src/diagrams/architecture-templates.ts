@@ -482,4 +482,72 @@ Source code dependencies must point inward toward higher-level policies:
       { id: 'ee-4', source: 'erd-subscriptions', target: 'erd-workspaces', type: 'smoothstep', data: { label: 'workspace_id' } },
     ],
   },
+  {
+    id: 'template-oauth2-sequence-flow',
+    name: 'OAuth 2.0 Authorization Code with PKCE',
+    category: 'UML_SEQUENCE',
+    description: 'OAuth 2.0 Authorization Code flow with PKCE sequence diagram between User, SPA Client, Auth Server, and Resource API.',
+    tags: ['OAuth2', 'PKCE', 'Auth', 'Sequence', 'JWT', 'Security'],
+    document: `# OAuth 2.0 Authorization Code Flow with PKCE
+
+## Security Mechanics
+- Eliminates client secret leakage on public clients (Single-Page Applications and Mobile Apps).
+- Employs dynamic SHA-256 cryptographic challenge verification.
+- Enforces ephemeral single-use authorization code redemption.
+`,
+    nodes: [
+      {
+        id: 'seq-user',
+        type: 'uml-sequence',
+        position: { x: 60, y: 140 },
+        data: {
+          label: 'User / Browser',
+          stereotype: '<<actor>>',
+          category: 'compute',
+        },
+      },
+      {
+        id: 'seq-client',
+        type: 'uml-sequence',
+        position: { x: 340, y: 140 },
+        data: {
+          label: 'SPA Client (Next.js)',
+          stereotype: '<<participant>>',
+          category: 'compute',
+        },
+      },
+      {
+        id: 'seq-auth-server',
+        type: 'uml-sequence',
+        position: { x: 640, y: 140 },
+        data: {
+          label: 'Auth Server (IdP)',
+          stereotype: '<<participant>>',
+          category: 'security',
+        },
+      },
+      {
+        id: 'seq-resource-api',
+        type: 'uml-sequence',
+        position: { x: 940, y: 140 },
+        data: {
+          label: 'Resource API',
+          stereotype: '<<participant>>',
+          category: 'compute',
+        },
+      },
+    ],
+    edges: [
+      { id: 'seq-e1', source: 'seq-user', target: 'seq-client', type: 'smoothstep', data: { label: '1. Click Login (PKCE Challenge)', animated: true } },
+      { id: 'seq-e2', source: 'seq-client', target: 'seq-auth-server', type: 'smoothstep', data: { label: '2. /authorize?code_challenge=...', animated: true } },
+      { id: 'seq-e3', source: 'seq-auth-server', target: 'seq-user', type: 'smoothstep', data: { label: '3. Prompt Credentials & Consent' } },
+      { id: 'seq-e4', source: 'seq-user', target: 'seq-auth-server', type: 'smoothstep', data: { label: '4. Submit Credentials' } },
+      { id: 'seq-e5', source: 'seq-auth-server', target: 'seq-client', type: 'smoothstep', data: { label: '5. Redirect with ?code=xyz', animated: true } },
+      { id: 'seq-e6', source: 'seq-client', target: 'seq-auth-server', type: 'smoothstep', data: { label: '6. POST /token (code + code_verifier)', animated: true } },
+      { id: 'seq-e7', source: 'seq-auth-server', target: 'seq-client', type: 'smoothstep', data: { label: '7. Return JWT Access & ID Token' } },
+      { id: 'seq-e8', source: 'seq-client', target: 'seq-resource-api', type: 'smoothstep', data: { label: '8. Request with Bearer Token', animated: true } },
+      { id: 'seq-e9', source: 'seq-resource-api', target: 'seq-client', type: 'smoothstep', data: { label: '9. Return Protected Data' } },
+    ],
+  },
 ];
+

@@ -78,7 +78,7 @@ export class ProjectsService {
     }
 
     if (type) {
-      whereClause.type = type;
+      whereClause.type = this.normalizeProjectType(type);
     }
 
     if (search && search.trim()) {
@@ -215,7 +215,7 @@ export class ProjectsService {
       name: data.name || 'Untitled Project',
       slug,
       description: data.description || '',
-      type: (data.type as any) || 'WEBSITE',
+      type: this.normalizeProjectType(data.type),
       workspaceId,
       framework: data.framework || 'Next.js 15 App Router',
       uiLibrary: data.uiLibrary || 'shadcn/ui',
@@ -263,7 +263,7 @@ export class ProjectsService {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.slug !== undefined) updateData.slug = data.slug;
     if (data.description !== undefined) updateData.description = data.description;
-    if (data.type !== undefined) updateData.type = data.type;
+    if (data.type !== undefined) updateData.type = this.normalizeProjectType(data.type);
     if (data.framework !== undefined) updateData.framework = data.framework;
     if (data.uiLibrary !== undefined) updateData.uiLibrary = data.uiLibrary;
     if (data.isBackendEnabled !== undefined) updateData.isBackendEnabled = data.isBackendEnabled;
@@ -398,5 +398,38 @@ export class ProjectsService {
 
     this.logger.log(`🚀 AI Project Plan Approved & Scaffolding Generated: "${project.name}" (${project.id})`);
     return project;
+  }
+
+  /**
+   * Safely normalize incoming project / diagram types to a valid Prisma ProjectType enum member
+   */
+  private normalizeProjectType(type?: any): ProjectType {
+    if (!type) return 'SYSTEM_ARCHITECTURE';
+    const validProjectTypes: ProjectType[] = [
+      'WEBSITE',
+      'BLOG',
+      'ECOMMERCE',
+      'PORTFOLIO',
+      'DASHBOARD',
+      'SAAS',
+      'SYSTEM_ARCHITECTURE',
+      'UML_DIAGRAM',
+      'CLOUD_INFRASTRUCTURE',
+      'DATABASE_ERD',
+      'FLOWCHART',
+      'WHITEBOARD',
+      'CUSTOM',
+    ];
+    if (validProjectTypes.includes(type)) {
+      return type;
+    }
+    // Gracefully map diagram-specific variants into valid ProjectType
+    if (type === 'UML_SEQUENCE' || type === 'UML_CLASS') {
+      return 'UML_DIAGRAM';
+    }
+    if (type === 'NETWORK_TOPOLOGY') {
+      return 'SYSTEM_ARCHITECTURE';
+    }
+    return 'SYSTEM_ARCHITECTURE';
   }
 }
